@@ -6,8 +6,8 @@ from typing import Optional, Any
 import numpy as np
 import pandas as pd
 
-from irg.utils.errors import NotFittedError
-from irg.utils.misc import convert_data_as, inverse_convert_data, Data2D
+from ...utils.errors import NotFittedError
+from ...utils.misc import convert_data_as, inverse_convert_data, Data2D
 
 
 class BaseTransformer:
@@ -30,7 +30,7 @@ class BaseTransformer:
     def __init__(self):
         self._has_nan, self._fill_nan_val, self._nan_ratio = False, None, 0
 
-        self._fitted = False
+        self._fitted, self._dim = False, -1
         self._original: Optional[pd.Series] = None
         self._transformed: Optional[pd.DataFrame] = None
         self._nan_info: Optional[pd.DataFrame] = None
@@ -41,6 +41,21 @@ class BaseTransformer:
         """
         Transformer's corresponding attribute type.
         """
+        raise NotImplementedError()
+
+    @property
+    def dim(self) -> int:
+        """
+        Number of dimensions of transformed data.
+        """
+        if not self._fitted:
+            raise NotFittedError('Transformer', 'retrieving the dimension')
+        if self._dim < 0:
+            self._dim = self._calc_dim()
+        return self._dim
+
+    @abstractmethod
+    def _calc_dim(self) -> int:
         raise NotImplementedError()
 
     def fit(self, data: pd.Series, force_redo: bool = False):
@@ -72,8 +87,10 @@ class BaseTransformer:
         """
         The value used for filling `NaN`'s.
         """
+        if not self._fitted:
+            raise NotFittedError('Transformer', 'getting NaN value')
         if self._fill_nan_val is None:
-            self._fill_nan_val = self._calc_fill_nan(self._original)
+            self._fill_nan_val = self._calc_fill_nan()
         return self._fill_nan_val
 
     @property
@@ -81,18 +98,21 @@ class BaseTransformer:
         """
         Whether the attribute contains `NaN` values.
         """
+        if not self._fitted:
+            raise NotFittedError('Transformer', 'checking whether the attribute has NaN')
         return self._has_nan
 
     @abstractmethod
-    def _calc_fill_nan(self, data: pd.Series):
+    def _calc_fill_nan(self) -> Any:
         raise NotImplementedError('Fill NaN value is not implemented for base transformer.')
 
     def _construct_nan_info(self, original: pd.Series):
         nan_info = pd.DataFrame()
         nan_info['original'] = original
+        fill_nan_val = self.fill_nan_val
         if self._has_nan:
             nan_info['is_nan'] = original.isnull()
-            nan_info['original'].fillna(self.fill_nan_val, inplace=True)
+            nan_info['original'].fillna(fill_nan_val, inplace=True)
         return nan_info
 
     @abstractmethod
@@ -131,11 +151,11 @@ class BaseTransformer:
         if not self._fitted:
             raise NotFittedError('Transformer', 'transforming other data')
         nan_info = self._construct_nan_info(data)
-        transformed = self._transform(data, nan_info)
+        transformed = self._transform(nan_info)
         return convert_data_as(transformed, return_as=return_as, copy=False)
 
     @abstractmethod
-    def _transform(self, data: pd.Series, nan_info: pd.DataFrame) -> pd.DataFrame:
+    def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError('Please specify attribute type for transformer.')
 
     def inverse_transform(self, data: Data2D) -> pd.Series:
