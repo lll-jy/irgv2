@@ -106,7 +106,7 @@ class NumericalTransformer(BaseTransformer):
         result = pd.DataFrame(np.hstack(rows), columns=col_names)
         if self._has_nan:
             result.insert(0, 'is_nan', nan_info['is_nan'])
-        return result.astype('float32')
+        return result.fillna(0).astype('float32')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         normalized = data[:, 0]
@@ -146,12 +146,8 @@ class NumericalAttribute(BaseAttribute):
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
         - `kwargs`: Arguments for `NumericalTransformer`.
         """
-        super().__init__(name, 'numerical', values)
         self._kwargs = kwargs
-
-    @property
-    def atype(self) -> str:
-        return 'numerical'
+        super().__init__(name, 'numerical', values)
 
     def _create_transformer(self):
         self._transformer = NumericalTransformer(**self._kwargs)

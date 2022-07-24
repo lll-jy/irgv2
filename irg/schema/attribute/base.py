@@ -88,8 +88,6 @@ class BaseTransformer:
         """
         The value used for filling `NaN`'s.
         """
-        if not self._fitted:
-            raise NotFittedError('Transformer', 'getting NaN value')
         if self._fill_nan_val is None:
             self._fill_nan_val = self._calc_fill_nan()
         return self._fill_nan_val
@@ -206,7 +204,6 @@ class BaseAttribute(ABC):
             self.fit(values)
 
     @property
-    @abstractmethod
     def atype(self) -> str:
         """
         The attribute type.

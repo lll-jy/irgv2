@@ -17,7 +17,7 @@ class Table:
             if data is None:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
             attributes = {
-                attr_name: learn_meta(data[attr_name], attr_name in id_cols, attr_name)
+                attr_name: learn_meta(data[attr_name], attr_name in id_cols, attr_name) | {'name': attr_name}
                 for attr_name in data.columns
             }
         self._attr_meta, self._data, self._id_cols = attributes, data, id_cols
@@ -29,7 +29,7 @@ class Table:
         self._fitted = need_fit and data is not None
         if self._fitted:
             self._normalized_by_attr = {
-                attr_name: attr.get_original_transformed()
+                attr_name: data[[attr_name]] if attr_name in self._id_cols else attr.get_original_transformed()
                 for attr_name, attr in self._attributes.items()
             }
 
@@ -66,7 +66,7 @@ class Table:
 
         return convert_data_as(data, return_as=return_as, copy=True)
 
-    def _get_aug_or_deg_data(self, data: pd.DataFrame, normalized_by_attr: Dict[TwoLevelName],
+    def _get_aug_or_deg_data(self, data: pd.DataFrame, normalized_by_attr: Dict[TwoLevelName, pd.DataFrame],
                              id_cols: Set[TwoLevelName], normalize: bool = False, with_id: str = 'this') -> \
             pd.DataFrame:
         if with_id == 'inherit':

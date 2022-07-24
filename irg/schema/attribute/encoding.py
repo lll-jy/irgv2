@@ -100,10 +100,6 @@ class EncodingAttribute(BaseAttribute):
         super().__init__(name, 'encoding', values)
         self._vocab_file, self._engine = vocab_file, engine
 
-    @property
-    def atype(self) -> str:
-        return 'encoding'
-
     def _create_transformer(self):
         self._transformer = EncodingTransformer()
         self._transformer.load_vocab(file_path=self._vocab_file, engine=self._engine)

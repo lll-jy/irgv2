@@ -135,7 +135,7 @@ _ATTR_TYPE_BY_NAME: Dict[str, BaseAttribute.__class__] = {
 }
 _DTYPE_MAP = {
     'categorical': ['categorical', 'object', 'str'],
-    'numerical': ['int64', 'Int64', 'unit64', 'float64', 'Float64', 'int32', 'Int32'],
+    'numerical': ['int64', 'Int64', 'unit64', 'float64', 'Float64', 'int32', 'Int32', 'float32', 'Float32'],
     'datetime': ['datetime64', 'datetime64[ns]']
 }
 
@@ -198,14 +198,14 @@ def _learn_property(dtype: str, data: pd.Series, attr_meta: dict):
         except (OverflowError, ValueError):
             return
 
-    if dtype == 'numerical':
+    elif dtype == 'numerical':
         for i in range(-20, 20):
             rounded = data.apply(lambda x: x if pd.isnull(x) else round(x, i))
             if rounded.equals(data):
                 attr_meta['rounding'] = i
                 return
 
-    if dtype == 'datetime':
+    elif dtype == 'datetime':
         units_to_format = {
             'y': '%Y',
             'm': '-%m',

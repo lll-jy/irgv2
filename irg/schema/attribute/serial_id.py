@@ -39,13 +39,9 @@ class SerialIDAttribute(BaseAttribute):
         - `generator` (`str`): An executable string by `eval` function that returns a function mapping every
           non-negative integer to a unique ID.
         """
-        super().__init__(name, 'serial_id', values)
+        super().__init__(name, 'id', values)
         self._create_transformer()
         self._generator = generator
-
-    @property
-    def atype(self) -> str:
-        return 'serial_id'
 
     def _create_transformer(self):
         self._transformer = IdentityTransformer()

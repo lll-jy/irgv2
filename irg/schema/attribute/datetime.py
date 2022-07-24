@@ -61,12 +61,8 @@ class DatetimeAttribute(BaseAttribute):
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
         - `kwargs`: Arguments for `DatetimeTransformer`.
         """
-        super().__init__(name, 'numerical', values)
         self._kwargs = kwargs
-
-    @property
-    def atype(self) -> str:
-        return 'datetime'
+        super().__init__(name, 'datetime', values)
 
     def _create_transformer(self):
         self._transformer = DatetimeTransformer(**self._kwargs)
@@ -126,12 +122,8 @@ class TimedeltaAttribute(BaseAttribute):
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
         - `kwargs`: Arguments for `TimedeltaTransformer`.
         """
-        super().__init__(name, 'numerical', values)
         self._kwargs = kwargs
-
-    @property
-    def atype(self) -> str:
-        return 'timedelta'
+        super().__init__(name, 'timedelta', values)
 
     def _create_transformer(self):
         self._transformer = TimedeltaTransformer(**self._kwargs)

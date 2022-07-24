@@ -69,9 +69,5 @@ class CategoricalAttribute(BaseAttribute):
         """
         super().__init__(name, 'categorical', values)
 
-    @property
-    def atype(self) -> str:
-        return 'categorical'
-
     def _create_transformer(self):
         self._transformer = CategoricalTransformer()
