@@ -23,7 +23,7 @@ def convert_data_as(src: pd.DataFrame, return_as: str = 'pandas', copy: bool = T
     **Args**:
 
     - `src` (`pd.DataFrame`): The data to be converted.
-    - `return_as` (`str`): Valid values include
+    - `return_as` (`str`) [default 'pandas']: Valid values include
         * `'pandas'` for `pd.DataFrame`;
         * `'numpy'` for `np.ndarray`;
         * `'tensor'` for `torch.Tensor`.

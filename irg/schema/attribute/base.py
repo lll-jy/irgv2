@@ -1,6 +1,6 @@
 """Abstract base class of attributes."""
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Optional, Any
 
 import numpy as np
@@ -36,6 +36,7 @@ class BaseTransformer:
         self._nan_info: Optional[pd.DataFrame] = None
 
     @property
+    @abstractmethod
     def atype(self) -> str:
         """
         Transformer's corresponding attribute type.
@@ -50,7 +51,7 @@ class BaseTransformer:
 
         - `values` (`pd.Series`): The values of the attribute to fit the normalization transformers.
           Typically this is the data in the real database's table's attribute.
-        - `force_redo` (`bool`): Whether to re-fit if the attribute is already fitted.
+        - `force_redo` (`bool`) [default `False`]: Whether to re-fit if the attribute is already fitted.
           Default is `False`.
         """
         if self._fitted and not force_redo:
@@ -82,6 +83,7 @@ class BaseTransformer:
         """
         return self._has_nan
 
+    @abstractmethod
     def _calc_fill_nan(self, data: pd.Series):
         raise NotImplementedError('Fill NaN value is not implemented for base transformer.')
 
@@ -93,6 +95,7 @@ class BaseTransformer:
             nan_info['original'].fillna(self.fill_nan_val, inplace=True)
         return nan_info
 
+    @abstractmethod
     def _fit(self):
         raise NotImplementedError('Fit is not implemented for base transformer.')
 
@@ -131,6 +134,7 @@ class BaseTransformer:
         transformed = self._transform(data, nan_info)
         return convert_data_as(transformed, return_as=return_as, copy=False)
 
+    @abstractmethod
     def _transform(self, data: pd.Series, nan_info: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError('Please specify attribute type for transformer.')
 
@@ -156,6 +160,7 @@ class BaseTransformer:
         recovered_no_nan[data['is_nan'] > threshold] = np.nan
         return recovered_no_nan
 
+    @abstractmethod
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         raise NotImplementedError('Please specify attribute type for transformer.')
 
@@ -164,4 +169,96 @@ class BaseAttribute(ABC):
     def __init__(self, name: str, attr_type: str, values: Optional[pd.Series] = None):
         self._name, self._attr_type = name, attr_type
 
-        self._original_values = values
+        self._transformer: Optional[BaseTransformer] = None
+        if values is not None and attr_type != 'id':
+            pass
+
+    @property
+    @abstractmethod
+    def atype(self) -> str:
+        """
+        The attribute type.
+        """
+        return self._attr_type
+
+    @property
+    def name(self) -> str:
+        """
+        The name of the attribute.
+        """
+        return self._name
+
+    @property
+    def fill_nan_val(self) -> Any:
+        """
+        The value used for filling `NaN`'s.
+        """
+        return self._transformer.fill_nan_val
+
+    @property
+    def has_nan(self) -> bool:
+        """
+        Whether the attribute contains `NaN` values.
+        """
+        return self._transformer.has_nan
+
+    def fit(self, values: pd.Series, force_redo: bool = False):
+        """
+        Fit the attribute's normalization transformers.
+
+        **Args**:
+
+        - `values` (`pd.Series`): The values of the attribute to fit the normalization transformers.
+          Typically this is the data in the real database's table's attribute.
+        - `force_redo` (`bool`) [default `False`]: Whether to re-fit if the attribute is already fitted.
+          Default is `False`.
+        """
+        self._create_transformer()
+        self._transformer.fit(values, force_redo)
+
+    @abstractmethod
+    def _create_transformer(self):
+        raise NotImplementedError('Please specify attribute type for preparing corresponding transformer.')
+
+    def get_original_transformed(self, return_as: str = 'pandas') -> Data2D:
+        """
+        Get the transformed dataframe built based on the data used for fitting.
+
+        **Args**:
+
+        - `return_as` (`str`): [Valid types to convert](../../utils/misc#convert_data_as).
+
+        **Return**: The data of transformed fitting data in the desired format. The returned results is a copy.
+
+        **Raise**: `NotFittedError` if the transformer is not yet fitted.
+        """
+        return self._transformer.get_original_transformed(return_as)
+
+    def transform(self, data: pd.Series, return_as: str = 'pandas') -> pd.DataFrame:
+        """
+        Transform a new set of data for this attribute based on the fitted result.
+
+        **Args**:
+
+        - `values` (`pd.Series`): The values to be transformed.
+        - `return_as` (`str`): [Valid types to return](../../utils/misc#convert_data_as).
+
+        **Return**: The data of transformed fitting data in the desired format.
+
+        **Raise**: `NotFittedError` if the transformer is not yet fitted.
+        """
+        return self._transformer.transform(data, return_as)
+
+    def inverse_transform(self, data: Data2D) -> pd.Series:
+        """
+        Inversely transform a normalized dataframe back to the original raw data form.
+
+        **Args**:
+
+        - `values` (`Data2D`): The normalized data.
+
+        **Return**: The recovered series of raw data.
+
+        **Raise**: `NotFittedError` if the transformer is not yet fitted.
+        """
+        return self._transformer.inverse_transform(data)
