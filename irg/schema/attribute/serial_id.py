@@ -30,15 +30,18 @@ class IdentityTransformer(BaseTransformer):
 
 class SerialIDAttribute(BaseAttribute):
     """Attribute for serial ID data."""
-    def __init__(self, name: str, values: Optional[pd.Series] = None):
+    def __init__(self, name: str, values: Optional[pd.Series] = None, generator: str = 'lambda x: x'):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `generator` (`str`): An executable string by `eval` function that returns a function mapping every
+          non-negative integer to a unique ID.
         """
         super().__init__(name, 'serial_id', values)
         self._create_transformer()
+        self._generator = generator
 
     @property
     def atype(self) -> str:
@@ -49,3 +52,16 @@ class SerialIDAttribute(BaseAttribute):
 
     def fit(self, values: pd.Series, force_redo: bool = False):
         raise TypeError('ID column cannot be fitted.')
+
+    def generate(self, n: int) -> pd.Series:
+        """
+        Generate data for this ID attribute.
+
+        **Args**:
+
+        - `n` (`int`): The number of instances to be generated.
+
+        **Return**: A `pd.Series` containing the generated IDs, by applying the generator function to 0 to n-1.
+        """
+        return pd.Series([i for i in range(n)]).apply(eval(self._generator))
+
