@@ -166,12 +166,22 @@ class BaseTransformer:
 
 
 class BaseAttribute(ABC):
+    """
+    Abstract base class for attributes.
+    """
     def __init__(self, name: str, attr_type: str, values: Optional[pd.Series] = None):
+        """
+        **Args**:
+
+        - `name` (`str`): Name of the attribute.
+        - `attr_type` (`str`): Attribute type name.
+        - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        """
         self._name, self._attr_type = name, attr_type
 
         self._transformer: Optional[BaseTransformer] = None
         if values is not None and attr_type != 'id':
-            pass
+            self.fit(values)
 
     @property
     @abstractmethod
