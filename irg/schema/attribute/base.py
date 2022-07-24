@@ -52,7 +52,8 @@ class BaseTransformer:
             raise NotFittedError('Transformer', 'retrieving the dimension')
         if self._dim < 0:
             self._dim = self._calc_dim()
-        return self._dim
+        nan_dim = 1 if self.has_nan else 0
+        return self._dim + nan_dim
 
     @abstractmethod
     def _calc_dim(self) -> int:
@@ -173,7 +174,8 @@ class BaseTransformer:
         if not self._fitted:
             raise NotFittedError('Transformer', 'inversely transforming other data')
         data = inverse_convert_data(data, self._transformed.columns)
-        recovered_no_nan = self._inverse_transform(data)
+        core_data = data.drop(columns=['is_nan']) if self._has_nan else data
+        recovered_no_nan = self._inverse_transform(core_data)
         if not self._has_nan:
             return recovered_no_nan
         threshold = data['is_nan'].quantile(1 - self._nan_ratio)

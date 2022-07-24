@@ -1,6 +1,6 @@
 """Handler for categorical data."""
 
-from typing import Any
+from typing import Optional
 
 import pandas as pd
 
@@ -20,7 +20,7 @@ class CategoricalTransformer(BaseTransformer):
     def _calc_dim(self) -> int:
         return len(self._label2id)
 
-    def _calc_fill_nan(self) -> Any:
+    def _calc_fill_nan(self) -> str:
         categories = set(self._original.dropna().astype('str').reset_index(drop=True))
         cat_cnt = 0
         for cat in categories:
@@ -46,19 +46,24 @@ class CategoricalTransformer(BaseTransformer):
             if not row['is_nan']:
                 cat_id = self._label2id[row['original']]
                 transformed.loc[i, f'cat_{cat_id}'] = 1
-        return transformed
+        return transformed.astype('float32')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
-        if self._has_nan:
-            cat_data = data.drop(columns=['is_nan'])
-        else:
-            cat_data = data
-        cat_ids = cat_data.idxmax(axis=1)
+        cat_ids = data.idxmax(axis=1)
         return cat_ids.apply(lambda x: self._id2label[x])
 
 
 class CategoricalAttribute(BaseAttribute):
     """Attribute for categorical data."""
+    def __init__(self, name: str, values: Optional[pd.Series] = None):
+        """
+        **Args**:
+
+        - `name` (`str`): Name of the attribute.
+        - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        """
+        super().__init__(name, 'categorical', values)
+
     @property
     def atype(self) -> str:
         return 'categorical'
