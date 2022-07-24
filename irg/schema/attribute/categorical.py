@@ -1,4 +1,6 @@
-from typing import Any, Optional
+"""Handler for categorical data."""
+
+from typing import Any
 
 import pandas as pd
 
@@ -53,3 +55,13 @@ class CategoricalTransformer(BaseTransformer):
             cat_data = data
         cat_ids = cat_data.idxmax(axis=1)
         return cat_ids.apply(lambda x: self._id2label[x])
+
+
+class CategoricalAttribute(BaseAttribute):
+    """Attribute for categorical data."""
+    @property
+    def atype(self) -> str:
+        return 'categorical'
+
+    def _create_transformer(self):
+        self._transformer = CategoricalTransformer()
