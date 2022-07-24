@@ -1,9 +1,10 @@
-from typing import Optional, Iterable, Dict, Tuple, Set
+from typing import Optional, Iterable, Dict, Tuple, Set, Collection
 
 import pandas as pd
 
 from .attribute import learn_meta, create as create_attribute, BaseAttribute
 from ..utils.misc import Data2D, convert_data_as
+from ..utils.errors import NoPartiallyKnownError, NotFittedError
 
 TwoLevelName = Tuple[str, str]
 
@@ -33,7 +34,7 @@ class Table:
                 for attr_name, attr in self._attributes.items()
             }
 
-        self._known_cols, self._unknown_cols = [], []
+        self._known_cols, self._unknown_cols, self._augment_fitted = [], [], False
         self._augmented: Optional[pd.DataFrame] = None
         self._degree: Optional[pd.DataFrame] = None
         self._augmented_meta: Dict[TwoLevelName, dict] = {}
@@ -49,6 +50,8 @@ class Table:
              with_id: str = 'this', return_as: str = 'pandas') -> Data2D:
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
+        if self._data is None:
+            raise NotFittedError('Table', 'getting its data')
         if variant == 'original':
             exclude_cols = self._id_cols if with_id == 'none' else set()
             if not normalize:
@@ -69,6 +72,8 @@ class Table:
     def _get_aug_or_deg_data(self, data: pd.DataFrame, normalized_by_attr: Dict[TwoLevelName, pd.DataFrame],
                              id_cols: Set[TwoLevelName], normalize: bool = False, with_id: str = 'this') -> \
             pd.DataFrame:
+        if self.is_independent:
+            raise NoPartiallyKnownError(self._name)
         if with_id == 'inherit':
             exclude_cols = set()
         elif with_id == 'this':
@@ -81,3 +86,79 @@ class Table:
         else:
             data = pd.concat({n: v for n, v in normalized_by_attr.items() if n not in exclude_cols}, axis=1)
         return data
+
+    @property
+    def is_independent(self):
+        return not self._augment_fitted
+
+    @property
+    def ptg_data(self) -> Tuple["Table", "Table"]:
+        if self.is_independent:
+            raise NoPartiallyKnownError(self._name)
+        unknown_cols = {
+            (table, attr) for table, attr in self._augmented_attributes
+            if table == self._name and attr not in self._known_cols
+        }
+        return self._separate(
+            data=self._augmented,
+            unknown_cols=unknown_cols,
+            normalized_by_attr=self._augmented_normalized_by_attr,
+            id_cols=self._augmented_ids,
+            attributes=self._augmented_attributes,
+            attr_meta=self._augmented_meta
+        )
+
+    @property
+    def deg_data(self) -> Tuple["Table", "Table"]:
+        if self.is_independent:
+            raise NoPartiallyKnownError(self._name)
+        unknown_cols = {
+            (table, attr) for table, attr in self._degree_attributes
+            if (table == self._name and attr not in self._known_cols) or table == ''
+        }
+        return self._separate(
+            data=self._degree,
+            unknown_cols=unknown_cols,
+            normalized_by_attr=self._degree_normalized_by_attr,
+            id_cols=self._degree_ids,
+            attributes=self._degree_attributes,
+            attr_meta=self._degree_meta
+        )
+
+    def _separate(self, data: pd.DataFrame, unknown_cols: Set[TwoLevelName],
+                  normalized_by_attr: Dict[TwoLevelName, pd.DataFrame], id_cols: Set[TwoLevelName],
+                  attributes: Dict[TwoLevelName, BaseAttribute], attr_meta: Dict[TwoLevelName, dict]) \
+            -> Tuple["Table", "Table"]:
+        known_cols = {col for col in attributes if col not in unknown_cols}
+        unknown = self._aug_or_deg_sub_table_from(
+            data=data,
+            columns=unknown_cols,
+            normalized_by_attr=normalized_by_attr,
+            id_cols=id_cols,
+            attributes=attributes,
+            attr_meta=attr_meta
+        )
+        known = self._aug_or_deg_sub_table_from(
+            data=data,
+            columns=known_cols,
+            normalized_by_attr=normalized_by_attr,
+            id_cols=id_cols,
+            attributes=attributes,
+            attr_meta=attr_meta
+        )
+        return known, unknown
+
+    def _aug_or_deg_sub_table_from(self, data: pd.DataFrame, columns: Set[TwoLevelName],
+                                   normalized_by_attr: Dict[TwoLevelName, pd.DataFrame], id_cols: Set[TwoLevelName],
+                                   attributes: Dict[TwoLevelName, BaseAttribute], attr_meta: Dict[TwoLevelName, dict]) \
+            -> "Table":
+        new_table = Table(
+            name=self._name,
+            need_fit=False,
+            id_cols={col for col in id_cols if col in columns},
+            attributes={n: v for n, v in attr_meta.items() if n in columns}
+        )
+        new_table._data = data[columns]
+        new_table._attributes = {n: v for n, v in attributes.items() if n in columns}
+        new_table._normalized_by_attr = {n: v for n, v in normalized_by_attr.items() if n in columns}
+        return new_table
