@@ -1,7 +1,7 @@
 """Abstract base class of attributes."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, Collection
 
 import numpy as np
 import pandas as pd
@@ -54,6 +54,15 @@ class BaseTransformer:
             self._dim = self._calc_dim()
         nan_dim = 1 if self.has_nan else 0
         return self._dim + nan_dim
+
+    @property
+    def transformed_columns(self) -> Collection[str]:
+        """
+        Transformed column names.
+        """
+        if not self._fitted:
+            raise NotFittedError('Transformer', 'getting transformed column names')
+        return self._transformed.columns
 
     @abstractmethod
     def _calc_dim(self) -> int:
@@ -230,6 +239,13 @@ class BaseAttribute(ABC):
         Whether the attribute contains `NaN` values.
         """
         return self._transformer.has_nan
+
+    @property
+    def transformed_columns(self) -> Collection[str]:
+        """
+        Transformed column names.
+        """
+        return self._transformer.transformed_columns
 
     def fit(self, values: pd.Series, force_redo: bool = False):
         """

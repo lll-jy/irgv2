@@ -1,9 +1,9 @@
-from typing import Optional, Iterable, Dict, Tuple, Set, Collection
+from typing import Optional, Iterable, Dict, Tuple, Set
 
 import pandas as pd
 
-from .attribute import learn_meta, create as create_attribute, BaseAttribute
-from ..utils.misc import Data2D, convert_data_as
+from .attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute
+from ..utils.misc import Data2D, convert_data_as, inverse_convert_data
 from ..utils.errors import NoPartiallyKnownError, NotFittedError
 
 TwoLevelName = Tuple[str, str]
@@ -34,7 +34,7 @@ class Table:
                 for attr_name, attr in self._attributes.items()
             }
 
-        self._known_cols, self._unknown_cols, self._augment_fitted = [], [], False
+        self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
         self._augmented: Optional[pd.DataFrame] = None
         self._degree: Optional[pd.DataFrame] = None
         self._augmented_meta: Dict[TwoLevelName, dict] = {}
@@ -45,6 +45,19 @@ class Table:
         self._degree_normalized_by_attr: Dict[TwoLevelName, pd.DataFrame] = {}
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def fit(self, data: pd.DataFrame, force_redo: bool = False):
+        if (self._fitted and not force_redo) or not self._need_fit:
+            return
+        self._data = data
+        for name, attr in self._attributes.items():
+            attr.fit(data[name], force_redo=force_redo)
+            self._normalized_by_attr[name] = attr.get_original_transformed()
+        self._fitted = True
 
     def data(self, variant: str = 'original', normalize: bool = False,
              with_id: str = 'this', return_as: str = 'pandas') -> Data2D:
@@ -161,4 +174,51 @@ class Table:
         new_table._data = data[columns]
         new_table._attributes = {n: v for n, v in attributes.items() if n in columns}
         new_table._normalized_by_attr = {n: v for n, v in normalized_by_attr.items() if n in columns}
+        new_table._fitted = True
         return new_table
+
+
+class SyntheticTable(Table):
+    @classmethod
+    def from_real(cls, table: Table) -> "SyntheticTable":
+        synthetic = SyntheticTable(name=table._name, need_fit=False,
+                                   id_cols={*table._id_cols}, attributes=table._attr_meta)
+        synthetic._fitted = table._fitted
+        synthetic._attributes = table._attributes
+        # TODO: fk
+        return synthetic
+
+    def inverse_transform(self, normalized: Data2D):
+        if not self._fitted:
+            raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
+        columns = {
+            n: v.transformed_columns if n not in self._id_cols else [n]
+            for n, v in self._attributes.items()
+        }
+        normalized = inverse_convert_data(normalized, pd.concat({
+            n: pd.DataFrame(columns=v) for n, v in columns.items()
+        }, axis=1).columns)
+        if not self.is_independent:
+            normalized = normalized.set_axis(self._data)
+        for col in self._unknown_cols:
+            attribute = self._attributes[col]
+            if col in self._id_cols:
+                assert isinstance(attribute, SerialIDAttribute)
+                recovered = attribute.generate(len(normalized))
+            else:
+                recovered = attribute.inverse_transform(normalized[col])
+            if not self.is_independent:
+                recovered = recovered.set_axis(self._data)
+            self._data[col] = recovered
+
+    def assign_degrees(self, degrees: pd.Series):
+        self._degree[('', 'degree')] = degrees
+        self._degree_normalized_by_attr[('', 'degree')] = self._degree_attributes[('', 'degree')].transform(degrees)
+        self._augmented = self._degree.loc[self._degree.index.repeat(self._degree[self._degree.index])]\
+            .reset_index(drop=True)
+        for (table, attr_name), attr in self._augmented_attributes.items():
+            if (table, attr_name) in self._augmented_ids:
+                if table != self._name or attr_name in self._known_cols:
+                    self._augmented_normalized_by_attr[(table, attr_name)] = self._augmented[[(table, attr_name)]]
+
+
