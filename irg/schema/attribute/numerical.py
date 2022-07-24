@@ -109,7 +109,7 @@ class NumericalTransformer(BaseTransformer):
         col_names = [f'cat{i}' for i in range(self._clusters)]
         selected_component = pd.DataFrame(selected_component, columns=col_names)
         selected_component = self._component_indicator_transformer \
-            .inverse_transform(selected_component).astype('int')
+            .inverse_transform(selected_component).astype(int)
 
         std_t = stds[self._valid_component_indicator][selected_component]
         mean_t = means[self._valid_component_indicator][selected_component]

@@ -21,7 +21,7 @@ class CategoricalTransformer(BaseTransformer):
         return len(self._label2id)
 
     def _calc_fill_nan(self) -> str:
-        categories = set(self._original.dropna().astype('str').reset_index(drop=True))
+        categories = set(self._original.dropna().astype(str).reset_index(drop=True))
         cat_cnt = 0
         for cat in categories:
             self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
