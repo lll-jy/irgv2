@@ -8,7 +8,12 @@ from .base import BaseAttribute, BaseTransformer
 
 
 class CategoricalTransformer(BaseTransformer):
-    """Transformer for categorical data."""
+    """
+    Transformer for categorical data.
+
+    The transformed columns (after `is_nan`) are `cat_0`, `cat_1`, ..., `cat_k`
+    for an attribute with k+1 categories.
+    """
     def __init__(self):
         super().__init__()
         self._label2id, self._id2label = {}, {}
@@ -43,7 +48,7 @@ class CategoricalTransformer(BaseTransformer):
         for i in self._id2label:
             transformed[f'cat_{i}'] = 0
         for i, row in nan_info.iterrows():
-            if not row['is_nan']:
+            if 'is_nan' not in row or not row['is_nan']:
                 cat_id = self._label2id[row['original']]
                 transformed.loc[i, f'cat_{cat_id}'] = 1
         return transformed.astype('float32')

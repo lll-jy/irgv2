@@ -12,7 +12,12 @@ from .categorical import CategoricalTransformer
 
 # GMM part adatped from https://github.com/sdv-dev/RDT/blob/stable/rdt/transformers/numerical.py
 class NumericalTransformer(BaseTransformer):
-    """Transformer for numerical data."""
+    """
+    Transformer for numerical data.
+
+    The transformed columns (after `is_nan`) are `value`, `cluster_0`, `cluster_1`, ..., `cluster_k`
+    for an attribute with k+1 clusters.
+    """
     def __init__(self, rounding: Optional[int] = None, min_val: float = -np.inf, max_val: float = np.inf,
                  max_clusters: int = 10, std_multiplier: int = 4, weight_threshold: float = 0.005):
         """
@@ -98,7 +103,10 @@ class NumericalTransformer(BaseTransformer):
 
         rows = [normalized.reshape(len(normalized), 1), selected_component.to_numpy()]
         col_names = ['value'] + [f'cluster_{i}' for i in range(self._clusters)]
-        return pd.DataFrame(np.hstack(rows), columns=col_names)
+        result = pd.DataFrame(np.hstack(rows), columns=col_names)
+        if self._has_nan:
+            result.insert(0, 'is_nan', nan_info['is_nan'])
+        return result.astype('float32')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         normalized = data[:, 0]
