@@ -1,6 +1,9 @@
-from typing import Optional, Iterable, Dict, Tuple, Set
+import json
+import os
+from typing import Optional, Iterable, Dict, Tuple, Set, List, Union
 
 import pandas as pd
+from DataSynthesizer.DataDescriber import DataDescriber
 
 from .attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute
 from ..utils.misc import Data2D, convert_data_as, inverse_convert_data
@@ -11,8 +14,11 @@ TwoLevelName = Tuple[str, str]
 
 class Table:
     def __init__(self, name: str, need_fit: bool = True, id_cols: Iterable[str] = None,
-                 attributes: Optional[Dict[str, dict]] = None, data: Optional[pd.DataFrame] = None):
-        self._name, self._need_fit = name, need_fit
+                 attributes: Optional[Dict[str, dict]] = None, data: Optional[pd.DataFrame] = None,
+                 determinants: Optional[List[List[str]]] = None, formulas: Optional[Dict[str, str]] = None, **kwargs):
+        self._name, self._need_fit, self._fitted = name, need_fit, False
+        self._determinants = [] if determinants is None else determinants
+        self._formulas = {} if formulas is None else formulas
         id_cols = set() if id_cols is None else set(id_cols)
         if attributes is None:
             if data is None:
@@ -26,8 +32,16 @@ class Table:
             attr_name: create_attribute(meta, data[attr_name] if need_fit and data is not None else None)
             for attr_name, meta in self._attr_meta.items()
         }
+
+        det_child_cols = {col for det in self._determinants for col in det[1:]}
+        self._core_cols = [
+            col for col in self._attributes
+            if col not in det_child_cols and col not in self._formulas
+        ]
+
         self._normalized_by_attr = {}
-        self._fitted = need_fit and data is not None
+        if need_fit and data is not None:
+            self.fit(data, **kwargs)
         if self._fitted:
             self._normalized_by_attr = {
                 attr_name: data[[attr_name]] if attr_name in self._id_cols else attr.get_original_transformed()
@@ -50,14 +64,52 @@ class Table:
     def name(self) -> str:
         return self._name
 
-    def fit(self, data: pd.DataFrame, force_redo: bool = False):
+    def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         if (self._fitted and not force_redo) or not self._need_fit:
             return
-        self._data = data
+        self._data = data[[*self._attributes.keys()]]
         for name, attr in self._attributes.items():
             attr.fit(data[name], force_redo=force_redo)
             self._normalized_by_attr[name] = attr.get_original_transformed()
+
+        self._describers = []
+        for det in self._determinants:
+            for col in det:
+                if self._attributes[col].atype != 'categorical':
+                    raise TypeError('Determinant should have all columns categorical.')
+            leader, children = det[0], det[1:]
+            det_describers = self._fit_determinant(leader, children, **kwargs)
+            self._describers.append(det_describers)
         self._fitted = True
+
+    def _fit_determinant(self, leader: str, children: List[str], **kwargs):
+        describers = dict()
+        for grp_name, data in self._data.groupby(by=[leader], sort=False, dropna=False):
+            describer = DataDescriber(**kwargs)
+            if len(data) <= 1:
+                data = pd.concat([data, data]).reset_index(drop=True)
+            if pd.isnull(grp_name):
+                grp_name = self._attributes[leader].fill_nan_val
+            data = data.copy()
+            data[leader] = grp_name
+            for col in children:
+                data[col] = data[col].fillna(self._attributes[col].fill_nan_val)
+            tempfile_name = f'{self._name}__{leader}__{grp_name}'
+            data.to_csv(f'{tempfile_name}.csv', index=False)
+            describer.describe_dataset_in_correlated_attribute_mode(
+                f'{tempfile_name}.csv', k=len(children), epsilon=0,
+                attribute_to_datatype={col: 'String' for col in children} | {leader: 'String'},
+                attribute_to_is_categorical={col: True for col in children} | {leader: True},
+                attribute_to_is_candidate_key={col: False for col in children} | {leader: False}
+            )
+            describer.save_dataset_description_to_file(f'{tempfile_name}.json')
+            with open(f'{tempfile_name}.json', 'r') as f:
+                describer_info = json.load(f)
+                f.close()
+            os.remove(f'{tempfile_name}.csv')
+            os.remove(f'{tempfile_name}.json')
+            describers[grp_name] = describer_info
+        return describers
 
     def data(self, variant: str = 'original', normalize: bool = False,
              with_id: str = 'this', return_as: str = 'pandas') -> Data2D:

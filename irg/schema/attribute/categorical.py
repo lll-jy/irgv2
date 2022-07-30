@@ -26,7 +26,8 @@ class CategoricalTransformer(BaseTransformer):
         return len(self._label2id)
 
     def _calc_fill_nan(self) -> str:
-        categories = set(self._original.dropna().astype(str).reset_index(drop=True))
+        self._original = self._original.astype(str)
+        categories = set(self._original.dropna().reset_index(drop=True))
         cat_cnt = 0
         for cat in categories:
             self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
@@ -48,8 +49,13 @@ class CategoricalTransformer(BaseTransformer):
             transformed[f'cat_{i}'] = 0
         for i, row in nan_info.iterrows():
             if not row['is_nan']:
-                cat_id = self._label2id[row['original']]
-                transformed.loc[i, f'cat_{cat_id}'] = 1
+                value = row['original']
+                if value in self._label2id:
+                    cat_id = self._label2id[row['original']]
+                    transformed.loc[i, f'cat_{cat_id}'] = 1
+                else:
+                    # TODO: raise OOV warning
+                    pass
         return transformed.astype('float32')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
