@@ -69,13 +69,12 @@ class EncodingTransformer(BaseTransformer):
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info['original'] = nan_info['original'].astype(str)
         col_names = [f'enc_{i}' for i in range(self._vocab_dim)]
-        if self._has_nan:
-            col_names = ['is_nan'] + col_names
+        col_names = ['is_nan'] + col_names
         transformed = pd.DataFrame(columns=col_names)
         if self._has_nan:
             transformed['is_nan'] = nan_info['is_nan']
         for i, row in nan_info.iterrows():
-            if 'is_nan' in row and row['is_nan']:
+            if row['is_nan']:
                 transformed.iloc[i, 1:] = 0
             else:
                 transformed.iloc[i, 1:] = self._vocab.get(row['original'], self._mean_enc)

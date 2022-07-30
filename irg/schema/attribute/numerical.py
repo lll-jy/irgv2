@@ -104,8 +104,7 @@ class NumericalTransformer(BaseTransformer):
         rows = [normalized.reshape(len(normalized), 1), selected_component.to_numpy()]
         col_names = ['value'] + [f'cluster_{i}' for i in range(self._clusters)]
         result = pd.DataFrame(np.hstack(rows), columns=col_names)
-        if self._has_nan:
-            result.insert(0, 'is_nan', nan_info['is_nan'])
+        result.insert(0, 'is_nan', nan_info['is_nan'])
         return result.fillna(0).astype('float32')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:

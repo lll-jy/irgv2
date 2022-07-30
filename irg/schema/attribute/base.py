@@ -23,12 +23,11 @@ class BaseTransformer:
     The above assumptions will not be reported in any form if violated.
     So please make pre-processing and post-processing steps if necessary.
 
-    In particular, the output of transform and input for inverse transform must have first column 'is_nan'
-    if the data can be nan (i.e. `self.has_nan` is `True`).
+    In particular, the output of transform and input for inverse transform must have first column 'is_nan'.
     The remaining columns depends on actual data type.
     """
     def __init__(self):
-        self._has_nan, self._fill_nan_val, self._nan_ratio = False, None, 0
+        self._has_nan, self._fill_nan_val = False, None
 
         self._fitted, self._dim = False, -1
         self._original: Optional[pd.Series] = None
@@ -89,8 +88,6 @@ class BaseTransformer:
     def _fit_for_nan(self):
         self._has_nan = self._original.hasnans
         self._nan_info = self._construct_nan_info(self._original)
-        if self._has_nan:
-            self._nan_ratio = 1 - self._original.count() / len(self._original)
 
     @property
     def fill_nan_val(self) -> Any:
@@ -118,9 +115,8 @@ class BaseTransformer:
         nan_info = pd.DataFrame()
         nan_info['original'] = original
         fill_nan_val = self.fill_nan_val
-        if self._has_nan:
-            nan_info['is_nan'] = original.isnull()
-            nan_info['original'].fillna(fill_nan_val, inplace=True)
+        nan_info['is_nan'] = original.isnull()
+        nan_info['original'].fillna(fill_nan_val, inplace=True)
         return nan_info
 
     @abstractmethod
@@ -166,13 +162,19 @@ class BaseTransformer:
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError('Please specify attribute type for transformer.')
 
-    def inverse_transform(self, data: Data2D) -> pd.Series:
+    def inverse_transform(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) \
+            -> pd.Series:
         """
         Inversely transform a normalized dataframe back to the original raw data form.
 
         **Args**:
 
         - `values` (`Data2D`): The normalized data.
+        - `nan_ratio` (`Optional[float]`): Ratio of the data to be NaN.
+          Under default setting, it will follow the ratio of the real data used for fitting the attribute.
+        - `nan_thres` (`Optional[float]`): Threshold to tell that a value is `NaN`.
+          The 'is_nan' prediction is true if the value is larger than the threshold.
+          Only one of `nan_ratio` and `nan_thres` can be specified.
 
         **Return**: The recovered series of raw data.
 
@@ -183,9 +185,12 @@ class BaseTransformer:
         data = inverse_convert_data(data, self._transformed.columns)
         core_data = data.drop(columns=['is_nan']) if self._has_nan else data
         recovered_no_nan = self._inverse_transform(core_data)
-        if not self._has_nan:
-            return recovered_no_nan
-        threshold = data['is_nan'].quantile(1 - self._nan_ratio)
+        if nan_thres is not None:
+            threshold = nan_thres
+        else:
+            if nan_ratio is None:
+                nan_ratio = self._original.count() / len(self._original)
+            threshold = data['is_nan'].quantile(1 - nan_ratio)
         recovered_no_nan[data['is_nan'] > threshold] = np.nan
         return recovered_no_nan
 
@@ -232,13 +237,6 @@ class BaseAttribute(ABC):
         The value used for filling `NaN`'s.
         """
         return self._transformer.fill_nan_val
-
-    @property
-    def has_nan(self) -> bool:
-        """
-        Whether the attribute contains `NaN` values.
-        """
-        return self._transformer.has_nan
 
     @property
     def transformed_columns(self) -> Collection[str]:

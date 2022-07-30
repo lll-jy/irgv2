@@ -43,12 +43,11 @@ class CategoricalTransformer(BaseTransformer):
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         transformed = pd.DataFrame()
-        if self._has_nan:
-            transformed['is_nan'] = nan_info['is_nan']
+        transformed['is_nan'] = nan_info['is_nan']
         for i in self._id2label:
             transformed[f'cat_{i}'] = 0
         for i, row in nan_info.iterrows():
-            if 'is_nan' not in row or not row['is_nan']:
+            if not row['is_nan']:
                 cat_id = self._label2id[row['original']]
                 transformed.loc[i, f'cat_{cat_id}'] = 1
         return transformed.astype('float32')
