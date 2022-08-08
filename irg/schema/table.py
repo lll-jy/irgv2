@@ -1,9 +1,12 @@
 import json
 import os
-from typing import Optional, Iterable, Dict, Tuple, Set, List, Union
+from typing import Optional, Iterable, Dict, Tuple, Set, List
 
+import torch
+from torch import Tensor
 import pandas as pd
 from DataSynthesizer.DataDescriber import DataDescriber
+from DataSynthesizer.DataGenerator import DataGenerator
 
 from .attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute
 from ..utils.misc import Data2D, convert_data_as, inverse_convert_data
@@ -40,6 +43,7 @@ class Table:
         ]
 
         self._normalized_by_attr = {}
+        self._describers = []
         if need_fit and data is not None:
             self.fit(data, **kwargs)
         if self._fitted:
@@ -72,7 +76,6 @@ class Table:
             attr.fit(data[name], force_redo=force_redo)
             self._normalized_by_attr[name] = attr.get_original_transformed()
 
-        self._describers = []
         for det in self._determinants:
             for col in det:
                 if self._attributes[col].atype != 'categorical':
@@ -82,7 +85,7 @@ class Table:
             self._describers.append(det_describers)
         self._fitted = True
 
-    def _fit_determinant(self, leader: str, children: List[str], **kwargs):
+    def _fit_determinant(self, leader: str, children: List[str], **kwargs) -> Dict[str, Dict]:
         describers = dict()
         for grp_name, data in self._data.groupby(by=[leader], sort=False, dropna=False):
             describer = DataDescriber(**kwargs)
@@ -94,6 +97,7 @@ class Table:
             data[leader] = grp_name
             for col in children:
                 data[col] = data[col].fillna(self._attributes[col].fill_nan_val)
+            data[':dummy'] = 'dummy'
             tempfile_name = f'{self._name}__{leader}__{grp_name}'
             data.to_csv(f'{tempfile_name}.csv', index=False)
             describer.describe_dataset_in_correlated_attribute_mode(
@@ -112,31 +116,32 @@ class Table:
         return describers
 
     def data(self, variant: str = 'original', normalize: bool = False,
-             with_id: str = 'this', return_as: str = 'pandas') -> Data2D:
+             with_id: str = 'this', core_only: bool = False, return_as: str = 'pandas') -> Data2D:
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
         if self._data is None:
             raise NotFittedError('Table', 'getting its data')
         if variant == 'original':
             exclude_cols = self._id_cols if with_id == 'none' else set()
+            exclude_cols |= {col for col in self._attributes if col not in self._core_cols} if core_only else set()
             if not normalize:
                 data = self._data[[col for col in self._data.columns if col not in exclude_cols]]
             else:
                 data = pd.concat({n: v for n, v in self._normalized_by_attr.items() if n not in exclude_cols}, axis=1)
         elif variant == 'augmented':
             data = self._get_aug_or_deg_data(self._augmented, self._augmented_normalized_by_attr,
-                                             self._augmented_ids, normalize, with_id)
+                                             self._augmented_ids, normalize, with_id, core_only)
         elif variant == 'degree':
             data = self._get_aug_or_deg_data(self._degree, self._degree_normalized_by_attr, self._degree_ids,
-                                             normalize, with_id)
+                                             normalize, with_id, core_only)
         else:
             raise NotImplementedError(f'Getting data variant "{variant}" is not recognized.')
 
         return convert_data_as(data, return_as=return_as, copy=True)
 
     def _get_aug_or_deg_data(self, data: pd.DataFrame, normalized_by_attr: Dict[TwoLevelName, pd.DataFrame],
-                             id_cols: Set[TwoLevelName], normalize: bool = False, with_id: str = 'this') -> \
-            pd.DataFrame:
+                             id_cols: Set[TwoLevelName], normalize: bool = False, with_id: str = 'this',
+                             core_only: bool = False) -> pd.DataFrame:
         if self.is_independent:
             raise NoPartiallyKnownError(self._name)
         if with_id == 'inherit':
@@ -146,6 +151,11 @@ class Table:
         else:
             assert with_id == 'none'
             exclude_cols = id_cols
+        if core_only:
+            exclude_cols |= {
+                (table, attr) for table, attr in normalized_by_attr
+                if table == self._name and attr not in self._core_cols
+            }
         if not normalize:
             data = data[[col for col in data.columns if col not in exclude_cols]]
         else:
@@ -157,111 +167,95 @@ class Table:
         return not self._augment_fitted
 
     @property
-    def ptg_data(self) -> Tuple["Table", "Table"]:
-        if self.is_independent:
-            raise NoPartiallyKnownError(self._name)
-        unknown_cols = {
-            (table, attr) for table, attr in self._augmented_attributes
-            if table == self._name and attr not in self._known_cols
-        }
-        return self._separate(
-            data=self._augmented,
-            unknown_cols=unknown_cols,
-            normalized_by_attr=self._augmented_normalized_by_attr,
-            id_cols=self._augmented_ids,
-            attributes=self._augmented_attributes,
-            attr_meta=self._augmented_meta
-        )
+    def ptg_data(self) -> Tuple[Tensor, Tensor]:
+        if not self.is_independent:
+            unknown_cols = [
+                (table, attr) for table, attr in self._augmented_attributes
+                if table == self._name and attr not in self._known_cols
+            ]
+            aug_data = self.data(variant='augmented', normalize=True, with_id='none', core_only=True)
+            unknown_set = set(unknown_cols)
+            known_cols = [col for col in aug_data.columns.droplevel(2) if col not in unknown_set]
+            known_data, unknown_data = aug_data[known_cols], aug_data[unknown_cols]
+            return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch')
+        else:
+            norm_data = self.data(variant='original', normalize=True, with_id='none', core_only=True)
+            return torch.zeros(len(norm_data), 0), convert_data_as(norm_data, 'torch')
 
     @property
-    def deg_data(self) -> Tuple["Table", "Table"]:
+    def deg_data(self) -> Tuple[Tensor, Tensor]:
         if self.is_independent:
             raise NoPartiallyKnownError(self._name)
-        unknown_cols = {
+        unknown_cols = [
             (table, attr) for table, attr in self._degree_attributes
-            if (table == self._name and attr not in self._known_cols) or table == ''
-        }
-        return self._separate(
-            data=self._degree,
-            unknown_cols=unknown_cols,
-            normalized_by_attr=self._degree_normalized_by_attr,
-            id_cols=self._degree_ids,
-            attributes=self._degree_attributes,
-            attr_meta=self._degree_meta
-        )
-
-    def _separate(self, data: pd.DataFrame, unknown_cols: Set[TwoLevelName],
-                  normalized_by_attr: Dict[TwoLevelName, pd.DataFrame], id_cols: Set[TwoLevelName],
-                  attributes: Dict[TwoLevelName, BaseAttribute], attr_meta: Dict[TwoLevelName, dict]) \
-            -> Tuple["Table", "Table"]:
-        known_cols = {col for col in attributes if col not in unknown_cols}
-        unknown = self._aug_or_deg_sub_table_from(
-            data=data,
-            columns=unknown_cols,
-            normalized_by_attr=normalized_by_attr,
-            id_cols=id_cols,
-            attributes=attributes,
-            attr_meta=attr_meta
-        )
-        known = self._aug_or_deg_sub_table_from(
-            data=data,
-            columns=known_cols,
-            normalized_by_attr=normalized_by_attr,
-            id_cols=id_cols,
-            attributes=attributes,
-            attr_meta=attr_meta
-        )
-        return known, unknown
-
-    def _aug_or_deg_sub_table_from(self, data: pd.DataFrame, columns: Set[TwoLevelName],
-                                   normalized_by_attr: Dict[TwoLevelName, pd.DataFrame], id_cols: Set[TwoLevelName],
-                                   attributes: Dict[TwoLevelName, BaseAttribute], attr_meta: Dict[TwoLevelName, dict]) \
-            -> "Table":
-        new_table = Table(
-            name=self._name,
-            need_fit=False,
-            id_cols={col for col in id_cols if col in columns},
-            attributes={n: v for n, v in attr_meta.items() if n in columns}
-        )
-        new_table._data = data[columns]
-        new_table._attributes = {n: v for n, v in attributes.items() if n in columns}
-        new_table._normalized_by_attr = {n: v for n, v in normalized_by_attr.items() if n in columns}
-        new_table._fitted = True
-        return new_table
+            if table == self._name and attr not in self._known_cols
+        ]
+        deg_data = self.data(variant='degree', normalize=True, with_id='none', core_only=True)
+        unknown_set = set(unknown_cols)
+        known_cols = [col for col in deg_data.columns.droplevel(2) if col not in unknown_set]
+        known_data, unknown_data = deg_data[unknown_cols], deg_data[known_cols]
+        return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch')
 
 
 class SyntheticTable(Table):
     @classmethod
     def from_real(cls, table: Table) -> "SyntheticTable":
         synthetic = SyntheticTable(name=table._name, need_fit=False,
-                                   id_cols={*table._id_cols}, attributes=table._attr_meta)
+                                   id_cols={*table._id_cols}, attributes=table._attr_meta,
+                                   determinants=table._determinants, formulas=table._formulas)
         synthetic._fitted = table._fitted
         synthetic._attributes = table._attributes
         # TODO: fk
         return synthetic
 
-    def inverse_transform(self, normalized: Data2D):
+    def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
         if not self._fitted:
             raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
         columns = {
             n: v.transformed_columns if n not in self._id_cols else [n]
             for n, v in self._attributes.items()
         }
-        normalized = inverse_convert_data(normalized, pd.concat({
+        normalized_core = inverse_convert_data(normalized_core, pd.concat({
             n: pd.DataFrame(columns=v) for n, v in columns.items()
-        }, axis=1).columns)
-        if not self.is_independent:
-            normalized = normalized.set_axis(self._data)
-        for col in self._unknown_cols:
+        }, axis=1).columns)[self._core_cols]
+
+        recovered_df = pd.DataFrame()
+        for col in self._core_cols:
             attribute = self._attributes[col]
             if col in self._id_cols:
                 assert isinstance(attribute, SerialIDAttribute)
-                recovered = attribute.generate(len(normalized))
+                recovered = attribute.generate(len(normalized_core))
             else:
-                recovered = attribute.inverse_transform(normalized[col])
-            if not self.is_independent:
-                recovered = recovered.set_axis(self._data)
-            self._data[col] = recovered
+                recovered = attribute.inverse_transform(normalized_core[col])
+            recovered_df[col] = recovered
+
+        for i, det in enumerate(self._determinants):
+            leader, describer = det[0], self._describers[i]
+            for grp_name, data in self._data.groupby(by=[leader], sort=False, dropna=False):
+                if pd.isnull(grp_name):
+                    grp_name = self._attributes[leader].fill_nan_val
+                generator = DataGenerator()
+                tempfile_name = f'{self._name}__{leader}__{grp_name}'
+                with open(f'{tempfile_name}.json', 'w') as f:
+                    json.dump(describer[grp_name], f)
+                    f.close()
+                generator.generate_dataset_in_correlated_attribute_mode(len(data), f'{tempfile_name}.json')
+                generated: pd.DataFrame = generator.synthetic_dataset.drop(columns=[':dummy'])\
+                    .set_axis(list(data.index))
+                recovered_df.loc[data.index, det[1:]] = generated
+                os.remove(f'{tempfile_name}.json')
+
+        for col, formula in self._formulas:
+            recovered_df[col] = recovered_df.apply(eval(formula), axis=1)
+
+        recovered_df = recovered_df[[*self._attributes]]
+        if replace_content:
+            self._data = recovered_df
+            self._normalized_by_attr = {
+                n: pd.DataFrame(normalized_core[n], columns=v) for n, v in columns.items()
+            }
+
+        return recovered_df
 
     def assign_degrees(self, degrees: pd.Series):
         self._degree[('', 'degree')] = degrees
