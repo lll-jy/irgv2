@@ -1,8 +1,9 @@
 """PyTorch trainer."""
 
 from abc import ABC, abstractmethod
+from itertools import chain
 import os
-from typing import Tuple, Union, Dict, Optional
+from typing import Tuple, Union, Dict, Optional, List
 
 import torch
 from torch import Tensor
@@ -10,31 +11,12 @@ import torch.nn as nn
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import Adam, AdamW, SGD, Optimizer
 from torch.optim.lr_scheduler import StepLR, ConstantLR, _LRScheduler as LRScheduler
-from torch.utils.data import Dataset, DistributedSampler, RandomSampler, SequentialSampler, DataLoader
+from torch.utils.data import TensorDataset, DistributedSampler, RandomSampler, SequentialSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
 from .dist import is_main_process, get_device, barrier
-
-
-class TensorDataset(Dataset):
-    """Dataset that takes in tensor as raw type of data."""
-    def __init__(self, known: Tensor, unknown: Tensor):
-        """
-        **Args**:
-
-        - `known` (`torch.Tensor`): The known part of the dataset.
-        - `unknown` (`torch.Tensor`): The unknown part of the dataset.
-        """
-        assert len(known) == len(unknown)
-        self._known, self._unknown = known, unknown
-
-    def __len__(self):
-        return len(self._unknown)
-
-    def __getitem__(self, index):
-        return self._known[index], self._unknown[index]
 
 
 class Trainer(ABC):
@@ -52,12 +34,18 @@ class Trainer(ABC):
           Tensorboard files are saved under log_dir/descr/, and checkpoints are saved under ckpt_dir/descr/.
         """
         self._distributed, self._autocast, self._descr, self._ckpt_dir = distributed, autocast, descr, ckpt_dir
+        self._device = get_device()
         self._writer = SummaryWriter(log_dir=os.path.join(log_dir, descr))
 
-    def _make_model_optimizer(self, model: nn.Module, optimizer: str = 'AdamW', scheduler: str = 'StepLR',
-                              **kwargs) -> Tuple[Union[DDP, nn.Module], Optimizer, LRScheduler, Optional[GradScaler]]:
+    def _make_model_optimizer(self, model: Union[nn.Module, List[nn.Module]], optimizer: str = 'AdamW',
+                              scheduler: str = 'StepLR', **kwargs) -> Tuple[
+            Union[Union[DDP, nn.Module], List[Union[DDP, nn.Module]]], Optimizer, LRScheduler, Optional[GradScaler]]:
+        is_single = not isinstance(model, List)
         if self._distributed:
-            model = DDP(model, device_ids=[get_device()], find_unused_parameters=False)
+            if is_single:
+                model = DDP(model, device_ids=[self._device], find_unused_parameters=False)
+            else:
+                model = [DDP(m, device_ids=[self._device], find_unused_parameters=False) for m in model]
 
         optimizers: Dict[str, Optimizer.__class__] = {
             'SGD': SGD,
@@ -65,7 +53,7 @@ class Trainer(ABC):
             'AdamW': AdamW
         }
         optimizer = optimizers[optimizer](
-            model.parameters(),
+            model.parameters() if is_single else chain(*[m.parameters() for m in model]),
             **{n[6:]: v for n, v in kwargs.items() if n.startswith('optim_')}
         )
 

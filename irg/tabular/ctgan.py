@@ -11,14 +11,13 @@ from packaging import version
 from ctgan.synthesizers.ctgan import Generator, Discriminator
 
 from ..utils import Trainer
-from ..utils.dist import get_device
 
 
 class CTGANTrainer(Trainer):
     """Trainer for CTGAN."""
     def __init__(self, cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int, embedding_dim: int = 128,
-                 generator_dim: Tuple[int] = (256, 256), discriminator_dim: Tuple[int] = (256, 256), pac: int = 10,
-                 discriminator_step: int = 1, **kwargs):
+                 generator_dim: Tuple[int, ...] = (256, 256), discriminator_dim: Tuple[int, ...] = (256, 256),
+                 pac: int = 10, discriminator_step: int = 1, **kwargs):
         """
         **Args**:
 
@@ -32,11 +31,8 @@ class CTGANTrainer(Trainer):
           in left-closed-right-open manner. In this example, the input should be [(0, 1), (1, 4), (4, 5), (6, 8)].
         - `known_dim` (`int`): Number of dimensions in total for known columns.
         - `unknown_dim` (`int`): Number of dimensions in total for unknown columns.
-        - `embedding_dim` (`int`): Embedding dimensions for GAN. Default is 128.
-        - `generator_dim` (`Tuple[int]`): Generator NN dimensions. Default is (256, 256).
-        - `discriminator_dim` (`Tuple[int]`): Discriminator NN dimensions. Default is (256, 256).
-        - `pac` (`int`): Pac penalty in CTGAN. Default is 10.
-        - `discriminator_step` (`int`): Number of discriminator steps per generator step.
+        - `embedding_dim` to `discriminator_step`: Arguments for
+          [CTGAN](https://sdv.dev/SDV/api_reference/tabular/api/sdv.tabular.ctgan.CTGAN.html#sdv.tabular.ctgan.CTGAN).
         - `kwargs`: It has the following groups:
             - Inherited arguments from [`Trainer`](../utils#irg.utils.Trainer).
             - Generator arguments, all prefixed with "gen_" (for example, argument "arg1" under this group will be
@@ -56,9 +52,16 @@ class CTGANTrainer(Trainer):
             n: v for n, v in kwargs.items() if
             n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr'}
         })
-        self._device = get_device()
-        self._generator = Generator(embedding_dim+known_dim, generator_dim, unknown_dim).to(self._device)
-        self._discriminator = Discriminator(known_dim+unknown_dim, discriminator_dim, pac=pac).to(self._device)
+        self._generator = Generator(
+            embedding_dim=embedding_dim + known_dim,
+            generator_dim=generator_dim,
+            data_dim=unknown_dim
+        ).to(self._device)
+        self._discriminator = Discriminator(
+            input_dim=known_dim + unknown_dim,
+            discriminator_dim=discriminator_dim,
+            pac=pac
+        ).to(self._device)
         self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g = self._make_model_optimizer(
             self._generator,
             **{n[4:]: v for n, v in kwargs.items() if n.startswith('gen_')}
