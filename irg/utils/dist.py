@@ -19,3 +19,8 @@ def get_device() -> torch.device:
     if dist.is_available():
         return torch.device('cuda')
     return torch.device('cpu')
+
+
+def barrier():
+    if get_rank() >= 0:
+        dist.barrier()
