@@ -19,7 +19,14 @@ from .dist import is_main_process, get_device, barrier
 
 
 class TensorDataset(Dataset):
+    """Dataset that takes in tensor as raw type of data."""
     def __init__(self, known: Tensor, unknown: Tensor):
+        """
+        **Args**:
+
+        - `known` (`torch.Tensor`): The known part of the dataset.
+        - `unknown` (`torch.Tensor`): The unknown part of the dataset.
+        """
         assert len(known) == len(unknown)
         self._known, self._unknown = known, unknown
 
@@ -31,8 +38,19 @@ class TensorDataset(Dataset):
 
 
 class Trainer(ABC):
+    """PyTorch Trainer helper."""
     def __init__(self, distributed: bool = False, autocast: bool = False,
                  log_dir: str = 'tflog', ckpt_dir: str = 'checkpoints', descr: str = ''):
+        """
+        **Args**:
+
+        - `distributed` (`bool`): Whether distributed training is used. Default is `False`.
+        - `autocast` (`bool`): Whether to autocast. Default is `bool`.
+        - `log_dir` (`str`): The directory saving tensorboard.
+        - `ckpt_dir` (`str`): The directory saving checkpoints.
+        - `descr` (`str`): The description of this training.
+          Tensorboard files are saved under log_dir/descr/, and checkpoints are saved under ckpt_dir/descr/.
+        """
         self._distributed, self._autocast, self._descr, self._ckpt_dir = distributed, autocast, descr, ckpt_dir
         self._writer = SummaryWriter(log_dir=os.path.join(log_dir, descr))
 
@@ -82,7 +100,6 @@ class Trainer(ABC):
             loss.backward()
             optimizer.step()
 
-
     @staticmethod
     def _collate_fn(batch):
         all_known, all_unknown = [], []
@@ -93,6 +110,19 @@ class Trainer(ABC):
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int, batch_size: int, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True):
+        """
+        Train the model given data.
+
+        **Args**:
+
+        - `known` (`torch.Tensor`): Known part of data as tensor.
+        - `unknown` (`torch.Tensor`): Unknown part of data as tensor.
+        - `epochs` (`int`): Number of epochs to train.
+        - `batch_size` (`int`): Batch size per GPU/CPU.
+        - `shuffle` (`bool`): Whether to shuffle the data. Default is True.
+        - `save_freq` (`int`): Save checkpoint frequency (every how many steps). Default is 100.
+        - `resume` (`bool`): Whether to resume from trained result (from ckpt_dir).
+        """
         dataset = TensorDataset(known, unknown)
         sampler = DistributedSampler(dataset, shuffle=shuffle) if self._distributed else \
             RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
@@ -141,7 +171,7 @@ class Trainer(ABC):
     def _reload_checkpoint(self, idx: int, by: str):
         raise NotImplementedError()
 
-    def _wrap_step(self, dataloader: tqdm, loss_dict: Dict[str: float], prefix: str, global_step: int, save_freq: int):
+    def _wrap_step(self, dataloader: tqdm, loss_dict: Dict[str, float], prefix: str, global_step: int, save_freq: int):
         if is_main_process():
             loss_descr = [f'{n}={v:.4f}' for n, v in loss_dict.items()]
             dataloader.set_description(f'{prefix}: {",".join(loss_descr)}')
@@ -156,5 +186,15 @@ class Trainer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str: float], Optional[Tensor]]:
+    def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
+        """
+        Run one step for one batch.
+
+        **Args**:
+
+        - `known` (`torch.Tensor`): Known part of the batch as tensor.
+        - `unknown` (`torch.Tensor`): Unknown part of the batch as tensor.
+
+        **Return**: (Dict of loss name to loss float number, inference result tensor).
+        """
         raise NotImplementedError()

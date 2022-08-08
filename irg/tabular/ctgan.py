@@ -1,3 +1,5 @@
+"""Partial CTGAN Training."""
+
 from collections import OrderedDict
 from typing import Tuple, Dict, Optional, List
 import os
@@ -13,9 +15,43 @@ from ..utils.dist import get_device
 
 
 class CTGANTrainer(Trainer):
+    """Trainer for CTGAN."""
     def __init__(self, cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int, embedding_dim: int = 128,
                  generator_dim: Tuple[int] = (256, 256), discriminator_dim: Tuple[int] = (256, 256), pac: int = 10,
                  discriminator_step: int = 1, **kwargs):
+        """
+        **Args**:
+
+        - `cat_dims` (`List[Tuple[int, int]]`): Dimensions corresponding to one categorical column.
+          For example, the table has 1 categorical column with 3 categories, and 1 numerical column with 2 clusters, in
+          this order. The normalized columns is something like [col_1_is_nan, col_1_cat_1, col_1_cat_2, col_1_cat_3,
+          col_2_is_nan, col_2_value, col_2_cluster_1, col_2_cluster_2]. Among them, is_nan columns are categorical
+          columns on their own, which will be applied sigmoid as activate function. Cluster and category columns are
+          categorical column groups (at least 2 columns), which will be applied Gumbel softmax as activate functions.
+          The value column is not categorical, so it will be applied tanh as activate function. The ranges are described
+          in left-closed-right-open manner. In this example, the input should be [(0, 1), (1, 4), (4, 5), (6, 8)].
+        - `known_dim` (`int`): Number of dimensions in total for known columns.
+        - `unknown_dim` (`int`): Number of dimensions in total for unknown columns.
+        - `embedding_dim` (`int`): Embedding dimensions for GAN. Default is 128.
+        - `generator_dim` (`Tuple[int]`): Generator NN dimensions. Default is (256, 256).
+        - `discriminator_dim` (`Tuple[int]`): Discriminator NN dimensions. Default is (256, 256).
+        - `pac` (`int`): Pac penalty in CTGAN. Default is 10.
+        - `discriminator_step` (`int`): Number of discriminator steps per generator step.
+        - `kwargs`: It has the following groups:
+            - Inherited arguments from [`Trainer`](../utils#irg.utils.Trainer).
+            - Generator arguments, all prefixed with "gen_" (for example, argument "arg1" under this group will be
+              named as "gen_arg1").
+                - `optimizer` (`str`): Optimizer type, currently support "SGD", "Adam", and "AdamW" only.
+                  Default is "AdamW".
+                - 'scheduler` (`str`): LR scheduler type, currently support "StepLR" and "ConstantLR" only.
+                  Default is "StepLR".
+                - Optimizer constructor arguments, all prefixed with "optim_". (That is, argument "arg1" under this
+                  group will be named as "gen_optim_arg1".
+                - Scheduler constructor arguments, all prefixed with "sched_".
+                - GradScaler constructor arguments, all prefixed with "scaler_".
+            - Discriminator arguments, all prefixed with "disc_". Inner structure (except for the prefix) is the same
+              as generator.
+        """
         super().__init__(**{
             n: v for n, v in kwargs.items() if
             n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr'}
@@ -90,7 +126,7 @@ class CTGANTrainer(Trainer):
             os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
         )
 
-    def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str: float], Optional[Tensor]]:
+    def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
         std = mean + 1
         enable_autocast = torch.cuda.is_available() and self._autocast
@@ -148,8 +184,7 @@ class CTGANTrainer(Trainer):
     def _gumbel_softmax(logits: torch.Tensor, tau: float = 1, hard: bool = False, eps: float = 1e-10, dim: int = -1):
         if version.parse(torch.__version__) < version.parse('1.2.0'):
             for i in range(10):
-                transformed = F.gumbel_softmax(logits, tau=tau, hard=hard,
-                                                        eps=eps, dim=dim)
+                transformed = F.gumbel_softmax(logits, tau=tau, hard=hard, eps=eps, dim=dim)
                 if not torch.isnan(transformed).any():
                     return transformed
             raise ValueError('gumbel_softmax returning NaN.')

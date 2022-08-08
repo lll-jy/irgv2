@@ -1,6 +1,6 @@
 """Handler for categorical data."""
 
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import pandas as pd
 
@@ -21,6 +21,9 @@ class CategoricalTransformer(BaseTransformer):
     @property
     def atype(self) -> str:
         return 'categorical'
+
+    def _categorical_dimensions(self) -> List[Tuple[int, int]]:
+        return [(0, 1), (1, self._calc_dim()+1)]
 
     def _calc_dim(self) -> int:
         return len(self._label2id)

@@ -1,7 +1,7 @@
 """Abstract base class of attributes."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, Any, Collection
+from typing import Optional, Any, Collection, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -198,6 +198,25 @@ class BaseTransformer:
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         raise NotImplementedError('Please specify attribute type for transformer.')
 
+    def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
+        """
+        Get dimension indices normalized as if categories.
+
+        **Args**:
+
+        - `base` (`int`): The base index. Default is 0.
+
+        **Return**: List of [L, R) pairs denoting the ranges representing categorical information.
+        """
+        if not self._fitted:
+            raise NotFittedError('Transformer', 'getting categorical columns')
+        dimensions = self._categorical_dimensions()
+        return [(l+base, r+base) for l, r in dimensions]
+
+    @abstractmethod
+    def _categorical_dimensions(self) -> List[Tuple[int, int]]:
+        raise NotImplementedError('Please specify attribute type for transformer.')
+
 
 class BaseAttribute(ABC):
     """
@@ -244,6 +263,18 @@ class BaseAttribute(ABC):
         Transformed column names.
         """
         return self._transformer.transformed_columns
+
+    def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
+        """
+        Get dimension indices normalized as if categories.
+
+        **Args**:
+
+        - `base` (`int`): The base index. Default is 0.
+
+        **Return**: List of [L, R) pairs denoting the ranges representing categorical information.
+        """
+        self._transformer.categorical_dimensions(base)
 
     def fit(self, values: pd.Series, force_redo: bool = False):
         """

@@ -1,5 +1,5 @@
 """Handler for encoding data."""
-from typing import Optional, Dict, List, Union
+from typing import Optional, Dict, List, Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -79,6 +79,9 @@ class EncodingTransformer(BaseTransformer):
             else:
                 transformed.iloc[i, 1:] = self._vocab.get(row['original'], self._mean_enc)
         return transformed
+
+    def _categorical_dimensions(self) -> List[Tuple[int, int]]:
+        return [(0, 1)]
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         return pd.Series(self._knn.predict(data))

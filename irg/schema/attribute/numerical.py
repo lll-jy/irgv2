@@ -1,5 +1,5 @@
 """Handler for numerical data."""
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -106,6 +106,9 @@ class NumericalTransformer(BaseTransformer):
         result = pd.DataFrame(np.hstack(rows), columns=col_names)
         result.insert(0, 'is_nan', nan_info['is_nan'])
         return result.fillna(0).astype('float32')
+
+    def _categorical_dimensions(self) -> List[Tuple[int, int]]:
+        return [(0, 1), (2, self._clusters+2)]
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         normalized = data[:, 0]

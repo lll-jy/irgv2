@@ -1,5 +1,5 @@
 """Handler for ID attributes."""
-from typing import Optional, Any
+from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,9 @@ class IdentityTransformer(BaseTransformer):
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         return data['original']
+
+    def _categorical_dimensions(self) -> List[Tuple[int, int]]:
+        return [(0, 1)]
 
 
 class SerialIDAttribute(BaseAttribute):

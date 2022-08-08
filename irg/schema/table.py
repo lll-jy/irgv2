@@ -214,9 +214,18 @@ class Table:
         """Whether the table is independent (i.e. no parents)"""
         return not self._augment_fitted
 
+    @staticmethod
+    def _attr2catdim(attributes: Dict[str, BaseAttribute]) -> List[Tuple[int, int]]:
+        base, res = 0, []
+        for name, attr in attributes.items():
+            res += attr.categorical_dimensions(base)
+            base += len(attr.transformed_columns)
+        return res
+
     @property
-    def ptg_data(self) -> Tuple[Tensor, Tensor]:
-        """Data used for tabular data generation (X, y)."""
+    def ptg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]]]:
+        """Data used for tabular data generation (X, y) with a list showing
+        [categorical columns](../tabular/ctgan#irg.tabular.ctgan.CTGANTrainer)."""
         if not self.is_independent:
             unknown_cols = [
                 (table, attr) for table, attr in self._augmented_attributes
@@ -226,14 +235,20 @@ class Table:
             unknown_set = set(unknown_cols)
             known_cols = [col for col in aug_data.columns.droplevel(2) if col not in unknown_set]
             known_data, unknown_data = aug_data[known_cols], aug_data[unknown_cols]
-            return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch')
+            cat_dims = self._attr2catdim({
+                table: attr for table, attr in self._augmented_attributes
+                if table == self._name and attr not in self._known_cols
+            })
+            return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='none', core_only=True)
-            return torch.zeros(len(norm_data), 0), convert_data_as(norm_data, 'torch')
+            return torch.zeros(len(norm_data), 0), convert_data_as(norm_data, 'torch'), \
+                   self._attr2catdim(self._attributes)
 
     @property
-    def deg_data(self) -> Tuple[Tensor, Tensor]:
-        """Data used for degree generate (X, y).
+    def deg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]]]:
+        """Data used for degree generate (X, y) with a list showing
+        [categorical columns](../tabular/ctgan#irg.tabular.ctgan.CTGANTrainer).
         Raises [`NoPartiallyKnownError`](../utils/errors#irg.utils.errors.NoPartiallyKnownError) if not independent."""
         if self.is_independent:
             raise NoPartiallyKnownError(self._name)
@@ -245,7 +260,11 @@ class Table:
         unknown_set = set(unknown_cols)
         known_cols = [col for col in deg_data.columns.droplevel(2) if col not in unknown_set]
         known_data, unknown_data = deg_data[unknown_cols], deg_data[known_cols]
-        return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch')
+        cat_dims = self._attr2catdim({
+            table: attr for table, attr in self._degree_attributes
+            if table == self._name and attr not in self._known_cols
+        })
+        return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
 
 
 class SyntheticTable(Table):
