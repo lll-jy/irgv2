@@ -1,3 +1,5 @@
+"""Table data structure that holds data and metadata of tables in a database."""
+
 import json
 import os
 from typing import Optional, Iterable, Dict, Tuple, Set, List
@@ -16,9 +18,27 @@ TwoLevelName = Tuple[str, str]
 
 
 class Table:
-    def __init__(self, name: str, need_fit: bool = True, id_cols: Iterable[str] = None,
+    """Table data structure that holds metadata description of the table content and the relevant data."""
+    def __init__(self, name: str, need_fit: bool = True, id_cols: Optional[Iterable[str]] = None,
                  attributes: Optional[Dict[str, dict]] = None, data: Optional[pd.DataFrame] = None,
                  determinants: Optional[List[List[str]]] = None, formulas: Optional[Dict[str, str]] = None, **kwargs):
+        """
+        **Args**:
+
+        - `name` (`str`): Name of the table.
+        - `need_fit` (`bool`): Whether the table need to be fitted. Default is `True`.
+        - `id_cols` (`Optional[Iterable[str]]`): ID column names
+        - `attributes` (`Optional[Dict[str, dict]]`): Attribute metadata readable by
+          [`create_attribute`](attribute#irg.schema.attribute.create).
+          If not provided, it will be inferred from `data`.
+        - `data` (`Optional[pd.DataFrame]`): Data content of the table.
+          It can be deferred. But attributes and data must not be both `None`.
+        - `determinants` (`Optional[List[List[str]]]`): Determinant groups for BN generation.
+        - `formulas` (`Optional[Dict[str, str]]`): Formula constraints of columns, provided as a dict of column name
+          and a function (lambda expression permitted) processable by `eval` built-in function, with the only argument
+          is a row in the table.
+        - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
+        """
         self._name, self._need_fit, self._fitted = name, need_fit, False
         self._determinants = [] if determinants is None else determinants
         self._formulas = {} if formulas is None else formulas
@@ -66,9 +86,19 @@ class Table:
 
     @property
     def name(self) -> str:
+        """Name of the table."""
         return self._name
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
+        """
+        Fit the table with given data.
+
+        **Args**:
+
+        - `data` (`pd.DataFrame`): The data content to fit the table.
+        - `force_redo` (`bool`): Whether to re-fit the table if the table is already fitted. Default is `False`.
+        - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
+        """
         if (self._fitted and not force_redo) or not self._need_fit:
             return
         self._data = data[[*self._attributes.keys()]]
@@ -117,6 +147,23 @@ class Table:
 
     def data(self, variant: str = 'original', normalize: bool = False,
              with_id: str = 'this', core_only: bool = False, return_as: str = 'pandas') -> Data2D:
+        """
+        Get the specified table data content.
+
+        **Args**:
+
+        - `variant` (`str`): Choose one from 'original', 'augmented', 'degree'. Default is 'original'.
+        - `normalize` (`bool`): Whether to return the normalized data. Default is `False`.
+        - `with_id` (`str`): ID return policy, choose one from 'this' (IDs of this table only), 'none' (no ID columns),
+          and 'inherit' (IDs from this and other tables by augmentation).
+        - `core_only` (`bool`): Whether to return core columns only, or include determinant and formula columns.
+          Default is `False`.
+        - `return_as` (`str`): Return format as per [`convert_data_as`](../utils/misc#irg.utils.misc.convert_data_as).
+
+        **Return**: The queried data of the desired format.
+
+        **Raise**: `NotImplementedError` if variant and with_id policies are not recognized.
+        """
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
         if self._data is None:
@@ -164,10 +211,12 @@ class Table:
 
     @property
     def is_independent(self):
+        """Whether the table is independent (i.e. no parents)"""
         return not self._augment_fitted
 
     @property
     def ptg_data(self) -> Tuple[Tensor, Tensor]:
+        """Data used for tabular data generation (X, y)."""
         if not self.is_independent:
             unknown_cols = [
                 (table, attr) for table, attr in self._augmented_attributes
@@ -184,6 +233,8 @@ class Table:
 
     @property
     def deg_data(self) -> Tuple[Tensor, Tensor]:
+        """Data used for degree generate (X, y).
+        Raises [`NoPartiallyKnownError`](../utils/errors#irg.utils.errors.NoPartiallyKnownError) if not independent."""
         if self.is_independent:
             raise NoPartiallyKnownError(self._name)
         unknown_cols = [
@@ -198,8 +249,18 @@ class Table:
 
 
 class SyntheticTable(Table):
+    """Synthetic counterpart of real tables."""
     @classmethod
     def from_real(cls, table: Table) -> "SyntheticTable":
+        """
+        Construct synthetic table from real one.
+
+        **Args**:
+
+        - `table` (`Table`): The original real table.
+
+        **Return**: The constructed synthetic table.
+        """
         synthetic = SyntheticTable(name=table._name, need_fit=False,
                                    id_cols={*table._id_cols}, attributes=table._attr_meta,
                                    determinants=table._determinants, formulas=table._formulas)
@@ -209,6 +270,18 @@ class SyntheticTable(Table):
         return synthetic
 
     def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
+        """
+        Inversely transform normalized data to original data format.
+
+        **Args**:
+
+        - `normalized_core` (`torch.Tensor`): Normalized core data in terms of tensor.
+        - `replace_content` (`bool`): Whether to replace the content of this `Table`. Default is `True`.
+
+        **Return**: The inversely transformed data.
+
+        **Raise**: [`NotFittedError`](../utils/errors#irg.utils.errors.NotFittedError) if the table is not yet fitted.
+        """
         if not self._fitted:
             raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
         columns = {
@@ -258,6 +331,13 @@ class SyntheticTable(Table):
         return recovered_df
 
     def assign_degrees(self, degrees: pd.Series):
+        """
+        Assign degrees to augmented table so the shape of the synthetically generated table is fixed.
+
+        **Args**:
+
+        - `degrees` (`pd.Series`): The degrees to be assigned.
+        """
         self._degree[('', 'degree')] = degrees
         self._degree_normalized_by_attr[('', 'degree')] = self._degree_attributes[('', 'degree')].transform(degrees)
         self._augmented = self._degree.loc[self._degree.index.repeat(self._degree[self._degree.index])]\
