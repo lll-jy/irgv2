@@ -5,18 +5,21 @@ from typing import Dict
 from .base import TabularTrainer
 from .ctgan import CTGANTrainer
 from .tvae import TVAETrainer
+from .mlp import MLPTrainer
 
 
 __all__ = (
     'TabularTrainer',
     'CTGANTrainer',
     'TVAETrainer',
+    'MLPTrainer',
     'create_trainer'
 )
 
 _TAB_TRAINERS: Dict[str, TabularTrainer.__class__] = {
     'CTGAN': CTGANTrainer,
-    'TVAE': TVAETrainer
+    'TVAE': TVAETrainer,
+    'MLP': MLPTrainer
 }
 
 

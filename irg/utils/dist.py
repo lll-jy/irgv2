@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import torch
 import torch.distributed as dist
 
@@ -24,3 +26,8 @@ def get_device() -> torch.device:
 def barrier():
     if get_rank() >= 0:
         dist.barrier()
+
+
+def init_process_group():
+    if torch.cuda.is_available():
+        dist.init_process_group(backend='nccl', init_method='env://', timeout=timedelta(days=1))
