@@ -89,6 +89,11 @@ class Table:
         """Name of the table."""
         return self._name
 
+    @property
+    def columns(self) -> List[str]:
+        """Name of columns."""
+        return [*self._attributes]
+
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         """
         Fit the table with given data.

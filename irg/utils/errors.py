@@ -1,6 +1,29 @@
 """Errors specific to the IRG model."""
 
 
+class TableNotFoundError(KeyError):
+    """Report if some queried table is not in the database."""
+    def __init__(self, table_name: str):
+        """
+        ***Args**:
+
+        - `table_name` (`str`): Name of the table.
+        """
+        super().__init__(f'Table {table_name} is not found in database.')
+
+
+class ColumnNotFoundError(KeyError):
+    """Report if some queried column is not in the table."""
+    def __init__(self, table_name: str, col_name: str):
+        """
+        ***Args**:
+
+        - `table_name` (`str`): Name of the table.
+        - `col_name` (`str`): Name of the column.
+        """
+        super().__init__(f'Column {col_name} is not found in table {table_name}.')
+
+
 class NotFittedError(RuntimeError):
     """Report if some methods requiring fitting is called before fitting."""
     def __init__(self, item_name: str, before_action: str):

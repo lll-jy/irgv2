@@ -1,0 +1,163 @@
+"""Database schema definition."""
+
+from collections import OrderedDict, defaultdict
+from typing import OrderedDict as OrderedDictT, List, Optional
+from jsonschema import validate
+import os
+
+import pandas as pd
+
+from ..table import Table
+from ...utils.errors import ColumnNotFoundError, TableNotFoundError
+from ...utils.misc import load_from
+
+
+class _ForeignKey:
+    def __init__(self, my_name: str, my_columns: List[str], parent_name: str, parent_columns: List[str]):
+        self._name, self._parent = my_name, parent_name
+        self._ref = {my_col: parent_col for my_col, parent_col in zip(my_columns, parent_columns)}
+
+
+class Database:
+    """Database data structure."""
+    _TABLE_CONF = {
+        'type': 'object',
+        'properties': {
+            'id_cols': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            },
+            'attributes': {'type': 'object'},
+            'path': {'type': 'string'},
+            'format': {'enum': ['csv', 'pkl']},
+            'determinants': {
+                'type': 'array',
+                'items': {'type': 'array', 'items': 'string'}
+            },
+            'formulas': {'type': 'object'},
+            'primary_keys': {'type': 'array', 'items': 'string'},
+            'foreign_keys': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'columns': {'type': 'array', 'items': 'string'},
+                        'parent': {'type': 'string'},
+                        'parent_columns': {'type': 'array', 'items': 'string'}
+                    },
+                    'required': ['columns', 'parent'],
+                    'additionalProperties': False
+                }
+            }
+        },
+        'additionalProperties': False
+    }
+
+    def __init__(self, schema: OrderedDictT, data_dir: str = '.'):
+        """
+        **Args**:
+
+        - `schema` (`OrderedDict`): Schema described as OrderedDict. Every table in the database corresponds to one
+          entry in the dict, where the order of the dict is the order the tables are to be processed.
+          Every table is described with key being its name, and value being another dict describing it, including the
+          following content (all are optional but need to give enough information for constructing a
+          [`Table`](../table#irg.schema.table.Table).
+            - `id_cols`, `attributes`, `determinants`, `formulas`: arguments to
+              [`Table`](../table#irg.schema.table.Table).
+            - `path`: data file holding the content of this table under `data_dir`, and if not provided,
+              it will be inferred from the table's name, and the path used will be data_dir/name.csv or pkl.
+            - `format`: either 'csv' or 'pkl', depending on the file's format.
+            - `primary_keys`: column names that constitute a primary key in the table.
+            - `foreign_keys`: a list of foreign keys of the table, where each foreign key is described as
+                - `columns`: list of column names in this table involved in the foreign key.
+                - `parent`: name of parent table.
+                - `parent_columns`: list of column names in the referenced (parent) table, in correspondence to
+                  "columns" (in the same order), and will be assumed to be the same as "columns" if not provided.
+        - `data_dir` (`str`): Directory of the data saved. It should typically contain all table paths
+          as described in schema.
+
+        **Raises**:
+
+        - [`ColumnNotFoundError`](../../utils/errors#irg.utils.errors.ColumnNotFoundError) if some columns provided in
+          some schema specification is not found in the corresponding table.
+        - [`TableNotFoundError`](../../utils/errors#irg.utils.errors.TableNotFoundError) if some tables mentioned in
+          the foreign keys as parents are not valid tables in the database (note that if the parent table appears after
+          the child table, this error is also reported).
+        - [`ValidationError`](https://python-jsonschema.readthedocs.io/en/stable/errors/) if the provided schema is of
+          invalid format.
+        """
+        self._tables, self._primary_keys, self._foreign_keys = OrderedDict({}), {}, {}
+        self._data_dir = data_dir
+
+        for name, meta in schema.items():
+            validate(meta, self._TABLE_CONF)
+            meta = defaultdict(lambda: None, meta)
+            fm = meta['format'] if 'format' in meta else 'csv'
+            path = meta['path'] if 'path' in meta else os.path.join(self._data_dir, f'{name}.{fm}')
+            data = None
+            if os.path.exists(path):
+                data = pd.read_csv(path) if fm == 'csv' else pd.read_pickle(path)
+            id_cols, attributes = meta['id_cols'], meta['attributes']
+            determinants, formulas = meta['determinants'], meta['formulas']
+            table = Table(
+                name=name, need_fit=True,
+                id_cols=id_cols, attributes=attributes, data=data,
+                determinants=determinants, formulas=formulas
+            )
+            self._tables[name] = table
+            columns = table.columns
+
+            primary_keys = meta['primary_keys'] if 'primary_keys' in meta else columns
+            columns = set(columns)
+            for col in primary_keys:
+                if col not in columns:
+                    raise ColumnNotFoundError(name, col)
+            self._primary_keys[name] = primary_keys
+            foreign_keys = meta['foreign_keys'] if 'foreign_keys' in meta else []
+            self._foreign_keys[name] = []
+            for foreign_key in foreign_keys:
+                this_columns = foreign_key['columns']
+                parent_columns = foreign_key['parent_columns'] if 'parent_columns' in foreign_key else this_columns
+                parent_name = foreign_key['parent']
+                if parent_name not in self._tables:
+                    raise TableNotFoundError(name)
+                for col in this_columns:
+                    if col not in columns:
+                        raise ColumnNotFoundError(name, col)
+                for col in parent_columns:
+                    if col not in set(self._tables[parent_name].columns):
+                        raise ColumnNotFoundError(parent_name, col)
+                self._foreign_keys[name].append(_ForeignKey(name, this_columns, parent_name, parent_columns))
+
+            id_cols = [] if id_cols is None else id_cols
+            determinants = [] if determinants is None else determinants
+            formulas = {} if formulas is None else formulas
+            for col in id_cols:
+                if col not in columns:
+                    raise ColumnNotFoundError(name, col)
+            for determinant in determinants:
+                for col in determinant:
+                    if col not in columns:
+                        raise ColumnNotFoundError(name, col)
+            for col in formulas:
+                if col not in columns:
+                    raise ColumnNotFoundError(name, col)
+
+    def __getitem__(self, item):
+        return self._tables[item]
+
+    def __len__(self):
+        return len(self._tables)
+
+    @classmethod
+    def load_from(cls, file_path: str, engine: Optional[str] = None, data_dir: str = '.') -> "Database":
+        """
+        Load database from config file.
+
+        **Args**:
+
+        - `file_path` and `engine`: Arguments for [`utils.load_from`](../../utils/misc#irg.utils.misc.load_from)
+        - `data_dir`: Argument for [constructor](#irg.schema.database.base.Database).
+        """
+        schema = load_from(file_path, engine)
+        return Database(OrderedDict(schema), data_dir)
