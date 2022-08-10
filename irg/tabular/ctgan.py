@@ -1,7 +1,7 @@
 """Partial CTGAN Training."""
 
 from collections import OrderedDict
-from typing import Tuple, Dict, Optional, List
+from typing import Tuple, Dict, Optional
 import os
 
 import torch
@@ -11,7 +11,8 @@ from packaging import version
 from ctgan.synthesizers.ctgan import Generator, Discriminator
 from tqdm import tqdm
 
-from ..utils import Trainer, InferenceOutput
+from .base import TabularTrainer
+from ..utils import InferenceOutput
 from ..utils.dist import is_main_process
 
 
@@ -24,28 +25,18 @@ class CTGANOutput(InferenceOutput):
         """Discriminator output."""
 
 
-class CTGANTrainer(Trainer):
+class CTGANTrainer(TabularTrainer):
     """Trainer for CTGAN."""
-    def __init__(self, cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int, embedding_dim: int = 128,
-                 generator_dim: Tuple[int, ...] = (256, 256), discriminator_dim: Tuple[int, ...] = (256, 256),
+    def __init__(self, embedding_dim: int = 128, generator_dim: Tuple[int, ...] = (256, 256),
+                 discriminator_dim: Tuple[int, ...] = (256, 256),
                  pac: int = 10, discriminator_step: int = 1, **kwargs):
         """
         **Args**:
 
-        - `cat_dims` (`List[Tuple[int, int]]`): Dimensions corresponding to one categorical column.
-          For example, the table has 1 categorical column with 3 categories, and 1 numerical column with 2 clusters, in
-          this order. The normalized columns is something like [col_1_is_nan, col_1_cat_1, col_1_cat_2, col_1_cat_3,
-          col_2_is_nan, col_2_value, col_2_cluster_1, col_2_cluster_2]. Among them, is_nan columns are categorical
-          columns on their own, which will be applied sigmoid as activate function. Cluster and category columns are
-          categorical column groups (at least 2 columns), which will be applied Gumbel softmax as activate functions.
-          The value column is not categorical, so it will be applied tanh as activate function. The ranges are described
-          in left-closed-right-open manner. In this example, the input should be [(0, 1), (1, 4), (4, 5), (6, 8)].
-        - `known_dim` (`int`): Number of dimensions in total for known columns.
-        - `unknown_dim` (`int`): Number of dimensions in total for unknown columns.
         - `embedding_dim` to `discriminator_step`: Arguments for
           [CTGAN](https://sdv.dev/SDV/api_reference/tabular/api/sdv.tabular.ctgan.CTGAN.html#sdv.tabular.ctgan.CTGAN).
         - `kwargs`: It has the following groups:
-            - Inherited arguments from [`Trainer`](../utils#irg.utils.Trainer).
+            - Inherited arguments from [`TabularTrainer`](./base#irg.tabular.base.TabularTrainer).
             - Generator arguments, all prefixed with "gen_" (for example, argument "arg1" under this group will be
               named as "gen_arg1").
                 - `optimizer` (`str`): Optimizer type, currently support "SGD", "Adam", and "AdamW" only.
@@ -61,15 +52,16 @@ class CTGANTrainer(Trainer):
         """
         super().__init__(**{
             n: v for n, v in kwargs.items() if
-            n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr'}
+            n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr',
+                  'cat_dims', 'known_dim', 'unknown_dim'}
         })
         self._generator = Generator(
-            embedding_dim=embedding_dim + known_dim,
+            embedding_dim=embedding_dim + self._known_dim,
             generator_dim=generator_dim,
-            data_dim=unknown_dim
+            data_dim=self._unknown_dim
         ).to(self._device)
         self._discriminator = Discriminator(
-            input_dim=known_dim + unknown_dim,
+            input_dim=self._known_dim + self._unknown_dim,
             discriminator_dim=discriminator_dim,
             pac=pac
         ).to(self._device)
@@ -82,20 +74,7 @@ class CTGANTrainer(Trainer):
             **{n[5:]: v for n, v in kwargs.items() if n.startswith('disc_')}
         )
 
-        self._known_dim, self._unknown_dim, self._embedding_dim, self._pac = known_dim, unknown_dim, embedding_dim, pac
-        self._discriminator_step = discriminator_step
-        self._cat_dims = sorted(cat_dims)
-        if not self._validate_cat_dims(self._cat_dims):
-            raise ValueError('Category dimensions should be disjoint.')
-
-    @staticmethod
-    def _validate_cat_dims(cat_dims) -> bool:
-        pre = 0
-        for l, r in cat_dims:
-            if l < pre or r <= l:
-                return False
-            pre = r
-        return True
+        self._embedding_dim, self._pac, self._discriminator_step = embedding_dim, pac, discriminator_step
 
     def _reload_checkpoint(self, idx: int, by: str):
         path = os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')

@@ -2,24 +2,25 @@
 
 from typing import Dict
 
-from ..utils import Trainer
+from .base import TabularTrainer
 from .ctgan import CTGANTrainer
 from .tvae import TVAETrainer
 
 
 __all__ = (
+    'TabularTrainer',
     'CTGANTrainer',
     'TVAETrainer',
     'create_trainer'
 )
 
-_TAB_TRAINERS: Dict[str, Trainer.__class__] = {
+_TAB_TRAINERS: Dict[str, TabularTrainer.__class__] = {
     'CTGAN': CTGANTrainer,
     'TVAE': TVAETrainer
 }
 
 
-def create_trainer(trainer_type: str = 'CTGAN', **kwargs) -> Trainer:
+def create_trainer(trainer_type: str = 'CTGAN', **kwargs) -> TabularTrainer:
     """
     Create trainer of the specified type.
 

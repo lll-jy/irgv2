@@ -5,9 +5,9 @@ from typing import Optional, OrderedDict, Dict, List, Tuple, DefaultDict
 
 from torch import Tensor
 
+from ..tabular import TabularTrainer
 from ..schema import create_db, Database
 from ..tabular import create_trainer as create_tab_trainer
-from ..utils import Trainer
 
 
 def train(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,
@@ -15,7 +15,7 @@ def train(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None,
           tab_trainer_args: Optional[Dict[str, Dict]] = None, deg_trainer_args: Optional[Dict[str, Dict]] = None,
           tab_train_args: Optional[Dict[str, Dict]] = None, deg_train_args: Optional[Dict[str, Dict]] = None,
           save_db_to: Optional[str] = None) -> \
-        Tuple[Database, Dict[str, Trainer], Dict[str, Trainer]]:
+        Tuple[Database, Dict[str, TabularTrainer], Dict[str, TabularTrainer]]:
     """
     Train database generator.
 
@@ -63,7 +63,7 @@ def train(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None,
 
 
 def _train_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]],
-                 trainer_args: Dict, train_args: Dict) -> Trainer:
+                 trainer_args: Dict, train_args: Dict) -> TabularTrainer:
     known_dim, unknown_dim = known.shape[1], unknown.shape[1]
     trainer = create_tab_trainer(cat_dims=cat_dims, known_dim=known_dim, unknown_dim=unknown_dim, **trainer_args)
     trainer.train(known, unknown, **train_args)

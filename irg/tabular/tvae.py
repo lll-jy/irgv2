@@ -1,6 +1,6 @@
 """Partial TVAE Training."""
 from collections import OrderedDict
-from typing import Tuple, Dict, Optional, List
+from typing import Tuple, Dict, Optional
 import os
 
 import torch
@@ -9,8 +9,9 @@ from torch.nn import functional as F
 from ctgan.synthesizers.tvae import Encoder, Decoder
 from tqdm import tqdm
 
-from ..utils import Trainer, InferenceOutput
-from ..utils.dist import get_device, is_main_process
+from .base import TabularTrainer
+from ..utils import InferenceOutput
+from ..utils.dist import is_main_process
 
 
 class TVAEOutput(InferenceOutput):
@@ -23,35 +24,34 @@ class TVAEOutput(InferenceOutput):
         """Sigmas of reconstructed result."""
 
 
-class TVAETrainer(Trainer):
+class TVAETrainer(TabularTrainer):
     """Trainer for TVAE."""
-    def __init__(self, cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int, embedding_dim: int = 128,
-                 compress_dims: Tuple[int, ...] = (128, 128), decompress_dims: Tuple[int, ...] = (128, 128),
-                 loss_factor: float = 2, **kwargs):
+    def __init__(self, embedding_dim: int = 128, compress_dims: Tuple[int, ...] = (128, 128),
+                 decompress_dims: Tuple[int, ...] = (128, 128), loss_factor: float = 2, **kwargs):
         """
         **Args**:
 
-        - `cat_dims` to `unknown_dim`: Same as [CTGAN](.#irg.tabular.CTGANTrainer).
         - `embedding_dim` to `loss_factor`: Arguments for
           [TVAE](https://sdv.dev/SDV/api_reference/tabular/api/sdv.tabular.ctgan.TVAE.html#sdv.tabular.ctgan.TVAE)
         - `kwargs`: It has the following groups:
-            - Inherited arguments from [`Trainer`](../utils#irg.utils.Trainer).
+            - Inherited arguments from [`TabularTrainer`](./base#irg.tabular.base.TabularTrainer).
             - Model arguments, same as generator arguments without prefix for [CTGAN](.#irg.tabular.CTGANTrainer).
         """
+
         super().__init__(**{
             n: v for n, v in kwargs.items() if
-            n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr'}
+            n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr',
+                  'cat_dims', 'known_dim', 'unknown_dim'}
         })
-        self._device = get_device()
         self._encoder = Encoder(
-            data_dim=known_dim + unknown_dim,
+            data_dim=self._known_dim + self._unknown_dim,
             compress_dims=compress_dims,
             embedding_dim=embedding_dim
         ).to(self._device)
         self._decoder = Decoder(
-            embedding_dim=embedding_dim + known_dim,
+            embedding_dim=embedding_dim + self._known_dim,
             decompress_dims=decompress_dims,
-            data_dim=unknown_dim
+            data_dim=self._unknown_dim
         ).to(self._device)
         (self._encoder, self._decoder), self._optimizer, self._lr_schd, self._grad_scaler = self._make_model_optimizer(
             [self._encoder, self._decoder],
@@ -59,19 +59,7 @@ class TVAETrainer(Trainer):
                n not in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr'}}
         )
 
-        self._known_dim, self._unknown_dim, self._loss_factor = known_dim, unknown_dim, loss_factor
-        self._cat_dims = sorted(cat_dims)
-        if not self._validate_cat_dims(self._cat_dims):
-            raise ValueError('Category dimensions should be disjoint.')
-
-    @staticmethod
-    def _validate_cat_dims(cat_dims) -> bool:
-        pre = 0
-        for l, r in cat_dims:
-            if l < pre or r <= l:
-                return False
-            pre = r
-        return True
+        self._loss_factor = loss_factor
 
     def _reload_checkpoint(self, idx: int, by: str):
         path = os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')

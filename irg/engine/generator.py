@@ -5,12 +5,12 @@ from typing import Dict, Optional, DefaultDict, Any
 
 import torch
 
+from ..tabular import TabularTrainer
 from ..schema import Table, SyntheticTable, Database, SyntheticDatabase
-from ..utils import Trainer
 
 
-def generate(real_db: Database, tab_models: Dict[str, Trainer], deg_models: Dict[str, Trainer], save_to: str,
-             scaling: Optional[Dict[str, float]] = None,
+def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_models: Dict[str, TabularTrainer],
+             save_to: str, scaling: Optional[Dict[str, float]] = None,
              tab_batch_sizes: Optional[Dict[str, int]] = None, deg_batch_sizes: Optional[Dict[str, int]] = None,
              save_db_to: Optional[str] = None) -> SyntheticDatabase:
     """
@@ -18,8 +18,8 @@ def generate(real_db: Database, tab_models: Dict[str, Trainer], deg_models: Dict
 
     **Args**:
     - `real_db` (`Database`): Real database.
-    - `tab_models` (`Dict[str, Trainer]`): Trainers for tabular data for each table.
-    - `deg_models` (`Dict[str, Trainer]`): Trainers for degree data for each table.
+    - `tab_models` (`Dict[str, TabularTrainer]`): Trainers for tabular data for each table.
+    - `deg_models` (`Dict[str, TabularTrainer]`): Trainers for degree data for each table.
     - `save_to` (`str`): Save the generated tables to path.
     - `scaling` (`Optional[Dict[str, float]]`): Scaling factors of synthetic data. Default scaling factor is 1.
     - `tab_batch_sizes` (`Optional[Dict[str, int]]`): Batch size when running inference for tabular models.
@@ -57,7 +57,7 @@ def _optional_default_dict(original: Optional[Dict], default_val: Any) -> Defaul
     return original
 
 
-def _generate_independent_table(trainer: Trainer, table: Table, scale: float, batch_size: int) -> Table:
+def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: float, batch_size: int) -> Table:
     syn_table = SyntheticTable.from_real(table)
     need_rows = round(len(table) * scale)
     output = trainer.inference(torch.zeros(need_rows, 0), batch_size).output
@@ -65,7 +65,7 @@ def _generate_independent_table(trainer: Trainer, table: Table, scale: float, ba
     return syn_table
 
 
-def _generate_dependent_table(tab_trainer: Trainer, deg_trainer: Trainer, table: Table, scale: float,
+def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularTrainer, table: Table, scale: float,
                               tab_batch_size: int, deg_batch_size: int, syn_db: SyntheticDatabase) -> SyntheticTable:
     syn_table = SyntheticTable.from_real(table)
     known = syn_db.degree_known_for(table.name)
