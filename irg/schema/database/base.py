@@ -8,8 +8,9 @@ import os
 import json
 
 import pandas as pd
+from torch import Tensor
 
-from ..table import Table
+from ..table import Table, SyntheticTable
 from ...utils.errors import ColumnNotFoundError, TableNotFoundError
 from ...utils.misc import load_from
 
@@ -227,3 +228,49 @@ class Database(ABC):
     @abstractmethod
     def _update_cls(item: Any):
         raise NotImplementedError()
+
+
+class SyntheticDatabase(Database, ABC):
+    """
+    Synthetic database structure.
+    """
+    @classmethod
+    def from_real(cls, real_db: Database, save_to: str) -> "SyntheticDatabase":
+        """
+        Create synthetic database from real.
+
+        **Args**:
+
+        - `real_db` (`Database`): The real database.
+        - `save_to` (`str`): Directory to save synthetically generated data.
+
+        **Return**: Constructed empty synthetic database.
+        """
+        syn_db = SyntheticDatabase(OrderedDict({}))
+        syn_db._primary_keys, syn_db._foreign_keys = real_db._primary_keys, real_db._foreign_keys
+        syn_db._data_dir = save_to
+        os.makedirs(save_to, exist_ok=True)
+        return syn_db
+
+    @abstractmethod
+    def degree_known_for(self, table_name: str) -> Tensor:
+        """
+        Get known tensor for degree generation.
+
+        **Args**:
+
+        - `table_name` (`str`): The name of degree table to get.
+
+        **Return**: The degree model known part from already generated part.
+        """
+        raise NotImplementedError()
+
+    def __setitem__(self, key: str, value: SyntheticTable):
+        self._tables[key] = value
+
+    def save_synthetic_data(self):
+        """
+        Save synthetic data to directory as CSV files.
+        """
+        for name, table in self.tables:
+            table.data().to_csv(os.path.join(self._data_dir, f'{name}.csv'), index=False)

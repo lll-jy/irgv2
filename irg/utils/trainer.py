@@ -23,6 +23,9 @@ class InferenceOutput(ABC):
     """
     Inference output structure.
     """
+    def __init__(self, output: Tensor):
+        self.output = output
+        """Output as single Tensor."""
 
 
 class Trainer(ABC):

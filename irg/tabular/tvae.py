@@ -16,6 +16,7 @@ from ..utils.dist import get_device, is_main_process
 class TVAEOutput(InferenceOutput):
     """Output of TVAE."""
     def __init__(self, rec: Tensor, sigmas: Tensor):
+        super().__init__(rec)
         self.rec = rec
         """Reconstructed result."""
         self.sigmas = sigmas
@@ -147,6 +148,7 @@ class TVAETrainer(Trainer):
         kld = -0.5 * torch.sum(1 + logvar - mu**2 - logvar.exp())
         return sum(losses) * self._loss_factor / real.size()[0], kld / real.size()[0]
 
+    @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> TVAEOutput:
         dataloader = self._make_dataloader(known, torch.rand(known.shape[0], self._unknown_dim), batch_size, False)
         if is_main_process():
@@ -154,6 +156,8 @@ class TVAETrainer(Trainer):
             dataloader.set_description(f'Inference on {self._descr}')
 
         rec, sigmas = [], []
+        self._encoder.eval()
+        self._decoder.eval()
         for step, (known_batch, unknown_batch) in enumerate(dataloader):
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
                 real = torch.cat([known_batch, unknown_batch], dim=1)
@@ -166,5 +170,7 @@ class TVAETrainer(Trainer):
                 rec_batch, sigmas_batch = self._decoder(dec_input)
                 rec.append(rec_batch)
                 sigmas.append(sigmas_batch)
+        self._encoder.train()
+        self._decoder.train()
 
         return TVAEOutput(torch.stack(rec), torch.stack(sigmas))

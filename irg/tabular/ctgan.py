@@ -17,6 +17,7 @@ from ..utils.dist import is_main_process
 
 class CTGANOutput(InferenceOutput):
     def __init__(self, fake: Tensor, discr_out: Optional[Tensor] = None):
+        super().__init__(fake)
         self.fake = fake
         """Fake data generated."""
         self.discr_out = discr_out
@@ -203,6 +204,7 @@ class CTGANTrainer(Trainer):
             raise ValueError('gumbel_softmax returning NaN.')
         return F.gumbel_softmax(logits, tau=tau, hard=hard, eps=eps, dim=dim)
 
+    @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> CTGANOutput:
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
         std = mean + 1
@@ -213,11 +215,15 @@ class CTGANTrainer(Trainer):
             dataloader.set_description(f'Inference on {self._descr}')
 
         fakes, y_fakes = [], []
+        self._generator.eval()
+        self._discriminator.eval()
         for step, (known_batch, _) in enumerate(dataloader):
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
                 fake_cat = self._construct_fake(mean, std, known_batch)
                 y_fake = self._discriminator(fake_cat)
                 fakes.append(fake_cat)
                 y_fakes.append(y_fake)
+        self._generator.train()
+        self._discriminator.train()
 
         return CTGANOutput(torch.stack(fakes), torch.stack(y_fakes))

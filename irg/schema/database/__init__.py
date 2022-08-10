@@ -2,12 +2,13 @@
 
 from typing import OrderedDict, Dict, Optional
 
-from .base import Database
+from .base import Database, SyntheticDatabase
 from .unrelated import UnrelatedDatabase
 
 
 __all__ = (
     'Database',
+    'SyntheticDatabase',
     'UnrelatedDatabase',
     'create',
     'create_from_dict',

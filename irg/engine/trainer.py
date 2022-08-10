@@ -5,7 +5,7 @@ from typing import Optional, OrderedDict, Dict, List, Tuple, DefaultDict
 
 from torch import Tensor
 
-from ..schema.database import create as create_db, Database
+from ..schema import create_db, Database
 from ..tabular import create_trainer as create_tab_trainer
 from ..utils import Trainer
 

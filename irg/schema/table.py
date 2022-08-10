@@ -295,6 +295,9 @@ class Table:
             loaded.__class__ = Table
         return loaded
 
+    def __len__(self):
+        return len(self._data)
+
 
 class SyntheticTable(Table):
     """Synthetic counterpart of real tables."""
@@ -314,7 +317,6 @@ class SyntheticTable(Table):
                                    determinants=table._determinants, formulas=table._formulas)
         synthetic._fitted = table._fitted
         synthetic._attributes = table._attributes
-        # TODO: fk
         return synthetic
 
     def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
@@ -395,4 +397,17 @@ class SyntheticTable(Table):
                 if table != self._name or attr_name in self._known_cols:
                     self._augmented_normalized_by_attr[(table, attr_name)] = self._augmented[[(table, attr_name)]]
 
+    def inverse_transform_degrees(self, degree_tensor: Tensor, scale: float = 1) -> pd.Series:
+        """
+        Inversely transform degree predictions to a series of integers.
 
+        **Args**:
+
+        - `degree_tensor` (`torch.Tensor`): The raw prediction of degree as a tensor.
+        - `scale` (`float`): Scaling factor of the generated degrees. Default is 1.
+
+        **Return**: Recovered degrees.
+        """
+        degrees = self._degree_attributes[('', 'degree')].inverse_transform(degree_tensor)
+        degrees = degrees.apply(lambda x: max(0, round(x * scale)))
+        return degrees
