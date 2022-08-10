@@ -3,6 +3,7 @@
 import json
 import os
 from typing import Optional, Iterable, Dict, Tuple, Set, List
+import pickle
 
 import torch
 from torch import Tensor
@@ -270,6 +271,29 @@ class Table:
             if table == self._name and attr not in self._known_cols
         })
         return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
+
+    def save(self, path: str):
+        """
+        Save the table.
+
+        - `path` (`str`): Path to save this table to.
+        """
+        with open(path, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, path: str) -> "Table":
+        """
+        Load table from path.
+
+        - `path` (`str`): Path of the file to load.
+
+        **Return**: Loaded table.
+        """
+        with open(path, 'rb') as f:
+            loaded = pickle.load(f)
+            loaded.__class__ = Table
+        return loaded
 
 
 class SyntheticTable(Table):

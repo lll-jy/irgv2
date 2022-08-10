@@ -1,5 +1,7 @@
 """Database joining mechanism as if all tables are unrelated."""
 
+from typing import Any
+
 from .base import Database
 
 
@@ -13,3 +15,7 @@ class UnrelatedDatabase(Database):
 
     def augment(self):
         pass
+
+    @staticmethod
+    def _update_cls(item: Any):
+        item.__class__ = UnrelatedDatabase

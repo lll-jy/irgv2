@@ -2,9 +2,10 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView
+from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any
 from jsonschema import validate
 import os
+import json
 
 import pandas as pd
 
@@ -178,4 +179,51 @@ class Database(ABC):
 
     @property
     def tables(self) -> ItemsView[str, Table]:
+        """Get all tables in list view."""
         return self._tables.items()
+
+    def save_to_dir(self, path: str):
+        """
+        Save the database.
+
+        - `path` (`str`): Path of the directory to save this database to. It is suggested to make sure that either the
+          directory does not exist, the directory is empty, or all files inside are to be overwritten.
+        """
+        os.makedirs(path, exist_ok=True)
+
+        with open(os.path.join(path, 'config.json'), 'w') as f:
+            json.dump({
+                'primary_keys': self._primary_keys,
+                'foreign_keys': self._foreign_keys,
+                'data_dir': self._data_dir,
+                'order': list(self._tables.keys())
+            }, f, indent=2)
+
+        for name, table in self.tables:
+            table.save(os.path.join(path, f'{name}.pkl'))
+
+    @classmethod
+    def load_from_dir(cls, path: str) -> "Database":
+        """
+        Load database from path.
+
+        - `path` (`str`): Path of the directory of saved content of the database.
+
+        **Return**: Loaded database.
+        """
+        database = Database(OrderedDict({}))
+
+        with open(os.path.join(path, 'config.json'), 'r') as f:
+            content = json.load(f)
+        database._primary_keys, database._foreign_keys = content['primary_keys'], content['foreign_keys']
+        database._data_dir, order = content['data_dir'], content['order']
+
+        for table_name in order:
+            database._tables[table_name] = Table.load(os.path.join(path, f'{table_name}.pkl'))
+
+        return database
+
+    @staticmethod
+    @abstractmethod
+    def _update_cls(item: Any):
+        raise NotImplementedError()
