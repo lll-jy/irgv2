@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any
+from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple
 from jsonschema import validate
 import os
 import json
@@ -19,6 +19,22 @@ class _ForeignKey:
     def __init__(self, my_name: str, my_columns: List[str], parent_name: str, parent_columns: List[str]):
         self._name, self._parent = my_name, parent_name
         self._ref = {my_col: parent_col for my_col, parent_col in zip(my_columns, parent_columns)}
+
+    @property
+    def parent(self) -> str:
+        return self._parent
+
+    @property
+    def ref(self) -> ItemsView[str, str]:
+        return self._ref.items()
+
+    @property
+    def left(self) -> List[Tuple[str, str]]:
+        return [(self._name, col) for col in self._ref.keys()]
+
+    @property
+    def right(self) -> List[Tuple[str, str]]:
+        return [(self._parent, col) for col in self._ref.values()]
 
 
 class Database(ABC):

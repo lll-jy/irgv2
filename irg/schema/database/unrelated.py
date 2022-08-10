@@ -1,8 +1,14 @@
-"""Database joining mechanism as if all tables are unrelated."""
+"""
+Unrelated augmenting mechanism.
+All tables in the database are understood as if there is no relation between any two tables.
+"""
 
 from typing import Any
 
-from .base import Database
+from torch import Tensor
+import torch
+
+from .base import Database, SyntheticDatabase
 
 
 class UnrelatedDatabase(Database):
@@ -19,3 +25,11 @@ class UnrelatedDatabase(Database):
     @staticmethod
     def _update_cls(item: Any):
         item.__class__ = UnrelatedDatabase
+
+
+class SyntheticUnrelatedDatabase(UnrelatedDatabase, SyntheticDatabase):
+    """
+    Synthetic database for unrelated augmenting mechanism.
+    """
+    def degree_known_for(self, table_name: str) -> Tensor:
+        return torch.zeros(0)

@@ -5,3 +5,4 @@ packaging>=21.3
 pandas>=1.4.3
 torch>=1.12.0
 tqdm>=4.62.3
+DataSynthesizer>=0.1.10

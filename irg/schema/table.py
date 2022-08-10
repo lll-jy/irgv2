@@ -76,8 +76,6 @@ class Table:
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
         self._augmented: Optional[pd.DataFrame] = None
         self._degree: Optional[pd.DataFrame] = None
-        self._augmented_meta: Dict[TwoLevelName, dict] = {}
-        self._degree_meta: Dict[TwoLevelName, dict] = {}
         self._augmented_attributes: Dict[TwoLevelName, BaseAttribute] = {}
         self._degree_attributes: Dict[TwoLevelName, BaseAttribute] = {}
         self._augmented_normalized_by_attr: Dict[TwoLevelName, pd.DataFrame] = {}
@@ -94,6 +92,39 @@ class Table:
     def columns(self) -> List[str]:
         """Name of columns."""
         return [*self._attributes]
+
+    @property
+    def id_cols(self) -> Set[str]:
+        """Set if columns that are ID."""
+        return self._id_cols
+
+    def augment(self, augmented: pd.DataFrame, degree: pd.DataFrame,
+                augmented_ids: Set[TwoLevelName], degree_ids: Set[TwoLevelName],
+                augmented_attributes: Dict[TwoLevelName, BaseAttribute],
+                degree_attributes: Dict[TwoLevelName, BaseAttribute]):
+        """
+        Save augmented data.
+
+        **Args**:
+
+        - `augmented` (`pd.DataFrame`): Augmented data.
+        - `degree`: (`pd.DataFrame`): Degree data.
+        - `augmented_ids` (`Set[TwoLevelName]`): ID columns in augmented tables as a set of tuples.
+        - `degree_ids` (`Set[TwoLevelName]`): ID columns in degree tables as a set of tuples.
+        - `augmented_attributes` (`Dict[TwoLevelName, BaseAttribute]`): Attributes (typically fitted) of the augmented
+          table.
+        - `degree_attributes` (`Dict[TwoLevelName, BaseAttribute]`): Attributes (typically fitted) of the degree
+          table.
+        """
+        self._augmented, self._degree = augmented, degree
+        self._augmented_ids, self._degree_ids = augmented_ids, degree_ids
+        self._augmented_attributes, self._degree_attributes = augmented_attributes, degree_attributes
+
+        for name, attr in self._augmented_attributes.items():
+            self._augmented_normalized_by_attr[name] = attr.transform(self._augmented[name])
+        for name, attr in self._degree_attributes.items():
+            self._degree_normalized_by_attr[name] = attr.transform(self._degree[name])
+        self._augment_fitted = True
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         """
@@ -297,6 +328,11 @@ class Table:
 
     def __len__(self):
         return len(self._data)
+
+    @property
+    def attributes(self) -> Dict[str, BaseAttribute]:
+        """All attributes of the table."""
+        return self._attributes
 
 
 class SyntheticTable(Table):

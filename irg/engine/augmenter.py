@@ -1,3 +1,5 @@
+"""Augment database."""
+
 from typing import Optional, OrderedDict
 import os
 
