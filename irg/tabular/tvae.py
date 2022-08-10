@@ -37,7 +37,6 @@ class TVAETrainer(TabularTrainer):
             - Inherited arguments from [`TabularTrainer`](./base#irg.tabular.base.TabularTrainer).
             - Model arguments, same as generator arguments without prefix for [CTGAN](.#irg.tabular.CTGANTrainer).
         """
-
         super().__init__(**{
             n: v for n, v in kwargs.items() if
             n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr',
@@ -55,8 +54,9 @@ class TVAETrainer(TabularTrainer):
         ).to(self._device)
         (self._encoder, self._decoder), self._optimizer, self._lr_schd, self._grad_scaler = self._make_model_optimizer(
             [self._encoder, self._decoder],
-            **{n[4:]: v for n, v in kwargs.items() if
-               n not in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr'}}
+            **{n: v for n, v in kwargs.items() if
+               n not in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr',
+                         'cat_dims', 'known_dim', 'unknown_dim'}}
         )
 
         self._loss_factor = loss_factor
