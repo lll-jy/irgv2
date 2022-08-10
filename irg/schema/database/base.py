@@ -1,7 +1,8 @@
 """Database schema definition."""
 
+from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from typing import OrderedDict as OrderedDictT, List, Optional
+from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView
 from jsonschema import validate
 import os
 
@@ -18,7 +19,7 @@ class _ForeignKey:
         self._ref = {my_col: parent_col for my_col, parent_col in zip(my_columns, parent_columns)}
 
 
-class Database:
+class Database(ABC):
     """Database data structure."""
     _TABLE_CONF = {
         'type': 'object',
@@ -161,3 +162,20 @@ class Database:
         """
         schema = load_from(file_path, engine)
         return Database(OrderedDict(schema), data_dir)
+
+    @property
+    @abstractmethod
+    def mtype(self) -> str:
+        """Mechanism type."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def augment(self):
+        """
+        Augment the database according to the mechanism.
+        """
+        raise NotImplementedError()
+
+    @property
+    def tables(self) -> ItemsView[str, Table]:
+        return self._tables.items()

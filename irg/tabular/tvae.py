@@ -7,9 +7,19 @@ import torch
 from torch import Tensor
 from torch.nn import functional as F
 from ctgan.synthesizers.tvae import Encoder, Decoder
+from tqdm import tqdm
 
-from ..utils import Trainer
-from ..utils.dist import get_device
+from ..utils import Trainer, InferenceOutput
+from ..utils.dist import get_device, is_main_process
+
+
+class TVAEOutput(InferenceOutput):
+    """Output of TVAE."""
+    def __init__(self, rec: Tensor, sigmas: Tensor):
+        self.rec = rec
+        """Reconstructed result."""
+        self.sigmas = sigmas
+        """Sigmas of reconstructed result."""
 
 
 class TVAETrainer(Trainer):
@@ -136,3 +146,25 @@ class TVAETrainer(Trainer):
 
         kld = -0.5 * torch.sum(1 + logvar - mu**2 - logvar.exp())
         return sum(losses) * self._loss_factor / real.size()[0], kld / real.size()[0]
+
+    def inference(self, known: Tensor, batch_size: int) -> TVAEOutput:
+        dataloader = self._make_dataloader(known, torch.rand(known.shape[0], self._unknown_dim), batch_size, False)
+        if is_main_process():
+            dataloader = tqdm(dataloader)
+            dataloader.set_description(f'Inference on {self._descr}')
+
+        rec, sigmas = [], []
+        for step, (known_batch, unknown_batch) in enumerate(dataloader):
+            with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
+                real = torch.cat([known_batch, unknown_batch], dim=1)
+                mu, std, logvar = self._encoder(real)
+                eps = torch.randn_like(std)
+
+                emb = eps * std + mu
+                known_real = real[:, :self._known_dim]
+                dec_input = torch.cat([emb, known_real], dim=1)
+                rec_batch, sigmas_batch = self._decoder(dec_input)
+                rec.append(rec_batch)
+                sigmas.append(sigmas_batch)
+
+        return TVAEOutput(torch.stack(rec), torch.stack(sigmas))

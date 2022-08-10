@@ -19,6 +19,12 @@ from tqdm import tqdm
 from .dist import is_main_process, get_device, barrier
 
 
+class InferenceOutput(ABC):
+    """
+    Inference output structure.
+    """
+
+
 class Trainer(ABC):
     """PyTorch Trainer helper."""
     def __init__(self, distributed: bool = False, autocast: bool = False,
@@ -96,6 +102,14 @@ class Trainer(ABC):
             all_unknown.append(unknown)
         return torch.stack(all_known), torch.stack(all_unknown)
 
+    def _make_dataloader(self, known: Tensor, unknown: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
+        dataset = TensorDataset(known, unknown)
+        sampler = DistributedSampler(dataset, shuffle=shuffle) if self._distributed else \
+            RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
+                                collate_fn=self._collate_fn)
+        return dataloader
+
     def train(self, known: Tensor, unknown: Tensor, epochs: int, batch_size: int, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True):
         """
@@ -111,11 +125,7 @@ class Trainer(ABC):
         - `save_freq` (`int`): Save checkpoint frequency (every how many steps). Default is 100.
         - `resume` (`bool`): Whether to resume from trained result (from ckpt_dir).
         """
-        dataset = TensorDataset(known, unknown)
-        sampler = DistributedSampler(dataset, shuffle=shuffle) if self._distributed else \
-            RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
-        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
-                                collate_fn=self._collate_fn)
+        dataloader = self._make_dataloader(known, unknown, batch_size, shuffle)
 
         os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
         epoch, global_step = 0, 0
@@ -184,5 +194,19 @@ class Trainer(ABC):
         - `unknown` (`torch.Tensor`): Unknown part of the batch as tensor.
 
         **Return**: (Dict of loss name to loss float number, inference result tensor).
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
+        """
+        Infer using the trained model.
+
+        **Args**:
+
+        - `known` (`torch.Tensor`): The input to the model.
+        - `batch_size` (`int`): Batch size for inference.
+
+        **Return**: Inference result.
         """
         raise NotImplementedError()
