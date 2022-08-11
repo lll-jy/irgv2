@@ -99,6 +99,8 @@ def parse_args() -> Namespace:
     parser = ArgumentParser()
     _parse_distributed_args(parser)
     _parse_database_args(parser)
+    _parse_train_args(parser)
+    _parse_generate_args(parser)
     return parser.parse_args()
 
 
