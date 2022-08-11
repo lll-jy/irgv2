@@ -5,6 +5,7 @@ import os
 
 from sklearn.decomposition import PCA, KernelPCA, IncrementalPCA, SparsePCA, TruncatedSVD
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.random_projection import GaussianRandomProjection
 import pandas as pd
 import seaborn as sns
 
@@ -16,7 +17,8 @@ _DIM_REDUCERS: Dict = {
     'ipca': IncrementalPCA,
     'spca': SparsePCA,
     'tsvd': TruncatedSVD,
-    'lda': LinearDiscriminantAnalysis
+    'lda': LinearDiscriminantAnalysis,
+    'grp': GaussianRandomProjection
 }
 
 
@@ -54,6 +56,7 @@ class TableVisualizer:
             - `spca`: [`sklearn.decomposition.SpacePCA`](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.SpacePCA.html).
             - `tsvd`: [`sklearn.decomposition.TruncatedSVD`](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html).
             - `lda`: [`sklearn.discriminant_analysis.LinearDiscriminantAnalysis`](https://scikit-learn.org/stable/modules/generated/sklearn.discriminant_analysis.LinearDiscriminantAnalysis.html).
+            - `grp`: [`sklearn.random_projection.GaussianRandomProjection`](https://scikit-learn.org/stable/modules/generated/sklearn.random_projection.GaussianRandomProjection.html#sklearn.random_projection.GaussianRandomProjection).
         - `save_dir` (`str`): Directory to save the visualization graph to. Default is `'visualization'`.
         - `descr` (`Optional[str]`): Description of this visualization, which will give the name of saved visualization.
           If not specified, name of the tables will be used.
