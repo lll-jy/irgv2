@@ -8,14 +8,15 @@ import pandas as pd
 import numpy as np
 from sdv.evaluation import evaluate as sdv_evaluate
 import matplotlib.pyplot as plt
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.svm import LinearSVC
-from sklearn.neural_network import MLPClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.base import ClassifierMixin
+from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.base import ClassifierMixin, RegressorMixin
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, mean_squared_error
+from sklearn.preprocessing import MinMaxScaler
 
 from ...schema import Table, SyntheticTable
 from ...utils.misc import calculate_mean
@@ -27,6 +28,12 @@ _CLASSIFIERS: Dict[str, ClassifierMixin.__class__] = {
     'SVM': LinearSVC,
     'MLP': MLPClassifier,
     'DT': DecisionTreeClassifier
+}
+_REGRESSORS: Dict[str, RegressorMixin.__class__] = {
+    'KNN': KNeighborsRegressor,
+    'LR': LinearRegression,
+    'MLP': MLPRegressor,
+    'DT': DecisionTreeRegressor
 }
 
 
@@ -285,3 +292,108 @@ class MLClfMetric(BaseMetric):
         for task_name, row in res.iterrows():
             agg_res.loc[f'task_{task_name}'] = calculate_mean(res.loc[task_name, :], self._mean, self._smooth)
         return agg_res
+
+
+class MLRegMetric(BaseMetric):
+    """
+    Machine learning efficacy metrics (regression).
+    This is the 1 minus MSE for regressors trained on synthetic data and tested on real data,
+    where the MSE is calculated based on min-max normalized data in range [0, 1].
+    The result is averaged over all tasks conditioned by model, and averaged over all models conditioned by tasks.
+    The range of the metric values is [0, 1], the larger the better.
+    """
+    _DEFAULT_MODELS = {
+        'KNN': ('KNN', {}),
+        'LR': ('LR', {}),
+        'MLP': ('MLP', {}),
+        'DT': ('DT', {})
+    }
+
+    def __init__(self, models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
+                 tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, run_default: bool = True,
+                 mean: str = 'arithmetic', smooth: float = 0.1, save_to: Optional[str] = None):
+        """
+        **Args**:
+
+        - `models` (`Optional[Dict[str, Tuple[str, Dict[str, Any]]]]`): Similar to `models` argument for
+          `DetectionMetric`. Recognized regressor model types include the following (default setting is also similar
+          to `DetectionMetric`):
+            - `KNN`: [`sklearn.neighbors.KNeighborsRegressor`](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html)
+            - `LogR`: [`sklearn.linear_model.LinearRegression`](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)
+            - `MLP`: [`sklearn.neural_network.MLPRegressor`](https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.Regressor.html)
+            - `DT`: [`sklearn.tree.DecisionTreeRegressor`](https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeRegressor.html)
+        - `tasks` (`Optional[Dict[str, Tuple[str, List[str]]]]`): Same as `MLClfMetric`.
+        - `run_default` (`bool`): Whether to run default tasks (for each numerical or datetime column, use all other
+          columns to predict it). Default is `True`.
+        - `mean` and `smooth`: Arguments to [`calculate_mean`](../../utils/misc#irg.utils.misc.calculate_mean).
+        - `save_to` (`Optional[str]`): Path of the directory to save the complete result to
+          (similar to `CorrMatMetric`).
+        """
+        self._models = self._DEFAULT_MODELS if models is None else models
+
+        self._tasks = {} if tasks is None else tasks
+        self._run_default = run_default
+        self._mean, self._smooth = mean, smooth
+        self._save_to = save_to
+
+    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+        real_data = real.data(with_id='none')
+        synthetic_data = synthetic.data(with_id='none')
+
+        if self._run_default:
+            for name, attr in real.attributes.items():
+                if attr.atype in {'numerical', 'datetime', 'timedelta'}:
+                    self._tasks[f'{name}_from_all'] = (name, [col for col in real_data.columns if col != name])
+
+        res = pd.DataFrame()
+        for name, (y_col, x_cols) in self._tasks.items():
+            X_test, y_test = real_data[x_cols], real_data[y_col]
+            X_train, y_train = synthetic_data[x_cols], real_data[y_col]
+            if real.attributes[y_col].atype != 'numerical':
+                y_test = y_test.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
+                y_train = y_train.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
+            scaler = MinMaxScaler()
+            scaler.partial_fit(y_test.to_frame())
+            scaler.partial_fit(y_train.to_frame())
+            y_test = scaler.transform(y_test)
+            y_train = scaler.transform(y_train)
+            for model_name, (model_type, model_kwargs) in self._models.items():
+                model = _REGRESSORS[model_type](**model_kwargs)
+                model.fit(X_train, y_train)
+                y_pred = model.predict(X_test)
+                perf = mean_squared_error(y_test, y_pred)
+                res.loc[name, model_name] = perf
+
+        if self._save_to is not None:
+            os.makedirs(self._save_to, exist_ok=True)
+            res.index.name = 'task'
+            res.to_csv(os.path.join(self._save_to, f'{real.name}.csv'))
+
+        agg_res = pd.Series()
+        for model_name in res.columns:
+            agg_res.loc[f'model_{model_name}'] = calculate_mean(res.loc[:, model_name], self._mean, self._smooth)
+        for task_name, row in res.iterrows():
+            agg_res.loc[f'task_{task_name}'] = calculate_mean(res.loc[task_name, :], self._mean, self._smooth)
+        return agg_res
+
+
+class CardMetric(BaseMetric):
+    """
+    Metric on cardinality.
+    Namely, this checks the size of the generated table.
+    """
+    def __init__(self, scaling: float = 1):
+        """
+        **Args**:
+
+        - `scaling` (`float`): Scaling factor on synthetic table. Default is 1.
+          The expected size of synthetic table is the size of the real table times the scaling factor ideally.
+        """
+        self._scaling = scaling
+
+    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+        real_len, synthetic_len = len(real), len(synthetic)
+        expected = real_len * self._scaling
+        res = pd.Series()
+        res.loc[''] = abs(expected - synthetic_len) / expected
+        return res
