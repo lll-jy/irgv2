@@ -7,3 +7,4 @@ torch>=1.12.0
 tqdm>=4.62.3
 DataSynthesizer>=0.1.10
 sdv>=0.16.0
+matplotlib>=3.5.1
