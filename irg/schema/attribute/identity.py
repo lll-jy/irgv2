@@ -1,5 +1,5 @@
 """Handler for ID attributes."""
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Any
 
 import numpy as np
 import pandas as pd
@@ -8,6 +8,7 @@ from .base import BaseAttribute, BaseTransformer
 
 
 class IdentityTransformer(BaseTransformer):
+    """Transformer that retain values identical as originally given."""
     @property
     def atype(self) -> str:
         return 'identity'
@@ -64,3 +65,31 @@ class SerialIDAttribute(BaseAttribute):
         """
         return pd.Series([i for i in range(n)]).apply(eval(self._generator))
 
+
+class RawTransformer(IdentityTransformer):
+    """
+    Transformer that retain original raw value, and fill NaN with 0. Typically used for float columns
+    within adequate range.
+    """
+    @property
+    def atype(self) -> str:
+        return 'raw'
+
+    def _calc_fill_nan(self) -> float:
+        return 0
+
+
+class RawAttribute(BaseAttribute):
+    """Attribute that does not need any transformation normalization (other than potential NaN due to joining)."""
+    def __init__(self, name: str, values: Optional[pd.Series] = None):
+        """
+        **Args**:
+
+        - `name` (`str`): Name of the attribute.
+        - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        """
+        super().__init__(name, 'raw', values)
+        self._create_transformer()
+
+    def _create_transformer(self):
+        self._transformer = RawTransformer()

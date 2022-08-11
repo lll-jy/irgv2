@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple
+from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple, Dict
 import os
 import json
 
@@ -15,25 +15,45 @@ from ...utils.errors import ColumnNotFoundError, TableNotFoundError
 from ...utils.misc import load_from
 
 
-class _ForeignKey:
+class ForeignKey:
+    """
+    Foreign key helper structure.
+    """
     def __init__(self, my_name: str, my_columns: List[str], parent_name: str, parent_columns: List[str]):
+        """
+        **Args**:
+
+        - `my_name` (`str`): Child table's name.
+        - `my_columns` (`List[str]`): Child table's columns in foreign key.
+        - `parent_name` (`str`): Parent table's name.
+        - `parent_columns` (`List[str]`): Parent table's columns in foreign key in order of `my_columns`).
+        """
         self._name, self._parent = my_name, parent_name
         self._ref = {my_col: parent_col for my_col, parent_col in zip(my_columns, parent_columns)}
 
     @property
+    def child(self) -> str:
+        """Name of child table."""
+        return self._name
+
+    @property
     def parent(self) -> str:
+        """Name of parent table."""
         return self._parent
 
     @property
     def ref(self) -> ItemsView[str, str]:
+        """References as items view of child table columns to parent table columns in correspondence."""
         return self._ref.items()
 
     @property
     def left(self) -> List[Tuple[str, str]]:
+        """When joining, left (child) column names as two-level name."""
         return [(self._name, col) for col in self._ref.keys()]
 
     @property
     def right(self) -> List[Tuple[str, str]]:
+        """When joining, right (parent) column names as two-level name."""
         return [(self._parent, col) for col in self._ref.values()]
 
 
@@ -105,7 +125,9 @@ class Database(ABC):
         - [`ValidationError`](https://python-jsonschema.readthedocs.io/en/stable/errors/) if the provided schema is of
           invalid format.
         """
-        self._tables, self._primary_keys, self._foreign_keys = OrderedDict({}), {}, {}
+        self._tables: OrderedDictT[str, Table] = OrderedDict({})
+        self._primary_keys: Dict[str, List[str]] = {}
+        self._foreign_keys: Dict[str, List[ForeignKey]] = {}
         self._data_dir = data_dir
 
         for name, meta in schema.items():
@@ -146,7 +168,7 @@ class Database(ABC):
                 for col in parent_columns:
                     if col not in set(self._tables[parent_name].columns):
                         raise ColumnNotFoundError(parent_name, col)
-                self._foreign_keys[name].append(_ForeignKey(name, this_columns, parent_name, parent_columns))
+                self._foreign_keys[name].append(ForeignKey(name, this_columns, parent_name, parent_columns))
 
             id_cols = [] if id_cols is None else id_cols
             determinants = [] if determinants is None else determinants
@@ -250,6 +272,14 @@ class SyntheticDatabase(Database, ABC):
     """
     Synthetic database structure.
     """
+    def __init__(self, **kwargs):
+        """
+        **Args**:
+
+        - `kwargs`: Arguments for `Database`.
+        """
+        super().__init__(**kwargs)
+
     @classmethod
     def from_real(cls, real_db: Database, save_to: str) -> "SyntheticDatabase":
         """

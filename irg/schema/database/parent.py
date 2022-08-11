@@ -17,6 +17,14 @@ class ParentChildDatabase(Database):
     """
     Database with joining mechanism involving direct parent and children only.
     """
+    def __init__(self, **kwargs):
+        """
+        **Args**:
+
+        - `kwargs`: Arguments for [`Database`](./base#irg.schema.database.base.Database).
+        """
+        super().__init__(**kwargs)
+
     @property
     def mtype(self) -> str:
         return 'parent-child'
@@ -34,9 +42,13 @@ class ParentChildDatabase(Database):
             parent_name = foreign_key.parent
             prefix = f'fk{i}:{parent_name}'
             parent_table = self[parent_name]
+
             data = pd.concat({prefix: parent_table.data()}, axis=1)
-            augmented = augmented.merge(data, how='left', left_on=foreign_key.left, right_on=foreign_key.right)
-            degree = degree.merge(data, how='outer', left_on=foreign_key.left, right_on=foreign_key.right)
+            left = foreign_key.left
+            right = [(prefix, col) for _, col in foreign_key.right]
+            augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
+            degree = degree.merge(data, how='outer', left_on=left, right_on=right)
+
             id_cols |= {(prefix, col) for col in parent_table.id_cols}
             attributes |= {(prefix, name): attr for name, attr in parent_table.attributes.items()}
             fk_cols |= {col for _, col in foreign_key.left}

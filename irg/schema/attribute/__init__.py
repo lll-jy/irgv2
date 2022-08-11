@@ -1,3 +1,5 @@
+"""Attribute helpers, including transformers for normalization."""
+
 from dateutil import parser
 from typing import Optional, Dict
 
@@ -5,7 +7,7 @@ from jsonschema import validate
 import pandas as pd
 
 from .base import BaseAttribute
-from .serial_id import SerialIDAttribute
+from .identity import SerialIDAttribute, RawAttribute
 from .categorical import CategoricalAttribute
 from .numerical import NumericalAttribute
 from .datetime import DatetimeAttribute, TimedeltaAttribute
@@ -14,6 +16,7 @@ from .encoding import EncodingAttribute
 __all__ = (
     'BaseAttribute',
     'SerialIDAttribute',
+    'RawAttribute',
     'CategoricalAttribute',
     'NumericalAttribute',
     'DatetimeAttribute',
@@ -30,6 +33,7 @@ _ATTR_CONF = {
         'name': {'type': 'string'},
         'type': {'enum': [
             'id',
+            'raw',
             'categorical',
             'numerical',
             'datetime',
@@ -48,6 +52,15 @@ _ID_ATTR_CONF = {
             'type': 'string',
             'pattern': r'^\s*lambda\s+[a-zA-Z_][a-zA-Z0-9_]*\s*:'
         }
+    },
+    'required': ['name', 'type'],
+    'additionalProperties': False
+}
+_RAW_ATTR_CONF = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'type': {'enum': ['raw']}
     },
     'required': ['name', 'type'],
     'additionalProperties': False
@@ -119,6 +132,7 @@ _ENC_ATTR_CONF = {
 }
 _ATTR_CONF_BY_TYPE = {
     'id': _ID_ATTR_CONF,
+    'raw': _RAW_ATTR_CONF,
     'categorical': _CAT_ATTR_CONF,
     'numerical': _NUM_ATTR_CONF,
     'datetime': _DT_ATTR_CONF,
@@ -127,6 +141,7 @@ _ATTR_CONF_BY_TYPE = {
 }
 _ATTR_TYPE_BY_NAME: Dict[str, BaseAttribute.__class__] = {
     'id': SerialIDAttribute,
+    'raw': RawAttribute,
     'categorical': CategoricalAttribute,
     'numerical': NumericalAttribute,
     'datetime': DatetimeAttribute,

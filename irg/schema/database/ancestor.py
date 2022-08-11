@@ -17,6 +17,14 @@ class AncestorDescendantDatabase(Database):
     """
     Database with joining mechanism involving direct or indirect references.
     """
+    def __init__(self, **kwargs):
+        """
+        **Args**:
+
+        - `kwargs`: Arguments for [`Database`](./base#irg.schema.database.base.Database).
+        """
+        super().__init__(**kwargs)
+
     @property
     def mtype(self) -> str:
         return 'ancestor-descendant'
@@ -35,8 +43,13 @@ class AncestorDescendantDatabase(Database):
             prefix = f'fk{i}:{parent_name}'
             parent_table = self[parent_name]
             data, new_ids, new_attr = parent_table.augmented_for_join
-            augmented = augmented.merge(data, how='left', left_on=foreign_key.left, right_on=foreign_key.right)
-            degree = degree.merge(data, how='outer', left_on=foreign_key.left, right_on=foreign_key.right)
+
+            data = pd.concat({prefix: data}, axis=1)
+            left = foreign_key.left
+            right = [(prefix, col) for _, col in foreign_key.right]
+            augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
+            degree = degree.merge(data, how='outer', left_on=left, right_on=right)
+
             id_cols |= {(prefix, col) for col in new_ids}
             attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
             fk_cols |= {col for _, col in foreign_key.left}

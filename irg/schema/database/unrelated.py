@@ -15,6 +15,14 @@ class UnrelatedDatabase(Database):
     """
     Database with joining mechanism as if all tables are unrelated.
     """
+    def __init__(self, **kwargs):
+        """
+        **Args**:
+
+        - `kwargs`: Arguments for [`Database`](./base#irg.schema.database.base.Database).
+        """
+        super().__init__(**kwargs)
+
     @property
     def mtype(self) -> str:
         return 'unrelated'

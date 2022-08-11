@@ -4,19 +4,25 @@ from typing import OrderedDict, Dict, Optional
 
 from .base import Database, SyntheticDatabase
 from .unrelated import UnrelatedDatabase
+from .parent import ParentChildDatabase
+from .ancestor import AncestorDescendantDatabase
 
 
 __all__ = (
     'Database',
     'SyntheticDatabase',
     'UnrelatedDatabase',
+    'ParentChildDatabase',
+    'AncestorDescendantDatabase',
     'create',
     'create_from_dict',
     'create_from_file'
 )
 
 _DB_TYPE_BY_NAME: Dict[str, Database.__class__] = {
-    'unrelated': UnrelatedDatabase
+    'unrelated': UnrelatedDatabase,
+    'parent-child': ParentChildDatabase,
+    'ancestor-descendant': AncestorDescendantDatabase
 }
 
 
