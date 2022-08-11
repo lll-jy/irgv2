@@ -3,10 +3,10 @@
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
 from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple
-from jsonschema import validate
 import os
 import json
 
+from jsonschema import validate
 import pandas as pd
 from torch import Tensor
 

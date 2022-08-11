@@ -260,6 +260,20 @@ class Table:
         return res
 
     @property
+    def augmented_for_join(self) -> Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
+        """Augmented information for joining, including augmented table, set of ID column names, and attributes."""
+        if self.is_independent:
+            return self.data(), self._id_cols, self._attributes
+
+        data = self.data(variant='augmented')
+        flattened, attributes = {}, {}
+        for (table, col), group_df in data.groupby(level=[0, 1]):
+            col_name = col if table == self.name else f'{table}/{col}'
+            attributes[col_name] = self._augmented_attributes[(table, col)]
+            flattened[col_name] = group_df
+        return pd.concat(flattened, axis=1), self._id_cols, attributes
+
+    @property
     def ptg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]]]:
         """Data used for tabular data generation (X, y) with a list showing
         [categorical columns](../tabular/ctgan#irg.tabular.ctgan.CTGANTrainer)."""

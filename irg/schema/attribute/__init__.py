@@ -1,7 +1,7 @@
 from dateutil import parser
-from jsonschema import validate
 from typing import Optional, Dict
 
+from jsonschema import validate
 import pandas as pd
 
 from .base import BaseAttribute
