@@ -24,8 +24,8 @@ def _parse_database_args(parser: ArgumentParser):
     group.add_argument('--engine', default='json', type=str, help='File format of database',
                        choices=['json', 'pickle', 'yaml', 'torch'])
     group.add_argument('--data_dir', default='.', type=str, help='Data directory with data content.')
-    group.add_argument('--mtype', default='unrelated', type=str, help='Augmentation mechanism of database.',
-                       choices=['unrelated'])  # TODO: more types
+    group.add_argument('--mtype', default='affecting', type=str, help='Augmentation mechanism of database.',
+                       choices=['unrelated', 'parent-child', 'ancestor-descendant', 'affecting'])
     group.add_argument('--db_dir_path', default=None, type=str, help='Directory path of the real database.')
     group.add_argument('--aug_resume', default=False, action='store_true', help='Whether to resume from already '
                                                                                 'augmented database if provided.')

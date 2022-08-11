@@ -6,6 +6,7 @@ from .base import Database, SyntheticDatabase
 from .unrelated import UnrelatedDatabase
 from .parent import ParentChildDatabase
 from .ancestor import AncestorDescendantDatabase
+from .affecting import AffectingDatabase
 
 
 __all__ = (
@@ -14,6 +15,7 @@ __all__ = (
     'UnrelatedDatabase',
     'ParentChildDatabase',
     'AncestorDescendantDatabase',
+    'AffectingDatabase',
     'create',
     'create_from_dict',
     'create_from_file'
@@ -22,13 +24,13 @@ __all__ = (
 _DB_TYPE_BY_NAME: Dict[str, Database.__class__] = {
     'unrelated': UnrelatedDatabase,
     'parent-child': ParentChildDatabase,
-    'ancestor-descendant': AncestorDescendantDatabase
+    'ancestor-descendant': AncestorDescendantDatabase,
+    'affecting': AffectingDatabase
 }
 
 
-# TODO: mtype default
 def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,
-           data_dir: str = '.', mtype: str = 'unrelated') -> Database:
+           data_dir: str = '.', mtype: str = 'affecting') -> Database:
     """
     Create database from schema.
 
@@ -46,21 +48,22 @@ def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None
     raise RuntimeError('Schema and file path cannot be None simultaneously.')
 
 
-def create_from_dict(schema: OrderedDict, data_dir: str = '.', mtype: str = 'unrelated') -> Database:
+def create_from_dict(schema: OrderedDict, data_dir: str = '.', mtype: str = 'affecting') -> Database:
     """
     Create database from schema as dict.
 
     **Args**:
 
     - `schema` and `data_dir`: Arguments to [`Database`](./base#irg.schema.database.base.Database) constructor.
-    - `mtype` (`str`): Mechanism type.
+    - `mtype` (`str`): Mechanism type. Supported types are 'unrelated', 'parent-child', 'ancestor-descendant',
+      and 'affecting'. Default is 'affecting'.
 
     **Return**: Constructed database from the given information.
     """
     return _DB_TYPE_BY_NAME[mtype](schema, data_dir)
 
 
-def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str = '.', mtype: str = 'unrelated') \
+def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str = '.', mtype: str = 'affecting') \
         -> Database:
     """
     Create database from schema in file.
@@ -69,7 +72,8 @@ def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str
 
     - `file_path`, `engine` and `data_dir`: Arguments to
       [`Database.load_from`](./base#irg.schema.database.base.Database.load_from).
-    - `mtype` (`str`): Mechanism type.
+    - `mtype` (`str`): Mechanism type. Supported types are 'unrelated', 'parent-child', 'ancestor-descendant',
+      and 'affecting'. Default is 'affecting'.
 
     **Return**: Constructed database from the given information.
     """
