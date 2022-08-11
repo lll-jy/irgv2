@@ -46,20 +46,21 @@ def train(database: Database, do_train: bool,
     for name, table in database.tables:
         tabular_known, tabular_unknown, cat_dims = table.ptg_data
         tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
-                                            tab_trainer_args[name], tab_train_args[name])
+                                            tab_trainer_args[name], tab_train_args[name], name)
 
         if not table.is_independent:
             deg_known, deg_unknown, cat_dims = table.deg_data
             deg_models[name] = _train_model(deg_known, deg_unknown, cat_dims, do_train,
-                                            deg_trainer_args[name], deg_train_args[name])
+                                            deg_trainer_args[name], deg_train_args[name], name)
 
     return tabular_models, deg_models
 
 
 def _train_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]], do_train: bool,
-                 trainer_args: Dict, train_args: Dict) -> TabularTrainer:
+                 trainer_args: Dict, train_args: Dict, descr: str) -> TabularTrainer:
     known_dim, unknown_dim = known.shape[1], unknown.shape[1]
-    trainer = create_tab_trainer(cat_dims=cat_dims, known_dim=known_dim, unknown_dim=unknown_dim, **trainer_args)
+    trainer = create_tab_trainer(cat_dims=cat_dims, known_dim=known_dim, unknown_dim=unknown_dim, descr=descr,
+                                 **trainer_args)
     if do_train:
         trainer.train(known, unknown, **train_args)
     return trainer
