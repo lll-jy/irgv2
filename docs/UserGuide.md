@@ -10,6 +10,8 @@ Run `make docs` to launch documentation, and visit `localhost:8080` in browser t
 
 # Data Preparation
 
+## Table Data
+
 ## Metadata
 
 
@@ -118,3 +120,10 @@ in this case. They are `scaling`, `gen_tab_bs`, and `gen_deg_bs`.
 For each of the argument one can specify a default value under `--default_ARG`.
 To specify specific values for tables, one can use `--ARG` followed by 2-tuples of table name and expected value.
 For more details, one can consult `python3 main.py -h`.
+
+
+# Analysis
+
+## Training Loss
+
+## Evaluation

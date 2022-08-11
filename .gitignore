@@ -4,3 +4,4 @@ drafts
 **/*.egg-info
 dist/
 build/
+**.nosync
