@@ -2,6 +2,7 @@ import json
 import pickle
 from typing import Optional, Union, Collection, Any
 import yaml
+from statistics import harmonic_mean
 
 import numpy as np
 import pandas as pd
@@ -12,7 +13,8 @@ __all__ = (
     'Data2D',
     'convert_data_as',
     'inverse_convert_data',
-    'load_from'
+    'load_from',
+    'calculate_mean'
 )
 
 
@@ -112,3 +114,25 @@ def load_from(file_path: str, engine: Optional[str] = None) -> Any:
     if engine == 'torch':
         return torch_load(file_path)
     raise NotImplementedError(f'Data file of {engine} is not recognized as a valid engine.')
+
+
+def calculate_mean(x: Union[pd.Series, np.ndarray, Tensor], mean: str = 'arithmetic', smooth: float = 0.1) -> float:
+    """
+    **Args**:
+
+    - `x` (`Union[pd.Series, np.ndarray, Tensor]`): Data to calculate mean value.
+    - `mean` (`str`): The way mean is calculated. Can be either 'arithmetic' or 'harmonic'. Default is 'arithmetic'.
+    - `smooth` (`float`): Smoothing value in case of zero division when calculating harmonic mean.
+      The harmonic value calculated will be HM(x + smooth) - smooth, and when smooth = 0, it is not smoothed.
+
+    **Return**: The calculated mean value.
+    """
+    if mean not in {'arithmetic', 'harmonic'}:
+        raise NotImplementedError(f'Mean by {mean} is not implemented. Please give "arithmetic" or "harmonic".')
+    if not 0 <= smooth <= 1:
+        raise ValueError(f'Smooth value should be in [0, 1], got {smooth}.')
+
+    if mean == 'arithmetic':
+        return x.mean()
+    else:
+        return harmonic_mean(x + smooth) - smooth
