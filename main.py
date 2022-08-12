@@ -225,7 +225,7 @@ def _train_gen(args: Namespace):
 
 def _evaluate(args: Namespace):
     if args.fake_db_names is None:
-        args.fake_db_names = args.fake_db_dir
+        args.fake_db_names = [os.path.basename(name) for name in args.fake_db_dir]
     assert len(args.fake_db_names) == len(args.fake_db_dir), 'Number of directories for synthetic databases ' \
                                                              'should match the number of names provided.'
     synthetic_db = {

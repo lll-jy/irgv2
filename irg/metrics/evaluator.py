@@ -4,12 +4,12 @@ There are four types of tabular data that can be extracted:
 
 - `tables`: Each table in the database. Each set of tabular data is named after the table's own name.
 - `parent child`: Two tables joined by some (direct or indirect) foreign keys. Each set of tabular data is named by
-  `{FK_ID} : {CHILD_NAME} : {PARENT_NAME}`, where foreign key IDs are cumulative index of foreign keys in the database.
+  `{FK_ID}__{CHILD_NAME}__{PARENT_NAME}`, where foreign key IDs are cumulative index of foreign keys in the database.
   For example, a database with tables T1, T2, T3 (ordered) with 0, 2, 1 foreign keys respectively, the index of the
   foreign key from T3 is 2 (0-based). If another set of size 3 if provided manually, then the indices are shifted
   accordingly. Namely, index 2 becomes 5.
 - `joined`: All tables in the database joined by using all foreign keys. There is only one table in this group, and its
-  name is empty string.
+  name is also `joined`.
 - `queries`: Tables constructed by some SQL queries (arbitrary query applicable in this database). Names of tabular data
   in this set are up to the user to specify.
 """
@@ -107,11 +107,11 @@ class SyntheticDatabaseEvaluator:
 
         if self._eval_parent_child:
             result['parent child'] = {
-                f'{i} : {fk.child} : {fk.parent}': db.join(fk) for i, fk in enumerate(self._all_fk)
+                f'{i}__{fk.child}__{fk.parent}': db.join(fk) for i, fk in enumerate(self._all_fk)
             }
 
         if self._eval_joined:
-            result['joined'] = {'': db.all_joined}
+            result['joined'] = {'joined': db.all_joined}
 
         if self._eval_queries:
             result['queries'] = {

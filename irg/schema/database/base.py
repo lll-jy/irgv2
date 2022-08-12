@@ -312,7 +312,7 @@ class Database(ABC):
                         table_cnt[name] += 1
 
         joined_table = Table(
-            name='', need_fit=False, id_cols=id_cols, data=data
+            name='joined', need_fit=False, id_cols=id_cols, data=data
         )
         joined_table.replace_attributes(attributes)
         return joined_table

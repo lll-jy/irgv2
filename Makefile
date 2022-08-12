@@ -8,16 +8,19 @@ LOG_DIR=logs
 CKPT_DIR=checkpoints
 SCALING=1
 CACHE_DB_FAKE=fake_db
+EVAL_CONFIG=eval_conf
+EVAL_OUT_DIR=evaluation
+DOC_PORT=8080
 
 install:
 	pip3 install -r requirements.txt
 	python3 setup.py install
 
 docs:
-	pdoc --http localhost:8080 -c latex_math=True irg docs
+	pdoc --http localhost:${DOC_PORT} -c latex_math=True irg docs
 
 train_gpu:
-	python3 -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py \
+	python3 -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py train_gen \
 		--distrubted \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
@@ -35,7 +38,7 @@ train_gpu:
 		--skip_generate
 
 train_cpu:
-	python3 main.py \
+	python3 main.py train_gen \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
 		--mtype ${MTYPE} \
@@ -48,7 +51,7 @@ train_cpu:
 		--skip_generate
 
 generate_gpu:
-	python3 -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py \
+	python3 -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py train_gen \
 		--distrubted \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
@@ -71,7 +74,7 @@ generate_gpu:
 		--save_synth_db ${CACHE_DB_FAKE}
 
 generate_cpu:
-	python3 main.py \
+	python3 main.py train_gen \
 		--distrubted \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
@@ -88,3 +91,18 @@ generate_cpu:
 		--save_generated_to ${OUT_DIR} \
 		--default_scaling ${SCALING} \
 		--save_synth_db ${CACHE_DB_FAKE}
+
+evaluate:
+	mkdir -p ${EVAL_OUT_DIR}
+	mkdir -p ${EVAL_OUT_DIR}/tables
+	python3 main.py evaluate \
+		--real_db_dir ${CACHE_DB} \
+		--fake_db_dir ${CACHE_DB_FAKE} \
+		--evaluator_path ${EVAL_CONFIG}/constructor.json \
+		--evaluate_path ${EVAL_CONFIG}/evaluate.json \
+		--save_eval_res_to ${EVAL_OUT_DIR}/trivial \
+		--save_complete_result_to ${EVAL_OUT_DIR}/complete \
+		--save_synthetic_tables_to ${EVAL_OUT_DIR}/tables/synthetic \
+		--save_tables_to ${EVAL_OUT_DIR}/tables/real \
+		--save_visualization_to ${EVAL_OUT_DIR}/visualization \
+		--save_all_res_to ${EVAL_OUT_DIR}/result

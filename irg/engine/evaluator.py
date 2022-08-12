@@ -58,7 +58,7 @@ def evaluate(real: Union[str, Database],
             synthetic=syn_db,
             save_eval_res_to=None if save_eval_res_to is None else os.path.join(save_eval_res_to, descr),
             save_complete_result_to=None if save_complete_result_to is None else
-            os.path.join(save_complete_result_to, descr),
+            os.path.join(save_complete_result_to, f'{descr}.pkl'),
             save_synthetic_tables_to=None if save_synthetic_tables_to is None else
             os.path.join(save_synthetic_tables_to, descr),
             save_visualization_to=None if save_visualization_to is None else os.path.join(save_visualization_to, descr),
