@@ -83,6 +83,41 @@ class Table:
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
 
+    def replace_data(self, new_data: pd.DataFrame):
+        """
+        Replace the data content in the table.
+
+        **Args**:
+
+        - `new_data` (`pd.DataFrame`): New data to fill in the table.
+        """
+        self._data = new_data
+        self._normalized_by_attr = {
+            n: attr.transform(new_data[n])
+            for n, attr in self._attributes.items()
+        }
+
+    def replace_attributes(self, new_attributes: Dict[str, BaseAttribute]):
+        """
+        Replace some attributes.
+
+        **Args**:
+
+        - `new_attributes` (`Dict[str, BaseAttribute]`): New attributes to replace the old ones.
+
+        **Raises**: `KeyError` if some attribute names are not recognized.
+        """
+        attributes = [*self._attributes]
+        if {*new_attributes} > set(attributes):
+            raise KeyError('New attributes should be a subset of existing attribute names, but got unseen ones.')
+
+        for attr_name in attributes:
+            if attr_name not in new_attributes:
+                continue
+            self._attributes[attr_name] = new_attributes[attr_name]
+            if attr_name in self._data.columns:
+                self._normalized_by_attr[attr_name] = new_attributes[attr_name].transform(self._data[attr_name])
+
     def join(self, right: "Table", ref: ItemsView[str, str], descr: Optional[str] = None, how: str = 'outer') \
             -> "Table":
         """

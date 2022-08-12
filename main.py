@@ -5,6 +5,10 @@ from collections import defaultdict
 import json
 import os
 from typing import Optional, DefaultDict, Any, List
+import random
+
+import torch
+import numpy as np
 
 from irg.utils.dist import init_process_group
 from irg import engine
@@ -101,6 +105,7 @@ def parse_args() -> Namespace:
     _parse_database_args(parser)
     _parse_train_args(parser)
     _parse_generate_args(parser)
+    parser.add_argument('--seed', type=int, default=None, help="Fix seed before training for reproduction if provided.")
     return parser.parse_args()
 
 
@@ -127,8 +132,16 @@ def _narg2nbdict(default_value: Any, special: List[str], vtype: type) -> Default
     return defaultdict(lambda: default_value, dict_from_list)
 
 
+def _fix_seed(seed: int):
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+
+
 def main():
     args = parse_args()
+    if args.seed is not None:
+        _fix_seed(args.seed)
     if args.distributed:
         init_process_group()
 

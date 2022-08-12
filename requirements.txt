@@ -10,3 +10,4 @@ sdv>=0.16.0
 matplotlib>=3.5.1
 scikit-learn>=1.0.1
 seaborn>=0.11.2
+pandasql>=0.7.3

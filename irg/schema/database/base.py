@@ -5,14 +5,17 @@ from collections import OrderedDict, defaultdict
 from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple, Dict
 import os
 import json
+import random
 
 from jsonschema import validate
 import pandas as pd
 from torch import Tensor
+from pandasql import sqldf
+import numpy as np
 
 from ..table import Table, SyntheticTable
 from ...utils.errors import ColumnNotFoundError, TableNotFoundError
-from ...utils.misc import load_from
+from ...utils.misc import load_from, Data2D
 
 
 class ForeignKey:
@@ -221,6 +224,39 @@ class Database(ABC):
         """Get all tables in list view."""
         return self._tables.items()
 
+    def data(self, **kwargs) -> Dict[str, Data2D]:
+        """
+        Get data in desired format.
+
+        **Args**:
+
+        - `kwargs`: Arguments to [`Tables.data`](../table#irg.schema.table.Table.data).
+
+        **Return**: A `dict` of names of tables mapped to `data` retrieval result of the table.
+        """
+        return {
+            name: table.data(**kwargs)
+            for name, table in self.tables
+        }
+
+    def query(self, query: str, descr: str = '', **kwargs) -> Table:
+        """
+        Execute SQL query in the database.
+
+        **Args**:
+
+        - `query` (`str`): Query to execute.
+        - `descr` (`str`): Name of the queried table. Suggested to be a short description of the query.
+        - `kwargs`: Other arguments to [`Table`](../table#irg.schema.table.Table) constructor.
+          Argument `name` and `data` should not be passed.
+
+        **Return**: Result of the queried table.
+        """
+        sqldb = self.data()
+        query_data = sqldf(query, sqldb)
+        query_table = Table(name=descr, data=query_data, **kwargs)
+        return query_table
+
     def join(self, foreign_key: ForeignKey, descr: Optional[str] = None, how: str = 'outer') -> Table:
         """
         Join two tables using the foreign key.
@@ -253,6 +289,35 @@ class Database(ABC):
 
         for name, table in self.tables:
             table.save(os.path.join(path, f'{name}.pkl'))
+
+    @property
+    def all_joined(self) -> Table:
+        data, id_cols, attributes, table_cnt = pd.DataFrame(), set(), {}, defaultdict(int)
+        for name, table in self.tables:
+            if data.empty or table.is_independent:
+                if data.empty:
+                    data = pd.concat({f'{name}_0': table.data()}, axis=1)
+                else:
+                    data = data.merge(pd.concat({f'{name}_0': table.data()}, axis=1), how='cross')
+                id_cols |= {(f'{name}_0', col) for col in table.id_cols}
+                attributes |= {(f'{name}_0', attr_name): attr for attr_name, attr in table.attributes.items()}
+            else:
+                for foreign_key in self._foreign_keys[name]:
+                    for j in range(table_cnt[foreign_key.parent]+1):
+                        left_on = [(f'{table}_{table_cnt[name]}', col) for table, col in foreign_key.left]
+                        right_on = [(f'{table}_{j}', col) for table, col in foreign_key.right]
+                        data = data.merge(pd.concat({f'{name}_{table_cnt[name]}': table.data()}, axis=1),
+                                          how='outer', left_on=left_on, right_on=right_on)
+                        id_cols |= {(f'{name}_{table_cnt[name]}', col) for col in table.id_cols}
+                        attributes |= {(f'{name}_{table_cnt[name]}', attr_name): attr
+                                       for attr_name, attr in table.attributes.items()}
+                        table_cnt[name] += 1
+
+        joined_table = Table(
+            name='joined', need_fit=False, id_cols=id_cols, data=data
+        )
+        joined_table.replace_attributes(attributes)
+        return joined_table
 
     @property
     def foreign_keys(self) -> List[ForeignKey]:
@@ -290,12 +355,14 @@ class SyntheticDatabase(Database, ABC):
     """
     Synthetic database structure.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, real: Optional[Database] = None, **kwargs):
         """
         **Args**:
 
+        - `real` (`Optional[Database]`): Real database that this synthetic database is trained on.
         - `kwargs`: Arguments for `Database`.
         """
+        self._real = real
         super().__init__(**kwargs)
 
     @classmethod
@@ -310,7 +377,7 @@ class SyntheticDatabase(Database, ABC):
 
         **Return**: Constructed empty synthetic database.
         """
-        syn_db = SyntheticDatabase(OrderedDict({}))
+        syn_db = SyntheticDatabase(real_db, schema=OrderedDict({}))
         syn_db._primary_keys, syn_db._foreign_keys = real_db._primary_keys, real_db._foreign_keys
         syn_db._data_dir = save_to
         os.makedirs(save_to, exist_ok=True)
@@ -338,3 +405,10 @@ class SyntheticDatabase(Database, ABC):
         """
         for name, table in self.tables:
             table.data().to_csv(os.path.join(self._data_dir, f'{name}.csv'), index=False)
+
+    def query(self, query: str, descr: str = '', **kwargs) -> SyntheticTable:
+        real_result = self._real.query(query, descr, **kwargs)
+        synthetic_result = super().query(query, descr, **kwargs)
+        synthetic_table = SyntheticTable.from_real(real_result)
+        synthetic_table.replace_data(synthetic_result.data())
+        return synthetic_table
