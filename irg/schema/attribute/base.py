@@ -236,6 +236,30 @@ class BaseAttribute(ABC):
         if values is not None and attr_type != 'id':
             self.fit(values)
 
+    def rename(self, new_name: str, inplace: bool = True) -> Optional["BaseAttribute"]:
+        """
+        Rename the current attribute.
+
+        **Args**:
+
+        - `new_name` (`str`): New name of the attribute.
+        - `inplace` (`bool`): Whether to change name in-place. Default is `True`.
+          If set `True`, nothing is returned.
+
+        **Return**: Renamed new attribute if inplace is `False`.
+        """
+        if inplace:
+            self._name = new_name
+        else:
+            new_attr = self.__copy__()
+            new_attr._name = new_name
+            return new_attr
+
+    def __copy__(self) -> "BaseAttribute":
+        new_attr = BaseAttribute(self._name, self._attr_type)
+        new_attr._transformer = self._transformer
+        return new_attr
+
     @property
     def atype(self) -> str:
         """

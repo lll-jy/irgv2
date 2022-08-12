@@ -153,3 +153,9 @@ class NumericalAttribute(BaseAttribute):
 
     def _create_transformer(self):
         self._transformer = NumericalTransformer(**self._kwargs)
+
+    def __copy__(self) -> "NumericalAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = NumericalAttribute
+        new_attr._kwargs = self._kwargs
+        return new_attr

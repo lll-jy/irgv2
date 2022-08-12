@@ -47,6 +47,12 @@ class SerialIDAttribute(BaseAttribute):
         self._create_transformer()
         self._generator = generator
 
+    def __copy__(self) -> "SerialIDAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = SerialIDAttribute
+        new_attr._generator = self._generator
+        return new_attr
+
     def _create_transformer(self):
         self._transformer = IdentityTransformer()
 
@@ -93,3 +99,8 @@ class RawAttribute(BaseAttribute):
 
     def _create_transformer(self):
         self._transformer = RawTransformer()
+
+    def __copy__(self) -> "RawAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = RawAttribute
+        return new_attr

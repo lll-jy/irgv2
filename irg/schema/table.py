@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import Optional, Iterable, Dict, Tuple, Set, List
+from typing import Optional, Iterable, Dict, Tuple, Set, List, ItemsView
 import pickle
 
 import torch
@@ -82,6 +82,63 @@ class Table:
         self._degree_normalized_by_attr: Dict[TwoLevelName, pd.DataFrame] = {}
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
+
+    def join(self, right: "Table", ref: ItemsView[str, str], descr: Optional[str] = None, how: str = 'outer') \
+            -> "Table":
+        """
+        Join two tables.
+
+        **Args**:
+
+        - `right` (`Table`): The other table to be joined.
+        - `ref` (`ItemsView[str, str]`): Items view of columns of this table matched to the other table for joining.
+        - `descr` (`Optional[str]`): Name of the resulting table. If not provided, the naming will be
+          `{THIS_NAME}_{HOW}_joined_{RIGHT_NAME}`.
+        - `how` (`str`): How to join. Default is `outer`.
+
+        **Return**: The joined table.
+        """
+        id_cols = {f'{self._name}/{col}' for col in self._id_cols} | {f'{right._name}/{col}' for col in right._id_cols}
+
+        left_data, right_data = self.data(), right.data()
+        left_data = left_data.rename(lambda x: f'{self._name}/{x}', axis=1)
+        right_data = right_data.rename(lambda x: f'{right._name}/{x}', axis=1)
+
+        left_on, right_on = [], []
+        for left_col, right_col in ref:
+            left_on.append(f'{self._name}/{left_col}')
+            right_on.append(f'{right._name}/{right_col}')
+
+        joined = left_data.merge(right_data, how=how, left_on=left_on, right_on=right_on)
+
+        result = Table(
+            name=descr if descr is not None else f'{self._name}_{how}_join_{right._name}',
+            need_fit=False, id_cols=id_cols, data=joined
+        )
+        result._fitted = True
+
+        result._attr_meta = {}
+        for n, v in self._attr_meta.items():
+            content = v.copy()
+            if 'name' in v:
+                content['name'] = f'{self._name}/{content["name"]}'
+            result._attr_meta[f'{self._name}/{n}'] = content
+        for n, v in right._attr_meta.items():
+            content = v.copy()
+            if 'name' in v:
+                content['name'] = f'{right._name}/{content["name"]}'
+            result._attr_meta[f'{right._name}/{n}'] = content
+
+        result._attributes = {}
+        for n, v in self._attributes.items():
+            result._attributes[f'{self._name}/{n}'] = v.rename(f'{self._name}/{v.name}', inplace=False)
+        for n, v in right._attributes.items():
+            result._attributes[f'{right._name}/{n}'] = v.rename(f'{right._name}/{v.name}', inplace=False)
+
+        for n, v in result._attributes:
+            result._normalized_by_attr[n] = v.transform(joined[n])
+
+        return result
 
     @property
     def name(self) -> str:

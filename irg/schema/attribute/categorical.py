@@ -79,3 +79,8 @@ class CategoricalAttribute(BaseAttribute):
 
     def _create_transformer(self):
         self._transformer = CategoricalTransformer()
+
+    def __copy__(self) -> "CategoricalAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = CategoricalAttribute
+        return new_attr

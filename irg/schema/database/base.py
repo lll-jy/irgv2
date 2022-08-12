@@ -221,6 +221,19 @@ class Database(ABC):
         """Get all tables in list view."""
         return self._tables.items()
 
+    def join(self, foreign_key: ForeignKey, descr: Optional[str] = None, how: str = 'outer') -> Table:
+        """
+        Join two tables using the foreign key.
+
+        **Args**:
+        - `foreign_key` (`ForeignKey`): The foreign key reference this joining is based on.
+        - `descr` and `how`: Arguments to [`Table.join`](../table#irg.schema.table.Table.join).
+
+        **Return**: The joined table.
+        """
+        child_table, parent_table = self[foreign_key.child], self[foreign_key.parent]
+        return child_table.join(parent_table, foreign_key.ref, descr, how)
+
     def save_to_dir(self, path: str):
         """
         Save the database.
@@ -240,6 +253,11 @@ class Database(ABC):
 
         for name, table in self.tables:
             table.save(os.path.join(path, f'{name}.pkl'))
+
+    @property
+    def foreign_keys(self) -> List[ForeignKey]:
+        """List of all foreign keys involved in this database."""
+        return [key for name, keys in self._foreign_keys.items() for key in keys]
 
     @classmethod
     def load_from_dir(cls, path: str) -> "Database":

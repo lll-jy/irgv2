@@ -13,7 +13,7 @@ from ...utils.misc import calculate_mean
 
 class SyntheticTableEvaluator:
     """Evaluator for synthetic table."""
-    def __init__(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None,
+    def __init__(self, save_to: Optional[str] = None,
                  eval_stats: bool = True, statistical_metrics: Optional[List[str]] = None,
                  eval_corr: bool = True, corr_mean: str = 'arithmetic', corr_smooth: float = 0.1,
                  eval_invalid_comb: bool = False,
@@ -31,8 +31,6 @@ class SyntheticTableEvaluator:
         """
         **Args**:
 
-        - `real` (`Table`): Real table.
-        - `synthetic` (`SyntheticTable`): Synthetic table.
         - `save_to` (`Optional[str]`): Path to save some original data before aggregation or visualized graphs.
           If not specified, nothing is saved.
         - `eval_stats` (`bool`): Whether to use [`StatsMetric`](./metrics#irg.metrics.tabular.metrics.StatsMetric).
@@ -55,7 +53,6 @@ class SyntheticTableEvaluator:
         - `eval_card` (`bool`): Whether to use [`CardMetric`](./metrics#irg.metrics.tabular.metrics.CardMetric).
         - `scaling`: Argument to [`CardMetric`](./metrics#irg.metrics.tabular.metrics.CardMetric).
         """
-        self._real, self._synthetic = real, synthetic
 
         self._metrics: Dict[str, BaseMetric] = {}
         if save_to is not None:
@@ -104,8 +101,21 @@ class SyntheticTableEvaluator:
         if eval_card:
             self._metrics['card'] = CardMetric(scaling)
 
-        self._result: Dict[str, pd.Series] = {
-            n: v.evaluate(self._real, self._synthetic) for n, v in self._metrics.items()
+        self._result: Dict[str, pd.Series] = {}
+
+    def evaluate(self, real: Table, synthetic: SyntheticTable):
+        """
+        Evaluate a pair of real and fake tables. Result is saved to inner structure of the evaluator.
+        Hence, to retrieve evaluation result, please call `result` or `summary` before going on to next
+        evaluation (using the same evaluator).
+
+        **Args**:
+
+        - `real` (`Table`): Real table.
+        - `synthetic` (`SyntheticTable`): Synthetic table.
+        """
+        self._result = {
+            n: v.evaluate(real, synthetic) for n, v in self._metrics.items()
         }
 
     @property

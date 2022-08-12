@@ -105,3 +105,9 @@ class EncodingAttribute(BaseAttribute):
     def _create_transformer(self):
         self._transformer = EncodingTransformer()
         self._transformer.load_vocab(file_path=self._vocab_file, engine=self._engine)
+
+    def __copy__(self) -> "EncodingAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = EncodingAttribute
+        new_attr._vocab_file, new_attr._engine = self._vocab_file, self._engine
+        return new_attr

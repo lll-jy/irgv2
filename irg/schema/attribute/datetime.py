@@ -67,6 +67,12 @@ class DatetimeAttribute(BaseAttribute):
     def _create_transformer(self):
         self._transformer = DatetimeTransformer(**self._kwargs)
 
+    def __copy__(self) -> "DatetimeAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = DatetimeAttribute
+        new_attr._kwargs = self._kwargs
+        return new_attr
+
 
 class TimedeltaTransformer(NumericalTransformer):
     """Transformer for timedelta data."""
@@ -127,3 +133,9 @@ class TimedeltaAttribute(BaseAttribute):
 
     def _create_transformer(self):
         self._transformer = TimedeltaTransformer(**self._kwargs)
+
+    def __copy__(self) -> "TimedeltaAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = TimedeltaAttribute
+        new_attr._kwargs = self._kwargs
+        return new_attr
