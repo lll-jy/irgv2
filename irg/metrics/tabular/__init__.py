@@ -2,7 +2,7 @@
 
 from .evaluator import SyntheticTableEvaluator
 from .metrics import StatsMetric, CorrMatMetric, InvalidCombMetric, DetectionMetric, MLClfMetric, MLRegMetric, \
-    CardMetric
+    CardMetric, DegreeMetric
 from .visualize import TableVisualizer
 
 __all__ = (
@@ -14,5 +14,6 @@ __all__ = (
     'MLClfMetric',
     'MLRegMetric',
     'CardMetric',
+    'DegreeMetric',
     'TableVisualizer'
 )

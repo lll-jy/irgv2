@@ -1,7 +1,8 @@
 """Tabular metrics."""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Any, Dict, Tuple
+from typing import List, Optional, Any, Dict, Tuple, DefaultDict
+from collections import defaultdict
 import os
 
 import pandas as pd
@@ -17,6 +18,7 @@ from sklearn.base import ClassifierMixin, RegressorMixin
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
+from scipy.stats import kstest
 
 from ...schema import Table, SyntheticTable
 from ...utils.misc import calculate_mean
@@ -381,6 +383,7 @@ class CardMetric(BaseMetric):
     """
     Metric on cardinality.
     Namely, this checks the size of the generated table.
+    The result is relative error, namely, say E is expected size and A is actual length, the result is |E-A|/E.
     """
     def __init__(self, scaling: float = 1):
         """
@@ -396,4 +399,37 @@ class CardMetric(BaseMetric):
         expected = real_len * self._scaling
         res = pd.Series()
         res.loc[''] = abs(expected - synthetic_len) / expected
+        return res
+
+
+class DegreeMetric(BaseMetric):
+    """
+    Metric on degrees.
+    The result is Kolmogorov-Smirnov test p-values under the null hypothesis that the distribution of real and synthetic
+    tables are the same.
+    The range of the metric's value is [0, +inf], the higher the better.
+    """
+    def __init__(self, count_on: Optional[Dict[str, List[str]]] = None,
+                 default_scaling: float = 1, scaling: Optional[Dict[str, float]] = None):
+        """
+        **Args**:
+
+        - `count_on` `(Optional[Dict[str, List[str]]])`: The list of column sets to calculate degrees,
+          each has a short description as its name.
+        - `default_scaling` (`float`): The default scaling factor on the synthetic table. Default is 1.
+        - `scaling` (`Optional[Dict[str, float]]`): Specific scaling factors for each group to calculate degrees.
+        """
+        self._count_on = count_on if count_on is not None else {}
+        self._scaling = scaling if isinstance(scaling, DefaultDict) else \
+            defaultdict(lambda: default_scaling, scaling) if scaling is not None \
+                else defaultdict(lambda: default_scaling)
+
+    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+        real_data, synthetic_data = real.data(), synthetic.data()
+        res = pd.Series
+        for descr, columns in self._count_on.items():
+            real_freq = real_data.groupby(by=columns, dropna=False, sort=False).size() * self._scaling[descr]
+            synthetic_freq = synthetic_data.groupby(by=columns, dropna=False, sort=False).size()
+            p_value = kstest(synthetic_freq, real_freq).pvalue
+            res.loc[descr] = p_value
         return res

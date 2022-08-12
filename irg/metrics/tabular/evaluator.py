@@ -7,7 +7,7 @@ import pandas as pd
 
 from ...schema import Table, SyntheticTable
 from .metrics import BaseMetric, StatsMetric, CorrMatMetric, InvalidCombMetric, DetectionMetric, MLClfMetric, \
-    MLRegMetric, CardMetric
+    MLRegMetric, CardMetric, DegreeMetric
 from ...utils.misc import calculate_mean
 
 
@@ -27,7 +27,9 @@ class SyntheticTableEvaluator:
                  eval_reg: bool = True, reg_models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
                  reg_tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, reg_run_default: bool = True,
                  reg_mean: str = 'arithmetic', reg_smooth: float = 0.1,
-                 eval_card: bool = True, scaling: float = 1):
+                 eval_card: bool = True, scaling: float = 1,
+                 eval_degree: bool = True, count_on: Optional[Dict[str, List[str]]] = None,
+                 default_degree_scaling: float = 1, degree_scaling: Optional[Dict[str, float]] = None):
         """
         **Args**:
 
@@ -52,6 +54,9 @@ class SyntheticTableEvaluator:
           [`MLRegMetric`](./metrics#irg.metrics.tabular.metrics.MLRegMetric).
         - `eval_card` (`bool`): Whether to use [`CardMetric`](./metrics#irg.metrics.tabular.metrics.CardMetric).
         - `scaling`: Argument to [`CardMetric`](./metrics#irg.metrics.tabular.metrics.CardMetric).
+        - `eval_degree` (`bool`): Whether to use [`DegreeMetric`](./metrics#irg.metrics.tabular.metrics.DegreeMetric).
+        - `count_on`, `degree_default_scaling`, and `degree_scaling`: Arguments to
+          [`DegreeMetric`](./metrics#irg.metrics.tabular.metrics.DegreeMetric).
         """
 
         self._metrics: Dict[str, BaseMetric] = {}
@@ -100,6 +105,12 @@ class SyntheticTableEvaluator:
                 )
         if eval_card:
             self._metrics['card'] = CardMetric(scaling)
+        if eval_degree:
+            self._metrics['degree'] = DegreeMetric(
+                count_on=count_on,
+                default_scaling=default_degree_scaling,
+                scaling=degree_scaling
+            )
 
         self._result: Dict[str, pd.Series] = {}
 
