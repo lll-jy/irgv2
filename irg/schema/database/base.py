@@ -5,13 +5,11 @@ from collections import OrderedDict, defaultdict
 from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple, Dict
 import os
 import json
-import random
 
 from jsonschema import validate
 import pandas as pd
 from torch import Tensor
 from pandasql import sqldf
-import numpy as np
 
 from ..table import Table, SyntheticTable
 from ...utils.errors import ColumnNotFoundError, TableNotFoundError

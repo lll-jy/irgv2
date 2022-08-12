@@ -3,6 +3,7 @@
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
 import json
+import pickle
 import os
 from typing import Optional, DefaultDict, Any, List
 import random
@@ -94,6 +95,54 @@ def _parse_generate_args(parser: ArgumentParser):
                                                                        'information to directory.')
 
 
+def _parse_eval_args(parser: ArgumentParser):
+    db_group = parser.add_argument_group('database')
+    db_group.add_argument('--real_db_dir', required=True, type=str,
+                          help='Path of the directory where the real database is saved.')
+    db_group.add_argument('--fake_db_dir', required=True, type=str, nargs='+',
+                          help='Path of the directory where the synthetic database is saved.')
+    db_group.add_argument('--fake_db_names', type=str, nargs='+',
+                          help='Names/version of synthetic databases. If provided, it should match `--fake_db_dir` in '
+                               'order. If not provided, the directory names are used as database names.')
+
+    constructor_group = parser.add_argument_group('constructor arguments')
+    constructor_group.add_argument('--evaluator_path', type=str, default=None,
+                                   help='JSON file holding the SyntheticDatabaseEvaluator constructor argument values. '
+                                        'ForeignKey is described as a `dict` of its constructor\'s arguments. '
+                                        'Some values read from the file can be overridden by CLI arguments (override '
+                                        'by giving the CLI arguments some input). Some arguments in CLI are suffixed '
+                                        'by `_from_file`, which typically involve lengthy input and hence the content '
+                                        'are read from JSON file instead of directly from CLI.')
+    constructor_group.add_argument('--eval_tables', type=bool, default=None)
+    constructor_group.add_argument('--eval_parent_child', type=bool, default=None)
+    constructor_group.add_argument('--eval_joined', type=bool, default=None)
+    constructor_group.add_argument('--eval_queries', type=bool, default=None)
+    constructor_group.add_argument('--tables', type=str, nargs='*', default=[])
+    constructor_group.add_argument('--parent_child_pairs_from_file', type=str, default=None)
+    constructor_group.add_argument('--all_direct_parent_child', type=bool, default=None)
+    constructor_group.add_argument('--queries_from_file', type=str, default=None)
+    constructor_group.add_argument('--query_args_from_file', type=str, default=None)
+    constructor_group.add_argument('--save_tables_to', type=str, default=None)
+    constructor_group.add_argument('--tabular_args_from_file', type=str, default=None)
+    constructor_group.add_argument('--default_args_from_file', type=str, default=None)
+
+    evaluate_group = parser.add_argument_group('evaluate arguments')
+    evaluate_group.add_argument('--evaluate_path', type=str, default=None,
+                                help='JSON file holding the SyntheticDatabaseEvaluator.evaluate argument values. '
+                                     'Some can be overridden in similar manners to constructor.')
+    evaluate_group.add_argument('--mean', type=str, default=None)
+    evaluate_group.add_argument('--smooth', type=float, default=None)
+    evaluate_group.add_argument('--visualize_args_from_file', type=str, default=None)
+
+    save_group = parser.add_argument_group('save results path arguments')
+    save_group.add_argument('--save_eval_res_to', type=str, default=None)
+    save_group.add_argument('--save_complete_result_to', type=str, default=None)
+    save_group.add_argument('--save_synthetic_tables_to', type=str, default=None)
+    save_group.add_argument('--save_visualization_to', type=str, default=None)
+    save_group.add_argument('--save_all_res_to', type=str, default='evaluation',
+                            help='Path of directory to save eventual result of the evaluation.')
+
+
 def parse_args() -> Namespace:
     """
     Parse arguments.
@@ -101,10 +150,17 @@ def parse_args() -> Namespace:
     **Return**: Parser arguments.
     """
     parser = ArgumentParser()
-    _parse_distributed_args(parser)
-    _parse_database_args(parser)
-    _parse_train_args(parser)
-    _parse_generate_args(parser)
+    subparsers = parser.add_subparsers(dest='op')
+
+    train_gen_parser = subparsers.add_parser('train_gen')
+    _parse_distributed_args(train_gen_parser)
+    _parse_database_args(train_gen_parser)
+    _parse_train_args(train_gen_parser)
+    _parse_generate_args(train_gen_parser)
+
+    eval_parser = subparsers.add_parser('evaluate')
+    _parse_eval_args(eval_parser)
+
     parser.add_argument('--seed', type=int, default=None, help="Fix seed before training for reproduction if provided.")
     return parser.parse_args()
 
@@ -138,10 +194,7 @@ def _fix_seed(seed: int):
     np.random.seed(seed)
 
 
-def main():
-    args = parse_args()
-    if args.seed is not None:
-        _fix_seed(args.seed)
+def _train_gen(args: Namespace):
     if args.distributed:
         init_process_group()
 
@@ -168,6 +221,67 @@ def main():
             deg_batch_sizes=_narg2nbdict(args.default_gen_deg_bs, args.gen_deg_bs, int),
             save_db_to=args.save_synth_db
         )
+
+
+def _evaluate(args: Namespace):
+    if args.fake_db_names is None:
+        args.fake_db_names = args.fake_db_dir
+    assert len(args.fake_db_names) == len(args.fake_db_dir), 'Number of directories for synthetic databases ' \
+                                                             'should match the number of names provided.'
+    synthetic_db = {
+        name: dir_path for name, dir_path in zip(args.fake_db_names, args.fake_db_dir)
+    }
+
+    constructor_args = {}
+    if args.evaluator_path is not None:
+        with open(args.evaluator_path, 'r') as f:
+            constructor_args = json.load(f)
+    for n, v in args.__dict__.items():
+        if v is None:
+            continue
+        if n not in {'eval_tables', 'eval_parent_child', 'eval_joined', 'eval_queries', 'tables',
+                     'parent_child_pairs_from_file', 'all_direct_parent_child', 'queries_from_file',
+                     'query_args_from_file', 'save_tables_to', 'tabular_args_from_file', 'default_args_from_file'}:
+            continue
+        if n.endswith('_from_file'):
+            with open(v, 'r') as f:
+                v = json.load(f)
+        constructor_args[n] = v
+
+    eval_args = {}
+    if args.evaluate_path is not None:
+        with open(args.evaluate_path, 'r') as f:
+            eval_args = json.load(f)
+    for n, v in args.__dict__.items():
+        if v is None:
+            continue
+        if n not in {'mean', 'smooth', 'visualize_args_from_file'}:
+            continue
+        if n.endswith('_from_file'):
+            with open(v, 'r') as f:
+                v = json.load(f)
+        eval_args[n] = v
+
+    result = engine.evaluate(
+        real=args.real_db_dir, synthetic=synthetic_db,
+        constructor_args=constructor_args, eval_args=eval_args,
+        save_eval_res_to=args.save_eval_res_to, save_complete_result_to=args.save_complete_result_to,
+        save_synthetic_tables_to=args.save_synthetic_tables_to, save_visualization_to=args.save_visualization_to
+    )
+    os.makedirs(args.save_all_res_to, exist_ok=True)
+    with open(os.path.join(args.save_all_res_to, 'result.pt'), 'wb') as f:
+        pickle.dump(result, f)
+
+
+def main():
+    args = parse_args()
+    if args.seed is not None:
+        _fix_seed(args.seed)
+
+    if args.op == 'train_gen':
+        _train_gen(args)
+    elif args.op == 'evaluate':
+        _evaluate(args)
 
 
 if __name__ == '__main__':

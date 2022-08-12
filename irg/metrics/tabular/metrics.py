@@ -42,7 +42,7 @@ _REGRESSORS: Dict[str, RegressorMixin.__class__] = {
 class BaseMetric(ABC):
     """Tabular metrics."""
     @abstractmethod
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         """
         Evaluate one pair of real and synthetic table.
 
@@ -50,6 +50,8 @@ class BaseMetric(ABC):
 
         - `real` (`Table`): Real table.
         - `synthetic` (`Table`): Synthetic table.
+        - `save_to` (`Optional[str]`): Path to save complete evaluation result if the returned result is not complete.
+          Not saved if not provided. 
 
         **Return**: Result of the metric described as a series.
         """
@@ -68,7 +70,7 @@ class StatsMetric(BaseMetric):
         self._metrics = metrics if metrics is not None \
             else ['CSTest', 'KSTest', 'BNLogLikelihood', 'GMLogLikelihood']
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_data = real.data(with_id='none').copy()
         synthetic_data = synthetic.data(with_id='none').copy()
 
@@ -97,17 +99,15 @@ class CorrMatMetric(BaseMetric):
     The range of the metric values is [0, 1], the larger the better.
     This metric is calculated using the normalized data.
     """
-    def __init__(self, mean: str = 'arithmetic', smooth: float = 0.1, save_to: Optional[str] = None):
+    def __init__(self, mean: str = 'arithmetic', smooth: float = 0.1):
         """
         **Args**:
 
         - `mean` and `smooth`: Arguments to [`calculate_mean`](../../utils/misc#irg.utils.misc.calculate_mean).
-        - `save_to` (`Optional[str]`): Path of the directory to save the correlation graphs. If `None`, it is not saved.
-          The file saved will have name of the table.
         """
-        self._mean, self._smooth, self._save_to = mean, smooth, save_to
+        self._mean, self._smooth = mean, smooth
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_data = real.data(normalize=True, with_id='none')
         synthetic_data = synthetic.data(normalize=True, with_id='none')
         r_corr, s_corr = real_data.corr(), synthetic_data.corr()
@@ -115,7 +115,7 @@ class CorrMatMetric(BaseMetric):
 
         res = diff_corr.aggregate(lambda x: calculate_mean(x, self._mean, self._smooth))
 
-        if self._save_to is not None:
+        if save_to is not None:
             fig, (ax1, ax2) = plt.subplots(1, 2)
             fig.suptitle(f'Correlation matrices of {real.name}')
 
@@ -128,7 +128,7 @@ class CorrMatMetric(BaseMetric):
                 ax.set_xlim(a, b-2)
             _draw_corr(ax1, 'real', r_corr)
             _draw_corr(ax2, 'fake', s_corr)
-            plt.savefig(os.path.join(self._save_to, f'{real.name}.png'))
+            plt.savefig(os.path.join(save_to, f'{real.name}.png'))
 
         return res
 
@@ -151,7 +151,7 @@ class InvalidCombMetric(BaseMetric):
         """
         self._invalid_comb = invalid_combinations
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         data = synthetic.data()
         res = pd.Series()
         for descr, (cols, invalid_values) in self._invalid_comb.items():
@@ -207,7 +207,7 @@ class DetectionMetric(BaseMetric):
         }
         self._split_kwargs = kwargs
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_data = real.data(with_id='none').copy()
         real_data[':label'] = 1
         synthetic_data = synthetic.data(with_id='none')
@@ -242,7 +242,7 @@ class MLClfMetric(BaseMetric):
 
     def __init__(self, models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
                  tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, run_default: bool = True,
-                 mean: str = 'arithmetic', smooth: float = 0.1, save_to: Optional[str] = None):
+                 mean: str = 'arithmetic', smooth: float = 0.1):
         """
         **Args**:
 
@@ -253,17 +253,14 @@ class MLClfMetric(BaseMetric):
         - `run_default` (`bool`): Whether to run default tasks (for each categorical column, use all other columns to
           predict it). Default is `True`.
         - `mean` and `smooth`: Arguments to [`calculate_mean`](../../utils/misc#irg.utils.misc.calculate_mean).
-        - `save_to` (`Optional[str]`): Path of the directory to save the complete result to
-          (similar to `CorrMatMetric`).
         """
         self._models = self._DEFAULT_MODELS if models is None else models
 
         self._tasks = {} if tasks is None else tasks
         self._run_default = run_default
         self._mean, self._smooth = mean, smooth
-        self._save_to = save_to
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_data = real.data(with_id='none')
         synthetic_data = synthetic.data(with_id='none')
 
@@ -283,10 +280,10 @@ class MLClfMetric(BaseMetric):
                 perf = f1_score(y_test, y_pred, average='macro')
                 res.loc[name, model_name] = perf
 
-        if self._save_to is not None:
-            os.makedirs(self._save_to, exist_ok=True)
+        if save_to is not None:
+            os.makedirs(save_to, exist_ok=True)
             res.index.name = 'task'
-            res.to_csv(os.path.join(self._save_to, f'{real.name}.csv'))
+            res.to_csv(os.path.join(save_to, f'{real.name}.csv'))
 
         agg_res = pd.Series()
         for model_name in res.columns:
@@ -313,7 +310,7 @@ class MLRegMetric(BaseMetric):
 
     def __init__(self, models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
                  tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, run_default: bool = True,
-                 mean: str = 'arithmetic', smooth: float = 0.1, save_to: Optional[str] = None):
+                 mean: str = 'arithmetic', smooth: float = 0.1):
         """
         **Args**:
 
@@ -328,17 +325,14 @@ class MLRegMetric(BaseMetric):
         - `run_default` (`bool`): Whether to run default tasks (for each numerical or datetime column, use all other
           columns to predict it). Default is `True`.
         - `mean` and `smooth`: Arguments to [`calculate_mean`](../../utils/misc#irg.utils.misc.calculate_mean).
-        - `save_to` (`Optional[str]`): Path of the directory to save the complete result to
-          (similar to `CorrMatMetric`).
         """
         self._models = self._DEFAULT_MODELS if models is None else models
 
         self._tasks = {} if tasks is None else tasks
         self._run_default = run_default
         self._mean, self._smooth = mean, smooth
-        self._save_to = save_to
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_data = real.data(with_id='none')
         synthetic_data = synthetic.data(with_id='none')
 
@@ -366,10 +360,10 @@ class MLRegMetric(BaseMetric):
                 perf = mean_squared_error(y_test, y_pred)
                 res.loc[name, model_name] = perf
 
-        if self._save_to is not None:
-            os.makedirs(self._save_to, exist_ok=True)
+        if save_to is not None:
+            os.makedirs(save_to, exist_ok=True)
             res.index.name = 'task'
-            res.to_csv(os.path.join(self._save_to, f'{real.name}.csv'))
+            res.to_csv(os.path.join(save_to, f'{real.name}.csv'))
 
         agg_res = pd.Series()
         for model_name in res.columns:
@@ -394,7 +388,7 @@ class CardMetric(BaseMetric):
         """
         self._scaling = scaling
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_len, synthetic_len = len(real), len(synthetic)
         expected = real_len * self._scaling
         res = pd.Series()
@@ -424,7 +418,7 @@ class DegreeMetric(BaseMetric):
             defaultdict(lambda: default_scaling, scaling) if scaling is not None \
                 else defaultdict(lambda: default_scaling)
 
-    def evaluate(self, real: Table, synthetic: SyntheticTable) -> pd.Series:
+    def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_data, synthetic_data = real.data(), synthetic.data()
         res = pd.Series
         for descr, columns in self._count_on.items():
