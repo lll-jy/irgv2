@@ -108,6 +108,7 @@ class Table:
         **Return**: Learned description of attributes metadata of the table.
         """
         id_cols = [] if id_cols is None else id_cols
+        force_cat = [] if force_cat is None else force_cat
         return {
             attr_name: (
                 learn_meta(data[attr_name], attr_name in id_cols, attr_name) | {'name': attr_name}

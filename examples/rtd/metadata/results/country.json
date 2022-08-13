@@ -2,6 +2,7 @@
   "id_cols": [
     "country"
   ],
+  "ttype": "base",
   "attributes": {
     "country": {
       "name": "country",

@@ -21,10 +21,15 @@ __all__ = (
 )
 
 RTD_PROCESSORS: Dict[str, FunctionType] = {
+    'country': data.country,
+    'provstate': data.provstate,
+    'city': data.city
 }
 """RTD table data processors."""
 
 RTD_META_CONSTRUCTORS: Dict[str, FunctionType] = {
-    'country': metadata.country
+    'country': metadata.country,
+    'provstate': metadata.provstate,
+    'city': metadata.city
 }
 """RTD metadata constructors for each table."""

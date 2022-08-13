@@ -1,0 +1,34 @@
+{
+  "id_cols": [
+    "country"
+  ],
+  "ttype": "base",
+  "attributes": {
+    "country": {
+      "name": "country",
+      "type": "id"
+    },
+    "provstate": {
+      "name": "provstate",
+      "type": "categorical"
+    },
+    "city": {
+      "name": "city",
+      "type": "categorical"
+    }
+  },
+  "primary_keys": [
+    "country",
+    "provstate",
+    "city"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "country",
+        "provstate"
+      ],
+      "parent": "provstate"
+    }
+  ]
+}
