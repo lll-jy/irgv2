@@ -36,7 +36,9 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
     deg_batch_sizes = _optional_default_dict(deg_batch_sizes, 32)
 
     for name, table in real_db.tables:
-        if table.is_independent:
+        if table.ttype == 'base':
+            gen_table = table
+        elif table.is_independent:
             gen_table = _generate_independent_table(tab_models[name], table, scaling[name], tab_batch_sizes[name])
         else:
             gen_table = _generate_dependent_table(tab_models[name], deg_models[name], table, scaling[name],

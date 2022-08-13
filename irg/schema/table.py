@@ -20,13 +20,20 @@ TwoLevelName = Tuple[str, str]
 
 class Table:
     """Table data structure that holds metadata description of the table content and the relevant data."""
-    def __init__(self, name: str, need_fit: bool = True, id_cols: Optional[Iterable[str]] = None,
+    def __init__(self, name: str, ttype: str = 'normal', need_fit: bool = True, id_cols: Optional[Iterable[str]] = None,
                  attributes: Optional[Dict[str, dict]] = None, data: Optional[pd.DataFrame] = None,
                  determinants: Optional[List[List[str]]] = None, formulas: Optional[Dict[str, str]] = None, **kwargs):
         """
         **Args**:
 
         - `name` (`str`): Name of the table.
+        - `ttype` (`str`): Table type. Recognized types include (default is `normal`)
+            - `normal`: General tabular data.
+            - `base`: Basic tabular-form information that does not need to be trained and/or generated.
+              For example, subjects in school are not in any sense sensitive data, and remain it as it is
+              makes the generated data makes more sense. These tables will be skipped from training and generation
+              and use the real table as the result directly.
+            - `series`: Series data information.
         - `need_fit` (`bool`): Whether the table need to be fitted. Default is `True`.
         - `id_cols` (`Optional[Iterable[str]]`): ID column names
         - `attributes` (`Optional[Dict[str, dict]]`): Attribute metadata readable by
@@ -40,7 +47,7 @@ class Table:
           is a row in the table.
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
-        self._name, self._need_fit, self._fitted = name, need_fit, False
+        self._name, self._ttype, self._need_fit, self._fitted = name, ttype, need_fit, False
         self._determinants = [] if determinants is None else determinants
         self._formulas = {} if formulas is None else formulas
         id_cols = set() if id_cols is None else set(id_cols)
@@ -79,6 +86,11 @@ class Table:
         self._degree_normalized_by_attr: Dict[TwoLevelName, pd.DataFrame] = {}
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
+
+    @property
+    def ttype(self) -> str:
+        """Table type."""
+        return self._ttype
 
     @classmethod
     def learn_meta(cls, data: pd.DataFrame, id_cols: Optional[Iterable[str]] = None,
@@ -475,7 +487,7 @@ class SyntheticTable(Table):
 
         **Return**: The constructed synthetic table.
         """
-        synthetic = SyntheticTable(name=table._name, need_fit=False,
+        synthetic = SyntheticTable(name=table._name, ttype=table._ttype, need_fit=False,
                                    id_cols={*table._id_cols}, attributes=table._attr_meta,
                                    determinants=table._determinants, formulas=table._formulas)
         synthetic._fitted = table._fitted

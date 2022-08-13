@@ -134,6 +134,7 @@ class Database(ABC):
         for name, meta in schema.items():
             validate(meta, self._TABLE_CONF)
             meta = defaultdict(lambda: None, meta)
+            ttype = meta['ttype'] if 'ttype' in meta else 'normal'
             fm = meta['format'] if 'format' in meta else 'csv'
             path = meta['path'] if 'path' in meta else os.path.join(self._data_dir, f'{name}.{fm}')
             data = None
@@ -142,7 +143,7 @@ class Database(ABC):
             id_cols, attributes = meta['id_cols'], meta['attributes']
             determinants, formulas = meta['determinants'], meta['formulas']
             table = Table(
-                name=name, need_fit=True,
+                name=name, ttype=ttype, need_fit=True,
                 id_cols=id_cols, attributes=attributes, data=data,
                 determinants=determinants, formulas=formulas
             )
