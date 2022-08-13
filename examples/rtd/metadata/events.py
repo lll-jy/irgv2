@@ -8,7 +8,7 @@ from irg.schema import Table
 
 
 def events(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['eventid']
+    id_cols = ['eventid', 'country']
     num_cat_cols = ['know_m', 'know_d', 'extended', 'specificity', 'vicinity', 'crit1', 'crit2', 'crit3',
                     'doubtterr', 'alternative', 'multiple', 'success', 'suicide', 'individual', 'claimed',
                     'claimmode', 'compclaim', ]
@@ -39,7 +39,7 @@ def life_damage(src: pd.DataFrame) -> Dict[str, Any]:
         'foreign_keys': [
             {
                 'columns': ['eventid'],
-                'parent': 'events',
+                'parent': 'events'
             }
         ]
     }
@@ -82,7 +82,7 @@ def hostkid(src: pd.DataFrame) -> Dict[str, Any]:
         }, {
             'columns': ['kidhijcountry'],
             'parent': 'country',
-            'parent_columns': ['country']
+            'parent_columns': ['country_txt']
         }]
     }
 
@@ -98,6 +98,44 @@ def info_int(src: pd.DataFrame) -> Dict[str, Any]:
         'foreign_keys': [{
             'columns': ['eventid'],
             'parent': 'events',
-        },]
+        }]
     }
 
+
+def attack_type(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['eventid']
+    num_cat_cols = ['attacktype']
+    attributes = Table.learn_meta(src, id_cols, num_cat_cols)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        'primary_keys': id_cols,
+        'foreign_keys': [{
+            'columns': ['eventid'],
+            'parent': 'events',
+        }]
+    }
+
+
+def target(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['eventid']
+    num_cat_cols = ['targtype', 'targsubtype', 'natlty']
+    attributes = Table.learn_meta(src, id_cols, num_cat_cols)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        'determinants': [
+            ['targtype', 'targtype_txt'],
+            ['targsubtype', 'targsubtype_txt'],
+            ['natlty_txt', 'natlty']
+        ],
+        'primary_keys': id_cols,
+        'foreign_keys': [{
+            'columns': ['eventid'],
+            'parent': 'events',
+        }, {
+            'columns': ['natlty_txt'],
+            'parent': 'country',
+            'parent_columns': ['country_txt']
+        }]
+    }

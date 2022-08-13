@@ -1,0 +1,45 @@
+{
+  "id_cols": [
+    "eventid"
+  ],
+  "attributes": {
+    "eventid": {
+      "name": "eventid",
+      "type": "id"
+    },
+    "property": {
+      "name": "property",
+      "type": "categorical"
+    },
+    "propextent": {
+      "name": "propextent",
+      "type": "categorical"
+    },
+    "propextent_txt": {
+      "name": "propextent_txt",
+      "type": "categorical"
+    },
+    "propvalue": {
+      "name": "propvalue",
+      "type": "numerical",
+      "rounding": 5
+    }
+  },
+  "determinants": [
+    [
+      "propextent",
+      "propextent_txt"
+    ]
+  ],
+  "primary_keys": [
+    "eventid"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "eventid"
+      ],
+      "parent": "events"
+    }
+  ]
+}

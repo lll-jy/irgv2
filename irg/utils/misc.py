@@ -3,6 +3,7 @@ import pickle
 from typing import Optional, Union, Collection, Any
 import yaml
 from statistics import harmonic_mean
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -139,3 +140,19 @@ def calculate_mean(x: Union[pd.Series, np.ndarray, Tensor], mean: str = 'arithme
         return x.mean()
     else:
         return harmonic_mean(x + smooth) - smooth
+
+
+def reformat_datetime(x: Optional[datetime], format_str: str) -> Optional[datetime]:
+    """
+    Reformat datetime to desired format.
+
+    **Args**:
+
+    - `x` (`Optional[datetime]`): The original datetime.
+    - `format_str` (`str`): The target new format.
+
+    **Return**: Reformatted datetime.
+    """
+    if pd.isnull(x):
+        return x
+    return datetime.strptime(x.strftime(format_str), format_str)

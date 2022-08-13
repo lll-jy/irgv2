@@ -1,0 +1,30 @@
+{
+  "id_cols": [
+    "eventid"
+  ],
+  "attributes": {
+    "eventid": {
+      "name": "eventid",
+      "type": "id"
+    },
+    "attacktype": {
+      "name": "attacktype",
+      "type": "categorical"
+    },
+    "attacktype_txt": {
+      "name": "attacktype_txt",
+      "type": "categorical"
+    }
+  },
+  "primary_keys": [
+    "eventid"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "eventid"
+      ],
+      "parent": "events"
+    }
+  ]
+}

@@ -23,13 +23,27 @@ __all__ = (
 RTD_PROCESSORS: Dict[str, FunctionType] = {
     'country': data.country,
     'provstate': data.provstate,
-    'city': data.city
+    'city': data.city,
+    'events': data.events,
+    'life_damage': data.life_damage,
+    'eco_damage': data.eco_damage,
+    'hostkid': data.hostkid,
+    'info_int': data.info_int,
+    'attack_type': data.attack_type,
+    'target': data.target
 }
 """RTD table data processors."""
 
 RTD_META_CONSTRUCTORS: Dict[str, FunctionType] = {
     'country': metadata.country,
     'provstate': metadata.provstate,
-    'city': metadata.city
+    'city': metadata.city,
+    'events': metadata.events,
+    'life_damage': metadata.life_damage,
+    'eco_damage': metadata.eco_damage,
+    'hostkid': metadata.hostkid,
+    'info_int': metadata.info_int,
+    'attack_type': metadata.attack_type,
+    'target': metadata.target
 }
 """RTD metadata constructors for each table."""

@@ -1,13 +1,20 @@
 """Events-related tables."""
 
 from datetime import datetime, timedelta
+from typing import Optional
 
 from dateutil import parser
 import numpy as np
 import pandas as pd
 
+# TODO: Natural Language:
+#  events: 'location', 'summary', 'weapdetail', 'addnotes', 'scite1', 'scite2', 'scite3', 'motive'
+#  eco_damage: 'propcomment'
+#  hostkid: 'ransomnote',
+#  target: 'corp', 'target'
 
-def _parse_date_range_start(row: pd.Series):
+
+def _parse_date_range_start(row: pd.Series) -> Optional[datetime]:
     item = row['approxdate']
     if pd.isnull(item) or not item:
         return np.nan
@@ -47,7 +54,7 @@ def _parse_date_range_start(row: pd.Series):
                 right = right[1:]
 
 
-def _parse_date_range_end(row: pd.Series):
+def _parse_date_range_end(row: pd.Series) -> Optional[datetime]:
     item = row['approxdate']
     if pd.isnull(item) or not item:
         return np.nan
@@ -91,8 +98,6 @@ def _parse_date_range_end(row: pd.Series):
                     left = left[:-1]
 
 
-# TODO: Natural Language: 'location', 'summary', 'weapdetail', 'propcomment', 'ransomnote', 'addnotes', 'scite1',
-#  'scite2', 'scite3'
 def events(src: pd.DataFrame) -> pd.DataFrame:
     """
     **Processed table**:
@@ -138,7 +143,7 @@ def eco_damage(src: pd.DataFrame) -> pd.DataFrame:
     return src
 
 
-def _process_country(c):
+def _process_country(c: Optional[str]) -> Optional[str]:
     if pd.isnull(c):
         return np.nan
     if c in {'Arrested before boarding',
@@ -188,7 +193,7 @@ def _process_country(c):
         'Madrid': 'Spain',
         'Marseilles': 'France',
         'Medellin': 'Colombia',
-        'Northern Ireland': 'Ireland',
+        'Northern Ireland': 'United Kingdom',
         'Saudi': 'Saudi Arabia',
         'Palestine': 'Israel',
         'Port Sudan': 'Sudan',
@@ -231,3 +236,58 @@ def info_int(src: pd.DataFrame) -> pd.DataFrame:
     `INT_` information per event.
     """
     return src[['eventid', 'INT_LOG', 'INT_IDEO', 'INT_MISC', 'INT_ANY']]
+
+
+def attack_type(src: pd.DataFrame) -> pd.DataFrame:
+    relevant_data = []
+    for i in range(1, 4):
+        type_data = src[['eventid', f'attacktype{i}', f'attacktype{i}_txt']].rename(columns={
+            f'attacktype{i}': 'attacktype',
+            f'attacktype{i}_txt': 'attacktype_txt'
+        })
+        type_data['attacktype'] = type_data['attacktype'].astype('Int32')
+        relevant_data.append(type_data)
+    return pd.concat(relevant_data).dropna().reset_index(drop=True)
+
+
+def _process_natlty(c: Optional[str]) -> Optional[str]:
+    if c in {'Asian', 'Multinational'}:
+        return np.nan
+    kw_map = {
+        'Bermuda': 'United Kingdom',
+        'Commonwealth of Independent States': 'Russia',
+        'Corsica': 'France',
+        'Great Britain': 'United Kingdom',
+        'Greenland': 'Denmark',
+        'Liechtenstein': 'Switzerland',
+        'Man, Isle of': 'United Kingdom',
+        'Marshall Islands': 'Solomon Islands',
+        'Mongolia': 'China',
+        'Northern Ireland': 'United Kingdom',
+        'Oman': 'Yemen',
+        'Puerto Rico': 'Dominican Republic',
+        'Saba (Netherlands Antilles)': 'Netherlands',
+        'Sinhalese': 'Sri Lanka',
+        'St. Martin': 'France',
+        'Tonga': 'Fiji',
+        'Tuvalu': 'Fiji',
+        'Virgin Islands (U.S.)': 'United States'
+    }
+    if c in kw_map:
+        return kw_map[c]
+    return c
+
+
+def target(src: pd.DataFrame) -> pd.DataFrame:
+    base_cols = ['targtype#', 'targtype#_txt', 'targsubtype#', 'targsubtype#_txt', 'natlty#', 'natlty#_txt']
+    relevant_data = []
+    for i in range(1, 4):
+        target_data = src[[col.replace('#', f'{i}') for col in base_cols]].rename(columns={
+            col.replace('#', f'{i}'): col.replace('#', '')
+            for col in base_cols
+        })
+        for col in ['targtype', 'targsubtype', 'natlty']:
+            target_data[col] = target_data[col].astype('Int32')
+        target_data['natlty_txt'] = target_data['natlty_txt'].apply(_process_natlty)
+        relevant_data.append(target_data)
+    return pd.concat(relevant_data).dropna().reset_index(drop=True)

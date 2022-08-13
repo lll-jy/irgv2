@@ -1,0 +1,168 @@
+{
+  "id_cols": [
+    "eventid"
+  ],
+  "attributes": {
+    "eventid": {
+      "name": "eventid",
+      "type": "id"
+    },
+    "country": {
+      "name": "country",
+      "type": "id"
+    },
+    "provstate": {
+      "name": "provstate",
+      "type": "categorical"
+    },
+    "city": {
+      "name": "city",
+      "type": "categorical"
+    },
+    "extended": {
+      "name": "extended",
+      "type": "categorical"
+    },
+    "resolution": {
+      "name": "resolution",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "latitude": {
+      "name": "latitude",
+      "type": "numerical",
+      "rounding": 6
+    },
+    "longitude": {
+      "name": "longitude",
+      "type": "numerical",
+      "rounding": 6
+    },
+    "specificity": {
+      "name": "specificity",
+      "type": "categorical"
+    },
+    "vicinity": {
+      "name": "vicinity",
+      "type": "categorical"
+    },
+    "crit1": {
+      "name": "crit1",
+      "type": "categorical"
+    },
+    "crit2": {
+      "name": "crit2",
+      "type": "categorical"
+    },
+    "crit3": {
+      "name": "crit3",
+      "type": "categorical"
+    },
+    "doubtterr": {
+      "name": "doubtterr",
+      "type": "categorical"
+    },
+    "alternative": {
+      "name": "alternative",
+      "type": "categorical"
+    },
+    "alternative_txt": {
+      "name": "alternative_txt",
+      "type": "categorical"
+    },
+    "multiple": {
+      "name": "multiple",
+      "type": "categorical"
+    },
+    "success": {
+      "name": "success",
+      "type": "categorical"
+    },
+    "suicide": {
+      "name": "suicide",
+      "type": "categorical"
+    },
+    "individual": {
+      "name": "individual",
+      "type": "categorical"
+    },
+    "nperps": {
+      "name": "nperps",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "nperpcap": {
+      "name": "nperpcap",
+      "type": "numerical",
+      "rounding": 1
+    },
+    "claimed": {
+      "name": "claimed",
+      "type": "categorical"
+    },
+    "compclaim": {
+      "name": "compclaim",
+      "type": "categorical"
+    },
+    "nhours": {
+      "name": "nhours",
+      "type": "numerical",
+      "rounding": 2
+    },
+    "ndays": {
+      "name": "ndays",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "divert": {
+      "name": "divert",
+      "type": "categorical"
+    },
+    "dbsource": {
+      "name": "dbsource",
+      "type": "categorical"
+    },
+    "idate": {
+      "name": "idate",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "know_m": {
+      "name": "know_m",
+      "type": "categorical"
+    },
+    "know_d": {
+      "name": "know_d",
+      "type": "categorical"
+    },
+    "approx_start": {
+      "name": "approx_start",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+    },
+    "approx_end": {
+      "name": "approx_end",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+    }
+  },
+  "determinants": [
+    [
+      "alternative",
+      "alternative_txt"
+    ]
+  ],
+  "primary_keys": [
+    "eventid"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "country",
+        "provstate",
+        "city"
+      ],
+      "parent": "city"
+    }
+  ]
+}

@@ -12,6 +12,7 @@ from .categorical import CategoricalAttribute
 from .numerical import NumericalAttribute
 from .datetime import DatetimeAttribute, TimedeltaAttribute
 from .encoding import EncodingAttribute
+from ...utils.misc import reformat_datetime as _reformat_datetime
 
 __all__ = (
     'BaseAttribute',
@@ -232,8 +233,7 @@ def _learn_property(dtype: str, data: pd.Series, attr_meta: dict):
         format_str = ''
         for u, format_suffix in units_to_format.items():
             format_str += format_suffix
-            rounded = data.apply(lambda x: datetime.strptime(
-                x.strftime(format_str), format_str))
+            rounded = data.apply(lambda x: _reformat_datetime(x, format_str))
             if rounded.equals(data):
                 attr_meta['date_format'] = format_str
                 return

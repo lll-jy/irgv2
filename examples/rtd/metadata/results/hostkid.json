@@ -1,0 +1,87 @@
+{
+  "id_cols": [
+    "eventid"
+  ],
+  "attributes": {
+    "eventid": {
+      "name": "eventid",
+      "type": "id"
+    },
+    "ishostkid": {
+      "name": "ishostkid",
+      "type": "categorical"
+    },
+    "nhostkid": {
+      "name": "nhostkid",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "kidhijcountry": {
+      "name": "kidhijcountry",
+      "type": "categorical"
+    },
+    "ransom": {
+      "name": "ransom",
+      "type": "categorical"
+    },
+    "ransomamt": {
+      "name": "ransomamt",
+      "type": "numerical",
+      "rounding": 2
+    },
+    "ransomamtus": {
+      "name": "ransomamtus",
+      "type": "numerical",
+      "rounding": 2
+    },
+    "ransompaid": {
+      "name": "ransompaid",
+      "type": "numerical",
+      "rounding": 2
+    },
+    "ransompaidus": {
+      "name": "ransompaidus",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hostkidoutcome": {
+      "name": "hostkidoutcome",
+      "type": "categorical"
+    },
+    "hostkidoutcome_txt": {
+      "name": "hostkidoutcome_txt",
+      "type": "categorical"
+    },
+    "nreleased": {
+      "name": "nreleased",
+      "type": "numerical",
+      "rounding": 0
+    }
+  },
+  "determinants": [
+    [
+      "hostkidoutcome",
+      "hostkidoutcome_txt"
+    ]
+  ],
+  "primary_keys": [
+    "eventid"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "eventid"
+      ],
+      "parent": "events"
+    },
+    {
+      "columns": [
+        "kidhijcountry"
+      ],
+      "parent": "country",
+      "parent_columns": [
+        "country_txt"
+      ]
+    }
+  ]
+}
