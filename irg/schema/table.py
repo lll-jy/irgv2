@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import Optional, Iterable, Dict, Tuple, Set, List, ItemsView
+from typing import Optional, Iterable, Dict, Tuple, Set, List, ItemsView, Any
 import pickle
 
 import torch
@@ -47,10 +47,7 @@ class Table:
         if attributes is None:
             if data is None:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
-            attributes = {
-                attr_name: learn_meta(data[attr_name], attr_name in id_cols, attr_name) | {'name': attr_name}
-                for attr_name in data.columns
-            }
+            attributes = self.learn_meta(data, id_cols)
         self._attr_meta, self._data, self._id_cols = attributes, data, id_cols
         self._attributes: Dict[str, BaseAttribute] = {
             attr_name: create_attribute(meta, data[attr_name] if need_fit and data is not None else None)
@@ -82,6 +79,30 @@ class Table:
         self._degree_normalized_by_attr: Dict[TwoLevelName, pd.DataFrame] = {}
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
+
+    @classmethod
+    def learn_meta(cls, data: pd.DataFrame, id_cols: Optional[Iterable[str]] = None,
+                   force_cat: Optional[Iterable[str]] = None) -> Dict[str, Dict[str, Any]]:
+        """
+        Learn attribute meta input from data.
+
+        **Args**:
+
+        - `data` (`pd.DataFrame`): Source data of the table.
+        - `id_cols` (`Optional[Iterable[str]]`): List/set of ID column names.
+        - `force_cat` (`Optional[Iterable[str]]`): List/set of column names that are forced to be categorical
+          (typically for categorical labels that are expressed as numbers).
+
+        **Return**: Learned description of attributes metadata of the table.
+        """
+        id_cols = [] if id_cols is None else id_cols
+        return {
+            attr_name: (
+                learn_meta(data[attr_name], attr_name in id_cols, attr_name) | {'name': attr_name}
+                if attr_name not in force_cat else {'name': attr_name, 'type': 'categorical'}
+            )
+            for attr_name in data.columns
+        }
 
     def replace_data(self, new_data: pd.DataFrame):
         """

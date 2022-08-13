@@ -1,0 +1,36 @@
+{
+  "id_cols": [
+    "country"
+  ],
+  "attributes": {
+    "country": {
+      "name": "country",
+      "type": "id"
+    },
+    "country_txt": {
+      "name": "country_txt",
+      "type": "categorical"
+    },
+    "region": {
+      "name": "region",
+      "type": "categorical"
+    },
+    "region_txt": {
+      "name": "region_txt",
+      "type": "categorical"
+    }
+  },
+  "determinants": [
+    [
+      "country",
+      "country_txt"
+    ],
+    [
+      "region",
+      "region_txt"
+    ]
+  ],
+  "primary_keys": [
+    "country"
+  ]
+}

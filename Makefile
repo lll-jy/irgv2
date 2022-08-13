@@ -15,9 +15,14 @@ DOC_PORT=8080
 install:
 	pip3 install -r requirements.txt
 	python3 setup.py install
+	pip3 install -e .
+
+update:
+	python3 setup.py install
+	pip3 install -e .
 
 docs:
-	pdoc --http localhost:${DOC_PORT} -c latex_math=True irg docs
+	pdoc --http localhost:${DOC_PORT} -c latex_math=True irg docs examples
 
 train_gpu:
 	python3 -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py train_gen \
