@@ -1,6 +1,7 @@
 {
   "id_cols": [
-    "eventid"
+    "eventid",
+    "country"
   ],
   "attributes": {
     "eventid": {
@@ -96,10 +97,6 @@
       "type": "numerical",
       "rounding": 1
     },
-    "claimed": {
-      "name": "claimed",
-      "type": "categorical"
-    },
     "compclaim": {
       "name": "compclaim",
       "type": "categorical"
@@ -153,7 +150,8 @@
     ]
   ],
   "primary_keys": [
-    "eventid"
+    "eventid",
+    "country"
   ],
   "foreign_keys": [
     {

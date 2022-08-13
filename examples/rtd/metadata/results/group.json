@@ -7,12 +7,16 @@
       "name": "eventid",
       "type": "id"
     },
-    "attacktype": {
-      "name": "attacktype",
+    "gname": {
+      "name": "gname",
       "type": "categorical"
     },
-    "attacktype_txt": {
-      "name": "attacktype_txt",
+    "gsubname": {
+      "name": "gsubname",
+      "type": "categorical"
+    },
+    "guncertain": {
+      "name": "guncertain",
       "type": "categorical"
     }
   },

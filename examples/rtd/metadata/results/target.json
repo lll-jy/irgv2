@@ -3,6 +3,10 @@
     "eventid"
   ],
   "attributes": {
+    "eventid": {
+      "name": "eventid",
+      "type": "id"
+    },
     "targtype": {
       "name": "targtype",
       "type": "categorical"
@@ -41,9 +45,6 @@
       "natlty_txt",
       "natlty"
     ]
-  ],
-  "primary_keys": [
-    "eventid"
   ],
   "foreign_keys": [
     {

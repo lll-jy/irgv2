@@ -6,7 +6,8 @@ Hence, all tables are extracted from this joined table.
 """
 
 from .region import country, provstate, city
-from .events import events, life_damage, eco_damage, hostkid, info_int, attack_type, target
+from .events import events, life_damage, eco_damage, hostkid, info_int, attack_type, target, group, claim, weapon, \
+    related
 
 __all__ = (
     'country',
@@ -18,5 +19,9 @@ __all__ = (
     'hostkid',
     'info_int',
     'attack_type',
-    'target'
+    'target',
+    'group',
+    'claim',
+    'weapon',
+    'related'
 )

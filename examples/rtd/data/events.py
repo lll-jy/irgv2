@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 from typing import Optional
+import re
 
 from dateutil import parser
 import numpy as np
@@ -106,7 +107,7 @@ def events(src: pd.DataFrame) -> pd.DataFrame:
     """
     result = src[['eventid', 'country', 'provstate', 'city', 'extended', 'resolution', 'latitude', 'longitude',
                   'specificity', 'vicinity', 'crit1', 'crit2', 'crit3', 'doubtterr', 'alternative', 'alternative_txt',
-                  'multiple', 'success', 'suicide', 'individual', 'nperps', 'nperpcap', 'claimed', 'compclaim',
+                  'multiple', 'success', 'suicide', 'individual', 'nperps', 'nperpcap', 'compclaim',
                   'nhours', 'ndays', 'divert', 'dbsource']]
     result['idate'] = src.apply(lambda row: datetime(
         year=row['iyear'],
@@ -117,7 +118,7 @@ def events(src: pd.DataFrame) -> pd.DataFrame:
     result['approx_start'] = src.apply(_parse_date_range_start, axis=1)
     result['approx_end'] = src.apply(_parse_date_range_end, axis=1)
     result['resolution'] = pd.to_datetime(result['resolution'])
-    for col in ['specificity', 'doubtterr', 'alternative', 'multiple', 'claimed', 'compclaim']:
+    for col in ['specificity', 'doubtterr', 'alternative', 'multiple', 'compclaim']:
         result[col] = result[col].astype('Int32')
     return result
 
@@ -239,6 +240,11 @@ def info_int(src: pd.DataFrame) -> pd.DataFrame:
 
 
 def attack_type(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    Attack type information, which stacks `attacktype`-related columns in the original table.
+    """
     relevant_data = []
     for i in range(1, 4):
         type_data = src[['eventid', f'attacktype{i}', f'attacktype{i}_txt']].rename(columns={
@@ -279,10 +285,16 @@ def _process_natlty(c: Optional[str]) -> Optional[str]:
 
 
 def target(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    Target information, which stacks `target`-related columns in the original table.
+    `natlty` column is processed in similar manner as `hostkid`'s `kidhijcountry`.
+    """
     base_cols = ['targtype#', 'targtype#_txt', 'targsubtype#', 'targsubtype#_txt', 'natlty#', 'natlty#_txt']
     relevant_data = []
     for i in range(1, 4):
-        target_data = src[[col.replace('#', f'{i}') for col in base_cols]].rename(columns={
+        target_data = src[['eventid'] + [col.replace('#', f'{i}') for col in base_cols]].rename(columns={
             col.replace('#', f'{i}'): col.replace('#', '')
             for col in base_cols
         })
@@ -291,3 +303,79 @@ def target(src: pd.DataFrame) -> pd.DataFrame:
         target_data['natlty_txt'] = target_data['natlty_txt'].apply(_process_natlty)
         relevant_data.append(target_data)
     return pd.concat(relevant_data).dropna().reset_index(drop=True)
+
+
+def group(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    Group information, which stacks group-related columns in the original table.
+    """
+    base_cols = ['gname#', 'gsubname#', 'guncertain#']
+    src = src.rename(columns={'gname': 'gname1', 'gsubname': 'gsubname1'})
+    relevant_data = []
+    for i in range(1, 4):
+        group_data = src[['eventid'] + [col.replace('#', f'{i}') for col in base_cols]].rename(columns={
+            col.replace('#', f'{i}'): col.replace('#', '')
+            for col in base_cols
+        })
+        group_data['guncertain'] = group_data['guncertain'].astype('Int32')
+        relevant_data.append(group_data)
+    return pd.concat(relevant_data).dropna().reset_index(drop=True)
+
+
+def claim(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    Claims information, which stacks `claim`-related columns in the original table.
+    """
+    base_cols = ['claim#', 'claimmode#', 'claimmode#_txt']
+    src = src.rename(columns={'claimed': 'claim1', 'claimmode': 'claimmode1', 'claimmode_txt': 'claimmode1_txt'})
+    relevant_data = []
+    for i in range(1, 4):
+        group_data = src[['eventid'] + [col.replace('#', f'{i}') for col in base_cols]].rename(columns={
+            col.replace('#', f'{i}'): col.replace('#', '')
+            for col in base_cols
+        })
+        group_data['claimmode'] = group_data['claimmode'].astype('Int32')
+        group_data['claim'] = group_data['claim'].astype('Int32')
+        relevant_data.append(group_data)
+    return pd.concat(relevant_data).dropna().reset_index(drop=True)
+
+
+def weapon(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    Weapon information, which stacks `weapon`-related columns in the original table.
+    """
+    base_cols = ['weaptype#', 'weaptype#_txt', 'weapsubtype#', 'weapsubtype#_txt']
+    relevant_data = []
+    for i in range(1, 5):
+        group_data = src[['eventid'] + [col.replace('#', f'{i}') for col in base_cols]].rename(columns={
+            col.replace('#', f'{i}'): col.replace('#', '')
+            for col in base_cols
+        })
+        group_data['weaptype'] = group_data['weaptype'].astype('Int32')
+        group_data['weapsubtype'] = group_data['weapsubtype'].astype('Int32')
+        relevant_data.append(group_data)
+    return pd.concat(relevant_data).dropna().reset_index(drop=True)
+
+
+def related(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    Related events, expanded from `related` column from original table.
+    """
+    res = pd.DataFrame(columns=['eventid', 'related'])
+    for i, row in src.iterrows():
+        if pd.isnull(row['related']):
+            continue
+        rel_ids = [int(x) for x in re.sub('[^\d,]', '', row['related']).split(',')]
+        my_id = row['eventid']
+        for ev_id in rel_ids:
+            if my_id != ev_id:
+                res.loc[len(res)] = my_id, ev_id
+    return res

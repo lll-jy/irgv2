@@ -150,7 +150,7 @@ class Database(ABC):
             self._tables[name] = table
             columns = table.columns
 
-            primary_keys = meta['primary_keys'] if 'primary_keys' in meta else columns
+            primary_keys = meta['primary_keys'] if 'primary_keys' in meta else []
             columns = set(columns)
             for col in primary_keys:
                 if col not in columns:
