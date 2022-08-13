@@ -12,3 +12,7 @@ scikit-learn>=1.0.1
 seaborn>=0.11.2
 pandasql>=0.7.3
 scipy>=1.7.3
+PyYAML~=5.4.1
+python-dateutil~=2.8.2
+sklearn~=0.0
+setuptools~=60.0.3

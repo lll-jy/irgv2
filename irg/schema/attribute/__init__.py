@@ -1,8 +1,8 @@
 """Attribute helpers, including transformers for normalization."""
 
-from dateutil import parser
 from typing import Optional, Dict
 
+from dateutil import parser
 from jsonschema import validate
 import pandas as pd
 

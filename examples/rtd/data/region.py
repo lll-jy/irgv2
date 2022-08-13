@@ -14,7 +14,7 @@ def country(src: pd.DataFrame) -> pd.DataFrame:
 
 def provstate(src: pd.DataFrame) -> pd.DataFrame:
     """
-    ***Processed table**:
+    **Processed table**:
 
     Contains provstate and corresponding country.
     """
@@ -23,7 +23,7 @@ def provstate(src: pd.DataFrame) -> pd.DataFrame:
 
 def city(src: pd.DataFrame) -> pd.DataFrame:
     """
-    ***Processed table**:
+    **Processed table**:
 
     Contains city, provstate and corresponding country.
     """
