@@ -56,14 +56,14 @@ class NumericalTransformer(BaseTransformer):
     def _calc_dim(self) -> int:
         return self._clusters + 1
 
-    def _calc_fill_nan(self) -> float:
-        val = self._original.mean()
+    def _calc_fill_nan(self, original: pd.Series) -> float:
+        val = original.mean()
         if pd.isnull(val):
             return 0
         return val
 
-    def _fit(self):
-        minmax_transformed = self._minmax_scaler.fit_transform(self._original.to_numpy().reshape(-1, 1))
+    def _fit(self, original: pd.Series):
+        minmax_transformed = self._minmax_scaler.fit_transform(original.to_numpy().reshape(-1, 1))
 
         self._bgm_transformer.fit(minmax_transformed)
         self._valid_component_indicator = self._bgm_transformer.weights_ > self._weight_threshold

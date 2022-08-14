@@ -1,6 +1,7 @@
 """Handler for datetime-related data."""
 from datetime import datetime, timedelta
 from typing import Optional
+import os
 
 import pandas as pd
 
@@ -23,21 +24,24 @@ class DatetimeTransformer(NumericalTransformer):
         super().__init__(**kwargs)
         self._format = date_format
         self._rounding = 0
-        self._original_as_date: Optional[pd.Series] = None
+
+    @property
+    def _as_date_path(self) -> str:
+        return os.path.join(self._temp_cache, 'date.pkl')
 
     @property
     def atype(self) -> str:
         return 'datetime'
 
-    def _calc_fill_nan(self) -> datetime:
-        val = self._original.mean()
+    def _calc_fill_nan(self, original: pd.Series) -> datetime:
+        val = original.mean()
         if pd.isnull(val):
             return datetime.now()
         return val
 
-    def _fit(self):
-        self._original_as_date = self._original
-        self._original = self._original.apply(lambda x: x.toordinal())
+    def _fit(self, original: pd.Series):
+        original.to_pickle(self._as_date_path)
+        original.apply(lambda x: x.toordinal()).to_pickle(self._data_path)
         super()._fit()
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
@@ -91,18 +95,22 @@ class TimedeltaTransformer(NumericalTransformer):
         self._original_as_delta: Optional[pd.Series] = None
 
     @property
+    def _as_delta_path(self) -> str:
+        return os.path.join(self._temp_cache, 'delta.pkl')
+
+    @property
     def atype(self) -> str:
         return 'timedelta'
 
-    def _calc_fill_nan(self) -> timedelta:
-        val = self._original.mean()
+    def _calc_fill_nan(self, original: pd.Series) -> timedelta:
+        val = original.mean()
         if pd.isnull(val):
             return timedelta(seconds=0)
         return val
 
-    def _fit(self):
-        self._original_as_delta = self._original
-        self._original = self._original.apply(lambda x: x.total_seconds())
+    def _fit(self, original: pd.Series):
+        original.to_pickle(self._as_delta_path)
+        original.apply(lambda x: x.total_seconds()).to_pickle(self._data_path)
         super()._fit()
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:

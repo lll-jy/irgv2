@@ -28,9 +28,10 @@ class CategoricalTransformer(BaseTransformer):
     def _calc_dim(self) -> int:
         return len(self._label2id)
 
-    def _calc_fill_nan(self) -> str:
-        self._original = self._original.astype(str)
-        categories = set(self._original.dropna().reset_index(drop=True))
+    def _calc_fill_nan(self, original: pd.Series) -> str:
+        original = original.astype(str)
+        original.to_pickle(self._data_path)
+        categories = set(original.dropna().reset_index(drop=True))
         cat_cnt = 0
         for cat in categories:
             self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
@@ -42,7 +43,7 @@ class CategoricalTransformer(BaseTransformer):
                 return label
             idx += 1
 
-    def _fit(self):
+    def _fit(self, original: pd.Series):
         self._transformed = self._transform(self._nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:

@@ -16,10 +16,10 @@ class IdentityTransformer(BaseTransformer):
     def _calc_dim(self) -> int:
         return 1
 
-    def _calc_fill_nan(self) -> float:
+    def _calc_fill_nan(self, original: pd.Series) -> float:
         return np.nan
 
-    def _fit(self):
+    def _fit(self, original: pd.Series):
         pass
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
@@ -81,7 +81,7 @@ class RawTransformer(IdentityTransformer):
     def atype(self) -> str:
         return 'raw'
 
-    def _calc_fill_nan(self) -> float:
+    def _calc_fill_nan(self, original: pd.Series) -> float:
         return 0
 
 

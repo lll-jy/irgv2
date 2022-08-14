@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, Any, Collection, List, Tuple
+import os
 
 import numpy as np
 import pandas as pd
@@ -26,11 +27,16 @@ class BaseTransformer:
     In particular, the output of transform and input for inverse transform must have first column 'is_nan'.
     The remaining columns depends on actual data type.
     """
-    def __init__(self):
-        self._has_nan, self._fill_nan_val = False, None
+    def __init__(self, temp_cache: str = '.temp'):
+        """
+        **Args**:
+
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
+        """
+        self._has_nan, self._fill_nan_val, self._temp_cache = False, None, temp_cache
 
         self._fitted, self._dim = False, -1
-        self._original: Optional[pd.Series] = None
+        self._original_path, self._transformed_path, self._nan_info_path = None, None, None
         self._transformed: Optional[pd.DataFrame] = None
         self._nan_info: Optional[pd.DataFrame] = None
 
@@ -67,6 +73,10 @@ class BaseTransformer:
     def _calc_dim(self) -> int:
         raise NotImplementedError()
 
+    @property
+    def _data_path(self) -> str:
+        return os.path.join(self._temp_cache, 'data.pkl')
+
     def fit(self, data: pd.Series, force_redo: bool = False):
         """
         Fit the attribute's normalization transformers.
@@ -80,22 +90,20 @@ class BaseTransformer:
         """
         if self._fitted and not force_redo:
             return
-        self._original = data
-        self._fit_for_nan()
+        data.to_pickle(self._data_path)
+        self._fit_for_nan(data)
         self._fit()
         self._fitted = True
 
-    def _fit_for_nan(self):
-        self._has_nan = self._original.hasnans
-        self._nan_info = self._construct_nan_info(self._original)
+    def _fit_for_nan(self, original: pd.Series):
+        self._has_nan = original.hasnans
+        self._nan_info = self._construct_nan_info(original)
 
     @property
     def fill_nan_val(self) -> Any:
         """
         The value used for filling `NaN`'s.
         """
-        if self._fill_nan_val is None:
-            self._fill_nan_val = self._calc_fill_nan()
         return self._fill_nan_val
 
     @property
@@ -108,19 +116,19 @@ class BaseTransformer:
         return self._has_nan
 
     @abstractmethod
-    def _calc_fill_nan(self) -> Any:
+    def _calc_fill_nan(self, original: pd.Series) -> Any:
         raise NotImplementedError('Fill NaN value is not implemented for base transformer.')
 
     def _construct_nan_info(self, original: pd.Series):
         nan_info = pd.DataFrame()
         nan_info['original'] = original
-        fill_nan_val = self.fill_nan_val
+        self._fill_nan_val = self._calc_fill_nan(original)
         nan_info['is_nan'] = original.isnull()
-        nan_info['original'].fillna(fill_nan_val, inplace=True)
+        nan_info['original'].fillna(self._fill_nan_val, inplace=True)
         return nan_info
 
     @abstractmethod
-    def _fit(self):
+    def _fit(self, original: pd.Series):
         raise NotImplementedError('Fit is not implemented for base transformer.')
 
     def get_original_transformed(self, return_as: str = 'pandas') -> Data2D:
@@ -189,7 +197,8 @@ class BaseTransformer:
             threshold = nan_thres
         else:
             if nan_ratio is None:
-                nan_ratio = self._original.count() / len(self._original)
+                original = pd.read_pickle(self._data_path)
+                nan_ratio = original.count() / len(original)
             threshold = data['is_nan'].quantile(1 - nan_ratio)
         recovered_no_nan[data['is_nan'] > threshold] = np.nan
         return recovered_no_nan

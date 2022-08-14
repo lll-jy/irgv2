@@ -56,10 +56,10 @@ class EncodingTransformer(BaseTransformer):
     def _calc_dim(self) -> int:
         return self._vocab_dim
 
-    def _calc_fill_nan(self) -> str:
+    def _calc_fill_nan(self, original: pd.Series) -> str:
         return '[UNK]'
 
-    def _fit(self):
+    def _fit(self, original: pd.Series):
         values = [*self._vocab.values()]
         self._mean_enc = np.array(values).mean(axis=0)
         self._vocab_dim = len(values[0])
