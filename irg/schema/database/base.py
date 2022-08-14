@@ -69,7 +69,7 @@ class Database(ABC):
             },
             'attributes': {'type': 'object'},
             'path': {'type': 'string'},
-            'format': {'enum': ['csv', 'pkl']},
+            'format': {'enum': ['csv', 'pickle']},
             'determinants': {
                 'type': 'array',
                 'items': {'type': 'array', 'items': 'string'}
@@ -203,7 +203,7 @@ class Database(ABC):
         - `data_dir`: Argument for [constructor](#irg.schema.database.base.Database).
         """
         schema = load_from(file_path, engine)
-        return Database(OrderedDict(schema), data_dir)
+        return cls(OrderedDict(schema), data_dir)
 
     @property
     @abstractmethod
@@ -398,12 +398,21 @@ class SyntheticDatabase(Database, ABC):
     def __setitem__(self, key: str, value: SyntheticTable):
         self._tables[key] = value
 
-    def save_synthetic_data(self):
+    def save_synthetic_data(self, file_format: str = 'csv'):
         """
-        Save synthetic data to directory as CSV files.
+        Save synthetic data to directory as files.
+
+        **Args**:
+
+        - `file_format` (`str`): File format, can be either `csv` or `pickle`.
         """
+        if file_format not in {'csv', 'pickle'}:
+            raise ValueError(f'File format {file_format} is not recognized.')
         for name, table in self.tables:
-            table.data().to_csv(os.path.join(self._data_dir, f'{name}.csv'), index=False)
+            if file_format == 'csv':
+                table.data().to_csv(os.path.join(self._data_dir, f'{name}.csv'), index=False)
+            else:
+                table.data().to_pickle(os.path.join(self._data_dir, f'{name}.pkl'))
 
     def query(self, query: str, descr: str = '', **kwargs) -> SyntheticTable:
         real_result = self._real.query(query, descr, **kwargs)

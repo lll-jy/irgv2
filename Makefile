@@ -11,21 +11,34 @@ CACHE_DB_FAKE=fake_db
 EVAL_CONFIG=eval_conf
 EVAL_OUT_DIR=evaluation
 DOC_PORT=8080
+PYTHON=python3
+DB_NAME=rtd
+META_DIR=meta
+SRC_DATA_DIR=src
 
 install:
-	pip3 install -r requirements.txt
-	python3 setup.py install
-	pip3 install -e .
+	${PYTHON} -m pip install -r requirements.txt
+	${PYTHON} setup.py install
+	${PYTHON} -m pip install -e .
 
 update:
-	python3 setup.py install
-	pip3 install -e .
+	${PYTHON} setup.py install
+	${PYTHON} -m pip install -e .
 
 docs:
 	pdoc --http localhost:${DOC_PORT} -c latex_math=True irg docs examples
 
+prepare:
+	${PYTHON} process.py database ${DB_NAME} \
+		--src_data_dir ${SRC_DATA_DIR} \
+		--data_dir ${DATA_DIR} \
+        --meta_dir ${META_DIR} \
+        --out ${DB_CONFIG} \
+        --redo_meta \
+        --redo_data
+
 train_gpu:
-	python3 -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py train_gen \
+	${PYTHON} -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py train_gen \
 		--distrubted \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
@@ -43,7 +56,7 @@ train_gpu:
 		--skip_generate
 
 train_cpu:
-	python3 main.py train_gen \
+	${PYTHON} main.py train_gen \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
 		--mtype ${MTYPE} \
@@ -56,7 +69,7 @@ train_cpu:
 		--skip_generate
 
 generate_gpu:
-	python3 -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py train_gen \
+	${PYTHON} -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=${PORT} main.py train_gen \
 		--distrubted \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
@@ -79,7 +92,7 @@ generate_gpu:
 		--save_synth_db ${CACHE_DB_FAKE}
 
 generate_cpu:
-	python3 main.py train_gen \
+	${PYTHON} main.py train_gen \
 		--distrubted \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
@@ -100,7 +113,7 @@ generate_cpu:
 evaluate:
 	mkdir -p ${EVAL_OUT_DIR}
 	mkdir -p ${EVAL_OUT_DIR}/tables
-	python3 main.py evaluate \
+	${PYTHON} main.py evaluate \
 		--real_db_dir ${CACHE_DB} \
 		--fake_db_dir ${CACHE_DB_FAKE} \
 		--evaluator_path ${EVAL_CONFIG}/constructor.json \

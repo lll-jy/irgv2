@@ -5,3 +5,4 @@ drafts
 dist/
 build/
 **.nosync
+**/out/

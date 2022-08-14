@@ -2,6 +2,8 @@
 
 Run `make install` to install needed packages and install `irg` package.
 
+If this is already run on the device, one can save time by updating instead of re-installing by `make update`.
+
 
 # Documentation
 
@@ -12,9 +14,61 @@ Or one can set `DOC_PORT` argument for `make docs` and visit `localhost` at this
 
 # Data Preparation
 
-## Table Data
+## Pre-defined Datasets
 
-## Metadata
+### Use Make Script
+
+Run `make prepare` to prepare files for training on pre-defined database datasets.
+
+For convenience, we copy the relevant script here.
+
+    python3 process.py database ${DB_NAME} \
+        --src_data_dir ${SRC_DATA_DIR} \
+        --data_dir ${DATA_DIR} \
+        --meta_dir ${META_DIR} \
+        --out ${DB_CONFIG} \
+        --redo_meta \
+        --redo_data
+
+### Variables
+
+The following table shows the variables of the script.
+
+| Name | Default | Description | 
+|:---|:---|:---|
+|`DB_NAME`|`rtd`|Name of predefined database.|
+|`SRC_DATA_DIR`|`src`|Path of directory holding the source data files.|
+|`DATA_DIR`|`.`|Path of directory to save processed data files to.|
+|`META_DIR`|`meta`|Path of directory to save per-table metadata JSON files to.|
+|`DB_CONFIG`|`config.json`|Path to save the configuration file of the entire database to.|
+
+### Input Structure
+
+Initial data saved at `SRC_DATA_DIR`.
+
+### Output Structure
+
+The structure is described in YAML-like format for readability.
+Everything inside `{}` can be changed according to actual need.
+Capitalized directory names are the variables.
+JSON files' content may also be desribed in YAML-like format if elaboration is needed there.
+This format applies to all structure description in this guide.
+
+    DB_CONFIG: "JSON file with database configuration"
+    DATA_DIR:
+      - {TABLE1_NAME}.csv
+      - {TABLE2_NAME}.csv
+      - ...
+    META_DIR:
+      - {TABLE1_NAME}.json
+      - {TABLE2_NAME}.json
+      - ...
+
+## Use Python Script
+
+In `examples` package, there are processing codes for a set of pre-defined databases.
+To generate required files for a database, one can simply call `python3 process.py database {DATABASE_NAME}`.
+To see detailed explanations on command line arguments, one can run `python3 process.py -h`.
 
 
 # Training
@@ -62,17 +116,7 @@ The following table shows the variables of the script.
 
 ### Input Structure
 
-The structure is described in YAML-like format for readability.
-Everything inside `{}` can be changed according to actual need.
-Capitalized directory names are the variables.
-JSON files' content may also be desribed in YAML-like format if elaboration is needed there.
-This format applies to all structure description in this guide.
-
-    DB_CONFIG: "JSON file with database configuration"
-    DATA_DIR:
-      - {TABLE1_NAME}.csv
-      - {TABLE2_NAME}.csv
-      - ...
+`DB_CONFIG` and `DATA_DIR` from preparation stage.
 
 ### Output Structure
 
