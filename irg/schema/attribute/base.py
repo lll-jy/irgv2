@@ -35,8 +35,7 @@ class BaseTransformer:
         """
         self._has_nan, self._fill_nan_val, self._temp_cache = False, None, temp_cache
 
-        self._fitted, self._dim = False, -1
-        self._transformed: Optional[pd.DataFrame] = None
+        self._fitted, self._dim, self._transformed_columns = False, -1, None
 
     @property
     @abstractmethod
@@ -65,7 +64,7 @@ class BaseTransformer:
         """
         if not self._fitted:
             raise NotFittedError('Transformer', 'getting transformed column names')
-        return self._transformed.columns
+        return self._transformed_columns
 
     @abstractmethod
     def _calc_dim(self) -> int:
@@ -78,6 +77,10 @@ class BaseTransformer:
     @property
     def _nan_info_path(self) -> str:
         return os.path.join(self._temp_cache, 'nan_info.pkl')
+
+    @property
+    def _transformed_path(self) -> str:
+        return os.path.join(self._temp_cache, 'transformed.pkl')
 
     def fit(self, data: pd.Series, force_redo: bool = False):
         """
@@ -93,13 +96,15 @@ class BaseTransformer:
         if self._fitted and not force_redo:
             return
         data.to_pickle(self._data_path)
-        self._fit_for_nan(data)
-        self._fit(data)
+        nan_info = self._fit_for_nan(data)
+        self._fit(data, nan_info)
         self._fitted = True
 
-    def _fit_for_nan(self, original: pd.Series):
+    def _fit_for_nan(self, original: pd.Series) -> pd.DataFrame:
         self._has_nan = original.hasnans
-        self._construct_nan_info(original).to_pickle(self._nan_info_path)
+        nan_info = self._construct_nan_info(original)
+        nan_info.to_pickle(self._nan_info_path)
+        return nan_info
 
     @property
     def fill_nan_val(self) -> Any:
@@ -147,7 +152,8 @@ class BaseTransformer:
         """
         if not self._fitted:
             raise NotFittedError('Transformer', 'retrieving original transformed')
-        return convert_data_as(self._transformed, return_as=return_as)
+        transformed = pd.read_pickle(self._transformed_path)
+        return convert_data_as(transformed, return_as=return_as)
 
     def transform(self, data: pd.Series, return_as: str = 'pandas') -> pd.DataFrame:
         """
@@ -192,7 +198,7 @@ class BaseTransformer:
         """
         if not self._fitted:
             raise NotFittedError('Transformer', 'inversely transforming other data')
-        data = inverse_convert_data(data, self._transformed.columns)
+        data = inverse_convert_data(data, self._transformed_columns)
         core_data = data.drop(columns=['is_nan']) if self._has_nan else data
         recovered_no_nan = self._inverse_transform(core_data)
         if nan_thres is not None:

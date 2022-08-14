@@ -44,7 +44,9 @@ class CategoricalTransformer(BaseTransformer):
             idx += 1
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
-        self._transformed = self._transform(nan_info)
+        transformed = self._transform(nan_info)
+        self._transformed_columns = transformed.columns
+        transformed.to_pickle(self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         transformed = pd.DataFrame()

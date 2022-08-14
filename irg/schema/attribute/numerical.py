@@ -68,7 +68,9 @@ class NumericalTransformer(BaseTransformer):
         self._bgm_transformer.fit(minmax_transformed)
         self._valid_component_indicator = self._bgm_transformer.weights_ > self._weight_threshold
 
-        self._transformed = self._transform(nan_info)
+        transformed = self._transform(nan_info)
+        self._transformed_columns = transformed.columns
+        transformed.to_pickle(self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))

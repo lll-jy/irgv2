@@ -64,7 +64,9 @@ class EncodingTransformer(BaseTransformer):
         self._mean_enc = np.array(values).mean(axis=0)
         self._vocab_dim = len(values[0])
         self._knn.fit(values, [*self._vocab.keys()])
-        self._transformed = self._transform(nan_info)
+        transformed = self._transform(nan_info)
+        self._transformed_columns = transformed.columns
+        transformed.to_pickle(self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info['original'] = nan_info['original'].astype(str)
