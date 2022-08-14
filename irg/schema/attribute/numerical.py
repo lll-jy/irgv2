@@ -18,11 +18,13 @@ class NumericalTransformer(BaseTransformer):
     The transformed columns (after `is_nan`) are `value`, `cluster_0`, `cluster_1`, ..., `cluster_k`
     for an attribute with k+1 clusters.
     """
-    def __init__(self, rounding: Optional[int] = None, min_val: float = -np.inf, max_val: float = np.inf,
+    def __init__(self, temp_cache: str = '.temp', rounding: Optional[int] = None,
+                 min_val: float = -np.inf, max_val: float = np.inf,
                  max_clusters: int = 10, std_multiplier: int = 4, weight_threshold: float = 0.005):
         """
         **Args**:
 
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         - `rounding` (`Optional[int]`) [default `None`]: Argument to pass to the second argument of `round` function
           is rounding is needed.
           That is, for data generated, output `round(x, rounding)`. If `None`, the data is not rounded.
@@ -33,7 +35,7 @@ class NumericalTransformer(BaseTransformer):
         - `std_multiplier` (`int`) [default 4]: The standard deviation multipler to GMM.
         - `weight_threshold` (`float`) [default 0.005]: The minimum weight for retaining a cluster.
         """
-        super().__init__()
+        super().__init__(temp_cache)
         self._rounding, self._min_val, self._max_val = rounding, min_val, max_val
         self._minmax_scaler = MinMaxScaler()
 
@@ -142,19 +144,20 @@ class NumericalTransformer(BaseTransformer):
 
 class NumericalAttribute(BaseAttribute):
     """Attribute for numerical data."""
-    def __init__(self, name: str, values: Optional[pd.Series] = None, **kwargs):
+    def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp', **kwargs):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         - `kwargs`: Arguments for `NumericalTransformer`.
         """
         self._kwargs = kwargs
-        super().__init__(name, 'numerical', values)
+        super().__init__(name, 'numerical', values, temp_cache)
 
     def _create_transformer(self):
-        self._transformer = NumericalTransformer(**self._kwargs)
+        self._transformer = NumericalTransformer(self._temp_cache, **self._kwargs)
 
     def __copy__(self) -> "NumericalAttribute":
         new_attr = super().__copy__()

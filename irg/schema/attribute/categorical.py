@@ -14,8 +14,8 @@ class CategoricalTransformer(BaseTransformer):
     The transformed columns (after `is_nan`) are `cat_0`, `cat_1`, ..., `cat_k`
     for an attribute with k+1 categories.
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, temp_cache: str = '.temp'):
+        super().__init__(temp_cache)
         self._label2id, self._id2label = {}, {}
 
     @property
@@ -71,17 +71,18 @@ class CategoricalTransformer(BaseTransformer):
 
 class CategoricalAttribute(BaseAttribute):
     """Attribute for categorical data."""
-    def __init__(self, name: str, values: Optional[pd.Series] = None):
+    def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp'):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         """
-        super().__init__(name, 'categorical', values)
+        super().__init__(name, 'categorical', values, temp_cache)
 
     def _create_transformer(self):
-        self._transformer = CategoricalTransformer()
+        self._transformer = CategoricalTransformer(self._temp_cache)
 
     def __copy__(self) -> "CategoricalAttribute":
         new_attr = super().__copy__()

@@ -57,19 +57,20 @@ class DatetimeTransformer(NumericalTransformer):
 
 class DatetimeAttribute(BaseAttribute):
     """Attribute for datetime data."""
-    def __init__(self, name: str, values: Optional[pd.Series] = None, **kwargs):
+    def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp', **kwargs):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         - `kwargs`: Arguments for `DatetimeTransformer`.
         """
         self._kwargs = kwargs
-        super().__init__(name, 'datetime', values)
+        super().__init__(name, 'datetime', values, temp_cache)
 
     def _create_transformer(self):
-        self._transformer = DatetimeTransformer(**self._kwargs)
+        self._transformer = DatetimeTransformer(temp_cache=self._temp_cache, **self._kwargs)
 
     def __copy__(self) -> "DatetimeAttribute":
         new_attr = super().__copy__()
@@ -128,19 +129,20 @@ class TimedeltaTransformer(NumericalTransformer):
 
 class TimedeltaAttribute(BaseAttribute):
     """Attribute for timedelta data."""
-    def __init__(self, name: str, values: Optional[pd.Series] = None, **kwargs):
+    def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp', **kwargs):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         - `kwargs`: Arguments for `TimedeltaTransformer`.
         """
         self._kwargs = kwargs
-        super().__init__(name, 'timedelta', values)
+        super().__init__(name, 'timedelta', values, temp_cache)
 
     def _create_transformer(self):
-        self._transformer = TimedeltaTransformer(**self._kwargs)
+        self._transformer = TimedeltaTransformer(temp_cache=self._temp_cache, **self._kwargs)
 
     def __copy__(self) -> "TimedeltaAttribute":
         new_attr = super().__copy__()

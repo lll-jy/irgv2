@@ -11,8 +11,8 @@ from ...utils.misc import load_from
 
 class EncodingTransformer(BaseTransformer):
     """Transformer for encoding data, where each value associates with a vector representation."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, temp_cache: str = '.temp'):
+        super().__init__(temp_cache)
         self._vocab: Optional[Dict[str, List[Union[int, float]]]] = None
         self._vocab_dim = -1
         self._knn = KNeighborsClassifier(n_neighbors=1)
@@ -92,7 +92,8 @@ class EncodingTransformer(BaseTransformer):
 class EncodingAttribute(BaseAttribute):
     """Attribute for encoding data, where each value associates with a vector representation."""
 
-    def __init__(self, name: str, vocab_file: str, engine: Optional[str] = None, values: Optional[pd.Series] = None):
+    def __init__(self, name: str, vocab_file: str, engine: Optional[str] = None, values: Optional[pd.Series] = None,
+                 temp_cache: str = '.temp'):
         """
         **Args**:
 
@@ -100,12 +101,13 @@ class EncodingAttribute(BaseAttribute):
         - `vocab_file` (`str`): File to vocabulary.
         - `engine` (`Optional[str]`): Engine for [load_from](../utils/misc#load_from).
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         """
-        super().__init__(name, 'encoding', values)
+        super().__init__(name, 'encoding', values, temp_cache)
         self._vocab_file, self._engine = vocab_file, engine
 
     def _create_transformer(self):
-        self._transformer = EncodingTransformer()
+        self._transformer = EncodingTransformer(self._temp_cache)
         self._transformer.load_vocab(file_path=self._vocab_file, engine=self._engine)
 
     def __copy__(self) -> "EncodingAttribute":

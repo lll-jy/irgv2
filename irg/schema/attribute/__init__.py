@@ -156,7 +156,7 @@ _DTYPE_MAP = {
 }
 
 
-def create(meta: dict, values: Optional[pd.Series] = None) -> BaseAttribute:
+def create(meta: dict, values: Optional[pd.Series] = None, temp_cache: str = '.temp') -> BaseAttribute:
     """
     Create attribute from meta.
 
@@ -167,13 +167,14 @@ def create(meta: dict, values: Optional[pd.Series] = None) -> BaseAttribute:
       'datetime', 'timedelta', and 'encoding'.
       It can have other keys based on the arguments to the corresponding type's attribute's constructor.
     - `values` Optional[pd.Series] (default `None`): Original value sto the attribute.
+    - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
 
     **Return**: The created attribute.
     """
     validate(meta, _ATTR_CONF)
     validate(meta, _ATTR_CONF_BY_TYPE[meta['type']])
     kwargs = {k: v for k, v in meta.items() if k != 'type'}
-    return _ATTR_TYPE_BY_NAME[meta['type']](values=values, **kwargs)
+    return _ATTR_TYPE_BY_NAME[meta['type']](values=values, temp_cache=temp_cache, **kwargs)
 
 
 def learn_meta(data: pd.Series, is_id: bool = False, name: str = None) -> dict:

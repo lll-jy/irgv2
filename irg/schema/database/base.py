@@ -219,17 +219,18 @@ class Database:
         return len(self._table_paths)
 
     @classmethod
-    def load_from(cls, file_path: str, engine: Optional[str] = None, data_dir: str = '.') -> "Database":
+    def load_from(cls, file_path: str, engine: Optional[str] = None, data_dir: str = '.', temp_cache: str = '.temp')\
+            -> "Database":
         """
         Load database from config file.
 
         **Args**:
 
         - `file_path` and `engine`: Arguments for [`utils.load_from`](../../utils/misc#irg.utils.misc.load_from)
-        - `data_dir`: Argument for [constructor](#irg.schema.database.base.Database).
+        - `data_dir` and `temp_cache`: Argument for [constructor](#irg.schema.database.base.Database).
         """
         schema = load_from(file_path, engine)
-        result = Database(OrderedDict(schema), data_dir)
+        result = Database(OrderedDict(schema), data_dir, temp_cache)
         cls._update_cls(result)
         _LOGGER.debug(f'Loaded database using config file {file_path} and data directory {data_dir}.')
         return result

@@ -65,18 +65,18 @@ def create_from_dict(schema: OrderedDict, data_dir: str = '.', temp_cache: str =
     return _DB_TYPE_BY_NAME[mtype](schema, data_dir, temp_cache)
 
 
-def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str = '.', mtype: str = 'affecting') \
-        -> Database:
+def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str = '.', temp_cache: str = '.temp',
+                     mtype: str = 'affecting') -> Database:
     """
     Create database from schema in file.
 
     **Args**:
 
-    - `file_path`, `engine` and `data_dir`: Arguments to
+    - `file_path`, `engine`, `data_dir`, and `temp_cache`: Arguments to
       [`Database.load_from`](./base#irg.schema.database.base.Database.load_from).
     - `mtype` (`str`): Mechanism type. Supported types are 'unrelated', 'parent-child', 'ancestor-descendant',
       and 'affecting'. Default is 'affecting'.
 
     **Return**: Constructed database from the given information.
     """
-    return _DB_TYPE_BY_NAME[mtype].load_from(file_path, engine, data_dir)
+    return _DB_TYPE_BY_NAME[mtype].load_from(file_path, engine, data_dir, temp_cache)

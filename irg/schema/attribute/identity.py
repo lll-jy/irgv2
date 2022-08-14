@@ -34,16 +34,18 @@ class IdentityTransformer(BaseTransformer):
 
 class SerialIDAttribute(BaseAttribute):
     """Attribute for serial ID data."""
-    def __init__(self, name: str, values: Optional[pd.Series] = None, generator: str = 'lambda x: x'):
+    def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp',
+                 generator: str = 'lambda x: x'):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         - `generator` (`str`): An executable string by `eval` function that returns a function mapping every
           non-negative integer to a unique ID.
         """
-        super().__init__(name, 'id', values)
+        super().__init__(name, 'id', values, temp_cache)
         self._create_transformer()
         self._generator = generator
 
@@ -54,7 +56,7 @@ class SerialIDAttribute(BaseAttribute):
         return new_attr
 
     def _create_transformer(self):
-        self._transformer = IdentityTransformer()
+        self._transformer = IdentityTransformer(self._temp_cache)
 
     def fit(self, values: pd.Series, force_redo: bool = False):
         raise TypeError('ID column cannot be fitted.')
@@ -87,18 +89,19 @@ class RawTransformer(IdentityTransformer):
 
 class RawAttribute(BaseAttribute):
     """Attribute that does not need any transformation normalization (other than potential NaN due to joining)."""
-    def __init__(self, name: str, values: Optional[pd.Series] = None):
+    def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp'):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         """
-        super().__init__(name, 'raw', values)
+        super().__init__(name, 'raw', values, temp_cache)
         self._create_transformer()
 
     def _create_transformer(self):
-        self._transformer = RawTransformer()
+        self._transformer = RawTransformer(self._temp_cache)
 
     def __copy__(self) -> "RawAttribute":
         new_attr = super().__copy__()

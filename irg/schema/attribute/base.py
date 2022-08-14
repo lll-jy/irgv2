@@ -239,15 +239,16 @@ class BaseAttribute(ABC):
     """
     Abstract base class for attributes.
     """
-    def __init__(self, name: str, attr_type: str, values: Optional[pd.Series] = None):
+    def __init__(self, name: str, attr_type: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp'):
         """
         **Args**:
 
         - `name` (`str`): Name of the attribute.
         - `attr_type` (`str`): Attribute type name.
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         """
-        self._name, self._attr_type = name, attr_type
+        self._name, self._attr_type, self._temp_cache = name, attr_type, temp_cache
 
         self._transformer: Optional[BaseTransformer] = None
         if values is not None and attr_type != 'id':

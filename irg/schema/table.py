@@ -1,12 +1,13 @@
 """Table data structure that holds data and metadata of tables in a database."""
 
 import json
-import os
-from typing import Optional, Iterable, Dict, Tuple, Set, List, ItemsView, Any
-import pickle
 import logging
+import os
+import pickle
 import re
+import shutil
 from types import FunctionType
+from typing import Optional, Iterable, Dict, Tuple, Set, List, ItemsView, Any
 
 import torch
 from torch import Tensor
@@ -58,6 +59,15 @@ class Table:
         self._determinants = [] if determinants is None else determinants
         self._formulas = {} if formulas is None else formulas
         id_cols = set() if id_cols is None else set(id_cols)
+
+        self._temp_cache = temp_cache
+        os.makedirs(temp_cache, exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'normalized'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'describers'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'norm_aug'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'attributes'), exist_ok=True)
+
         if attributes is None:
             if data is None:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
@@ -66,7 +76,11 @@ class Table:
         self._length = None
         self._attr_meta, self._id_cols = attributes, id_cols
         self._attributes: Dict[str, BaseAttribute] = {
-            attr_name: create_attribute(meta, data[attr_name] if need_fit and data is not None else None)
+            attr_name: create_attribute(
+                meta=meta,
+                values=data[attr_name] if need_fit and data is not None else None,
+                temp_cache=self._attribute_cache_path(attr_name)
+            )
             for attr_name, meta in self._attr_meta.items()
         }
 
@@ -75,13 +89,6 @@ class Table:
             col for col in self._attributes
             if col not in det_child_cols and col not in self._formulas
         ]
-
-        self._temp_cache = temp_cache
-        os.makedirs(temp_cache, exist_ok=True)
-        os.makedirs(os.path.join(self._temp_cache, 'normalized'), exist_ok=True)
-        os.makedirs(os.path.join(self._temp_cache, 'describers'), exist_ok=True)
-        os.makedirs(os.path.join(self._temp_cache, 'norm_aug'), exist_ok=True)
-        os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
 
         _LOGGER.debug(f'Loaded required information for Table {name}.')
         if need_fit and data is not None:
@@ -114,6 +121,9 @@ class Table:
 
     def _degree_path(self) -> str:
         return os.path.join(self._temp_cache, 'deg.pkl')
+
+    def _attribute_cache_path(self, attr_name: str) -> str:
+        return os.path.join(self._temp_cache, 'attributes', attr_name)
 
     def _reduce_name_level(self, two_level: TwoLevelName) -> str:
         left, right = two_level
@@ -517,17 +527,48 @@ class Table:
 
     def save(self, path: str):
         """
-        Save the table.
+        Save the table. This will still rely on content of the temporary cache.
+
+        **Args**:
 
         - `path` (`str`): Path to save this table to.
         """
         with open(path, 'wb') as f:
             pickle.dump(self, f)
 
+    def save_complete(self, dir_path: str):
+        """
+        Save complete information of the table. The result can be recognized independent of the temporary cache.
+
+        **Args**:
+
+        - `dir_path` (`str`): Path of the directory to save this table to.
+        """
+        os.makedirs(dir_path, exist_ok=True)
+        self.save(os.path.join(dir_path, 'table_info.pkl'))
+        shutil.copytree(self._temp_cache, dir_path, dirs_exist_ok=True)
+
+    @classmethod
+    def load_complete(cls, dir_path: str) -> "Table":
+        """
+        Load table from path. Inverse of `save_complete`.
+
+        **Args:**
+
+        - `dir_path` (`str`): Path of the directory to load.
+
+        **Return**: Loaded table.
+        """
+        loaded = cls.load(os.path.join(dir_path, 'table_info.pkl'))
+        shutil.copytree(dir_path, loaded._temp_cache, dirs_exist_ok=True)
+        return loaded
+
     @classmethod
     def load(cls, path: str) -> "Table":
         """
-        Load table from path.
+        Load table from path. Inverse of `save`.
+
+        **Args**:
 
         - `path` (`str`): Path of the file to load.
 
