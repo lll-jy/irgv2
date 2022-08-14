@@ -18,6 +18,7 @@ SRC_DATA_DIR=src
 LOG_LEVEL=INFO
 
 install:
+	${PYTHON} -m pip install --upgrade pip
 	${PYTHON} -m pip install -r requirements.txt
 	${PYTHON} setup.py install
 	${PYTHON} -m pip install -e .
@@ -60,7 +61,7 @@ train_gpu:
 			--skip_generate
 
 train_cpu:
-	${PYTHON} main.py --log_level ${LOG_LEVEL} train_gen \
+	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
 		--db_config_path ${DB_CONFIG} \
 		--data_dir ${DATA_DIR} \
 		--mtype ${MTYPE} \

@@ -4,10 +4,12 @@ import json
 import os
 from typing import Optional, Iterable, Dict, Tuple, Set, List, ItemsView, Any
 import pickle
+import logging
 
 import torch
 from torch import Tensor
 import pandas as pd
+import numpy as np
 from DataSynthesizer.DataDescriber import DataDescriber
 from DataSynthesizer.DataGenerator import DataGenerator
 
@@ -16,6 +18,7 @@ from ..utils.misc import Data2D, convert_data_as, inverse_convert_data
 from ..utils.errors import NoPartiallyKnownError, NotFittedError
 
 TwoLevelName = Tuple[str, str]
+_LOGGER = logging.getLogger()
 
 
 class Table:
@@ -55,6 +58,7 @@ class Table:
             if data is None:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
             attributes = self.learn_meta(data, id_cols)
+            _LOGGER.debug(f'Learned metadata for table {self._name}.')
         self._attr_meta, self._data, self._id_cols = attributes, data, id_cols
         self._attributes: Dict[str, BaseAttribute] = {
             attr_name: create_attribute(meta, data[attr_name] if need_fit and data is not None else None)
@@ -69,13 +73,9 @@ class Table:
 
         self._normalized_by_attr = {}
         self._describers = []
+        _LOGGER.debug(f'Loaded required information for Table {name}.')
         if need_fit and data is not None:
             self.fit(data, **kwargs)
-        if self._fitted:
-            self._normalized_by_attr = {
-                attr_name: data[[attr_name]] if attr_name in self._id_cols else attr.get_original_transformed()
-                for attr_name, attr in self._attributes.items()
-            }
 
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
         self._augmented: Optional[pd.DataFrame] = None
@@ -263,41 +263,51 @@ class Table:
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
         if (self._fitted and not force_redo) or not self._need_fit:
+            _LOGGER.info(f'Table {self._name} is already fitted. Duplicated fitting is skipped.')
             return
         self._data = data[[*self._attributes.keys()]]
         for name, attr in self._attributes.items():
-            attr.fit(data[name], force_redo=force_redo)
-            self._normalized_by_attr[name] = attr.get_original_transformed()
+            if attr.atype == 'id':
+                self._normalized_by_attr[name] = data[[name]]
+            else:
+                attr.fit(data[name], force_redo=force_redo)
+                self._normalized_by_attr[name] = attr.get_original_transformed()
+        _LOGGER.debug(f'Fitted attributes for Table {self._name}.')
 
-        for det in self._determinants:
-            for col in det:
-                if self._attributes[col].atype != 'categorical':
-                    raise TypeError('Determinant should have all columns categorical.')
-            leader, children = det[0], det[1:]
-            det_describers = self._fit_determinant(leader, children, **kwargs)
-            self._describers.append(det_describers)
+        if self._ttype != 'base':
+            for det in self._determinants:
+                for col in det:
+                    if self._attributes[col].atype not in {'categorical', 'id'}:
+                        raise TypeError('Determinant should have all columns categorical (or rarely, ID).')
+                leader, children = det[0], det[1:]
+                det_describers = self._fit_determinant(leader, children, **kwargs)
+                self._describers.append(det_describers)
+            _LOGGER.debug(f'Fitted determinants for Table {self._name}.')
+
         self._fitted = True
+        _LOGGER.info(f'Fitted Table {self._name}.')
 
     def _fit_determinant(self, leader: str, children: List[str], **kwargs) -> Dict[str, Dict]:
         describers = dict()
-        for grp_name, data in self._data.groupby(by=[leader], sort=False, dropna=False):
+        os.makedirs('temp_det', exist_ok=True)
+        for grp_name, data in self._data[[leader] + children].groupby(by=[leader], sort=False, dropna=False):
             describer = DataDescriber(**kwargs)
             if len(data) <= 1:
                 data = pd.concat([data, data]).reset_index(drop=True)
             if pd.isnull(grp_name):
                 grp_name = self._attributes[leader].fill_nan_val
             data = data.copy()
-            data[leader] = grp_name
+            data[leader] = str(grp_name)
             for col in children:
                 data[col] = data[col].fillna(self._attributes[col].fill_nan_val)
             data[':dummy'] = 'dummy'
-            tempfile_name = f'{self._name}__{leader}__{grp_name}'
+            tempfile_name = os.path.join('temp_det', f'{self._name}__{leader}__{grp_name}')
             data.to_csv(f'{tempfile_name}.csv', index=False)
             describer.describe_dataset_in_correlated_attribute_mode(
-                f'{tempfile_name}.csv', k=len(children), epsilon=0,
-                attribute_to_datatype={col: 'String' for col in children} | {leader: 'String'},
-                attribute_to_is_categorical={col: True for col in children} | {leader: True},
-                attribute_to_is_candidate_key={col: False for col in children} | {leader: False}
+                f'{tempfile_name}.csv', k=len(children)+2, epsilon=0,
+                attribute_to_datatype={col: 'String' for col in children} | {leader: 'String'} | {':dummy': 'String'},
+                attribute_to_is_categorical={col: True for col in children} | {leader: True} | {':dummy': True},
+                attribute_to_is_candidate_key={col: False for col in children} | {leader: False} | {':dummy': False}
             )
             describer.save_dataset_description_to_file(f'{tempfile_name}.json')
             with open(f'{tempfile_name}.json', 'r') as f:
@@ -306,6 +316,7 @@ class Table:
             os.remove(f'{tempfile_name}.csv')
             os.remove(f'{tempfile_name}.json')
             describers[grp_name] = describer_info
+        os.removedirs('temp_det')
         return describers
 
     def data(self, variant: str = 'original', normalize: bool = False,
@@ -528,21 +539,27 @@ class SyntheticTable(Table):
                 recovered = attribute.inverse_transform(normalized_core[col])
             recovered_df[col] = recovered
 
+        os.makedirs('temp_det', exist_ok=True)
         for i, det in enumerate(self._determinants):
             leader, describer = det[0], self._describers[i]
             for grp_name, data in self._data.groupby(by=[leader], sort=False, dropna=False):
                 if pd.isnull(grp_name):
                     grp_name = self._attributes[leader].fill_nan_val
+                grp_name = str(grp_name)
                 generator = DataGenerator()
-                tempfile_name = f'{self._name}__{leader}__{grp_name}'
+                tempfile_name = os.path.join('temp_det', f'{self._name}__{leader}__{grp_name}')
                 with open(f'{tempfile_name}.json', 'w') as f:
                     json.dump(describer[grp_name], f)
                     f.close()
                 generator.generate_dataset_in_correlated_attribute_mode(len(data), f'{tempfile_name}.json')
                 generated: pd.DataFrame = generator.synthetic_dataset.drop(columns=[':dummy'])\
                     .set_axis(list(data.index))
+                for col in data.columns:
+                    nan_val = self._attributes[col].fill_nan_val
+                    data.loc[data[col] == nan_val, col] = np.nan
                 recovered_df.loc[data.index, det[1:]] = generated
                 os.remove(f'{tempfile_name}.json')
+        os.removedirs('temp_det')
 
         for col, formula in self._formulas:
             recovered_df[col] = recovered_df.apply(eval(formula), axis=1)

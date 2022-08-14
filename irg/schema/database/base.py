@@ -150,6 +150,8 @@ class Database:
             meta = defaultdict(lambda: None, meta)
             ttype = meta['ttype'] if 'ttype' in meta else 'normal'
             fm = meta['format'] if 'format' in meta else 'csv'
+            if fm == 'pickle':
+                fm = 'pkl'
             path = meta['path'] if 'path' in meta else os.path.join(self._data_dir, f'{name}.{fm}')
             data = None
             if os.path.exists(path):
@@ -199,6 +201,8 @@ class Database:
             for col in formulas:
                 if col not in columns:
                     raise ColumnNotFoundError(name, col)
+
+            _LOGGER.debug(f'Finished loading table {name} to database.')
 
     def __getitem__(self, item):
         return self._tables[item]

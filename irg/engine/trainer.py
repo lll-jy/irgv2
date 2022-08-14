@@ -2,12 +2,15 @@
 
 from collections import defaultdict
 from typing import Optional, Dict, List, Tuple, DefaultDict
+import logging
 
 from torch import Tensor
 
 from ..tabular import TabularTrainer
 from ..schema import Database
 from ..tabular import create_trainer as create_tab_trainer
+
+_LOGGER = logging.getLogger()
 
 
 def train(database: Database, do_train: bool,
@@ -41,17 +44,20 @@ def train(database: Database, do_train: bool,
         tab_train_args = defaultdict(lambda: {}, tab_train_args)
     if not isinstance(deg_train_args, DefaultDict):
         deg_train_args = defaultdict(lambda: {}, deg_train_args)
+    _LOGGER.debug('Finished constructing arguments.')
 
     tabular_models, deg_models = {}, {}
     for name, table in database.tables:
         tabular_known, tabular_unknown, cat_dims = table.ptg_data
         tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
                                             tab_trainer_args[name], tab_train_args[name], name)
+        _LOGGER.debug(f'Loaded tabular model for {name}.')
 
         if not table.is_independent:
             deg_known, deg_unknown, cat_dims = table.deg_data
             deg_models[name] = _train_model(deg_known, deg_unknown, cat_dims, do_train,
                                             deg_trainer_args[name], deg_train_args[name], name)
+            _LOGGER.debug(f'Loaded degree model for {name}.')
 
     return tabular_models, deg_models
 

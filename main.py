@@ -170,11 +170,15 @@ def parse_args() -> Namespace:
     return parser.parse_args()
 
 
-def _cfgfile2argdict(default_path: Optional[str], sep_path: str, args: Namespace, prefix: str) -> DefaultDict:
+def _cfgfile2argdict(default_path: Optional[str], sep_path: Optional[str], args: Namespace, prefix: str) -> DefaultDict:
     default_args = {}
     if default_path is not None and os.path.exists(default_path):
         with open(default_path, 'r') as f:
             default_args = json.load(f)
+    sep_args = {}
+    if sep_path is not None and os.path.exists(sep_path):
+        with open(sep_path, 'r') as f:
+            sep_args = json.load(f)
 
     prefix = f'default_{prefix}_'
     prefix_len = len(prefix)
@@ -182,7 +186,7 @@ def _cfgfile2argdict(default_path: Optional[str], sep_path: str, args: Namespace
         if n.startswith(prefix) and v is not None:
             default_args[n[prefix_len:]] = v
 
-    return defaultdict(lambda: default_args, sep_path)
+    return defaultdict(lambda: default_args, sep_args)
 
 
 def _narg2nbdict(default_value: Any, special: List[str], vtype: type) -> DefaultDict:
@@ -208,6 +212,7 @@ def _train_gen(args: Namespace):
         data_dir=args.data_dir, mtype=args.mtype,
         save_db_to=args.db_dir_path, resume=args.aug_resume
     )
+    _LOGGER.info('Finished loading database.')
 
     tab_models, deg_models = engine.train(
         database=augmented_db, do_train=args.do_train,
@@ -216,6 +221,7 @@ def _train_gen(args: Namespace):
         tab_train_args=_cfgfile2argdict(args.default_tab_train_args, args.tab_train_args, args, 'tab_train'),
         deg_train_args=_cfgfile2argdict(args.default_deg_train_args, args.deg_train_args, args, 'deg_train')
     )
+    _LOGGER.info('Finished loading models.')
 
     if args.do_generate:
         synthetic_db = engine.generate(
