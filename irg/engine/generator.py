@@ -8,6 +8,9 @@ import torch
 from ..tabular import TabularTrainer
 from ..schema import Table, SyntheticTable, Database, SyntheticDatabase
 
+# TODO:
+#  cache: .from_real
+
 
 def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_models: Dict[str, TabularTrainer],
              save_to: str, scaling: Optional[Dict[str, float]] = None,

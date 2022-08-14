@@ -146,8 +146,11 @@ class Database:
         self._table_columns: Dict[str, List[str]] = {}
         self._primary_keys: Dict[str, List[str]] = {}
         self._foreign_keys: Dict[str, List[ForeignKey]] = {}
+
+        os.makedirs(temp_cache, exist_ok=True)
         self._data_dir, self._temp_cache = data_dir, os.path.join(temp_cache, 'real_db')
         os.makedirs(self._temp_cache, exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'tables'), exist_ok=True)
 
         for name, meta in schema.items():
             validate(meta, self._TABLE_CONF)
@@ -165,7 +168,8 @@ class Database:
             table = Table(
                 name=name, ttype=ttype, need_fit=True,
                 id_cols=id_cols, attributes=attributes, data=data,
-                determinants=determinants, formulas=formulas
+                determinants=determinants, formulas=formulas,
+                temp_cache=os.path.join(self._temp_cache, 'tables', name)
             )
             table.save(os.path.join(temp_cache, f'{name}.pkl'))
             columns = table.columns
@@ -278,7 +282,9 @@ class Database:
         """
         sqldb = self.data()
         query_data = sqldf(query, sqldb)
-        query_table = Table(name=descr, data=query_data, **kwargs)
+        temp_cache = os.path.join(self._temp_cache, 'queries', descr)
+        os.makedirs(temp_cache, exist_ok=True)
+        query_table = Table(name=descr, data=query_data, temp_cache=temp_cache, **kwargs)
         return query_table
 
     def join(self, foreign_key: ForeignKey, descr: Optional[str] = None, how: str = 'outer') -> Table:
@@ -343,7 +349,8 @@ class Database:
                         table_cnt[name] += 1
 
         joined_table = Table(
-            name='joined', need_fit=False, id_cols=id_cols, data=data
+            name='joined', need_fit=False, id_cols=id_cols, data=data,
+            temp_cache=os.path.join(self._temp_cache, 'joined')
         )
         joined_table.replace_attributes(attributes)
         return joined_table

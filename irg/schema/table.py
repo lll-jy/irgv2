@@ -5,6 +5,8 @@ import os
 from typing import Optional, Iterable, Dict, Tuple, Set, List, ItemsView, Any
 import pickle
 import logging
+import re
+from types import FunctionType
 
 import torch
 from torch import Tensor
@@ -25,7 +27,8 @@ class Table:
     """Table data structure that holds metadata description of the table content and the relevant data."""
     def __init__(self, name: str, ttype: str = 'normal', need_fit: bool = True, id_cols: Optional[Iterable[str]] = None,
                  attributes: Optional[Dict[str, dict]] = None, data: Optional[pd.DataFrame] = None,
-                 determinants: Optional[List[List[str]]] = None, formulas: Optional[Dict[str, str]] = None, **kwargs):
+                 determinants: Optional[List[List[str]]] = None, formulas: Optional[Dict[str, str]] = None,
+                 temp_cache: str = '.temp', **kwargs):
         """
         **Args**:
 
@@ -48,6 +51,7 @@ class Table:
         - `formulas` (`Optional[Dict[str, str]]`): Formula constraints of columns, provided as a dict of column name
           and a function (lambda expression permitted) processable by `eval` built-in function, with the only argument
           is a row in the table.
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
         self._name, self._ttype, self._need_fit, self._fitted = name, ttype, need_fit, False
@@ -59,7 +63,8 @@ class Table:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
             attributes = self.learn_meta(data, id_cols)
             _LOGGER.debug(f'Learned metadata for table {self._name}.')
-        self._attr_meta, self._data, self._id_cols = attributes, data, id_cols
+        self._length = None
+        self._attr_meta, self._id_cols = attributes, id_cols
         self._attributes: Dict[str, BaseAttribute] = {
             attr_name: create_attribute(meta, data[attr_name] if need_fit and data is not None else None)
             for attr_name, meta in self._attr_meta.items()
@@ -71,19 +76,22 @@ class Table:
             if col not in det_child_cols and col not in self._formulas
         ]
 
-        self._normalized_by_attr = {}
-        self._describers = []
+        self._temp_cache = temp_cache
+        os.makedirs(temp_cache, exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'normalized'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'describers'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'norm_aug'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
+
         _LOGGER.debug(f'Loaded required information for Table {name}.')
         if need_fit and data is not None:
             self.fit(data, **kwargs)
 
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
-        self._augmented: Optional[pd.DataFrame] = None
-        self._degree: Optional[pd.DataFrame] = None
         self._augmented_attributes: Dict[TwoLevelName, BaseAttribute] = {}
         self._degree_attributes: Dict[TwoLevelName, BaseAttribute] = {}
-        self._augmented_normalized_by_attr: Dict[TwoLevelName, pd.DataFrame] = {}
-        self._degree_normalized_by_attr: Dict[TwoLevelName, pd.DataFrame] = {}
+        self._aug_norm_by_attr_files: Dict[TwoLevelName, str] = {}
+        self._deg_norm_by_attr_files: Dict[TwoLevelName, str] = {}
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
 
@@ -91,6 +99,36 @@ class Table:
     def ttype(self) -> str:
         """Table type."""
         return self._ttype
+
+    def _data_path(self) -> str:
+        return os.path.join(self._temp_cache, 'data.pkl')
+
+    def _normalized_path(self, attr_name: str) -> str:
+        return os.path.join(self._temp_cache, 'normalized', f'{attr_name}.pkl')
+
+    def _describer_path(self, idx: int) -> str:
+        return os.path.join(self._temp_cache, 'describers', f'describer{idx}.json')
+
+    def _augmented_path(self) -> str:
+        return os.path.join(self._temp_cache, 'aug.pkl')
+
+    def _degree_path(self) -> str:
+        return os.path.join(self._temp_cache, 'deg.pkl')
+
+    def _reduce_name_level(self, two_level: TwoLevelName) -> str:
+        left, right = two_level
+        left = re.sub(f'[/:<>"|*^]', '&', left)
+        return f'{left}__{right}'
+
+    def _augmented_normalized_path(self, attr_name: TwoLevelName) -> str:
+        if attr_name not in self._aug_norm_by_attr_files:
+            self._aug_norm_by_attr_files[attr_name] = self._reduce_name_level(attr_name)
+        return os.path.join(self._temp_cache, 'norm_aug', f'{self._aug_norm_by_attr_files[attr_name]}.pkl')
+
+    def _degree_normalized_path(self, attr_name: TwoLevelName) -> str:
+        if attr_name not in self._deg_norm_by_attr_files:
+            self._deg_norm_by_attr_files[attr_name] = self._reduce_name_level(attr_name)
+        return os.path.join(self._temp_cache, 'norm_deg', f'{self._deg_norm_by_attr_files[attr_name]}.pkl')
 
     @classmethod
     def learn_meta(cls, data: pd.DataFrame, id_cols: Optional[Iterable[str]] = None,
@@ -125,11 +163,10 @@ class Table:
 
         - `new_data` (`pd.DataFrame`): New data to fill in the table.
         """
-        self._data = new_data
-        self._normalized_by_attr = {
-            n: attr.transform(new_data[n])
-            for n, attr in self._attributes.items()
-        }
+        new_data.to_pickle(self._data_path())
+        for n, attr in self._attributes.items():
+            transformed = attr.transform(new_data[n])
+            transformed.to_pickle(self._normalized_path(n))
 
     def replace_attributes(self, new_attributes: Dict[str, BaseAttribute]):
         """
@@ -149,8 +186,10 @@ class Table:
             if attr_name not in new_attributes:
                 continue
             self._attributes[attr_name] = new_attributes[attr_name]
-            if attr_name in self._data.columns:
-                self._normalized_by_attr[attr_name] = new_attributes[attr_name].transform(self._data[attr_name])
+            data = pd.read_pickle(self._data_path())
+            if attr_name in data.columns:
+                new_transformed = new_attributes[attr_name].transform(data[attr_name])
+                new_transformed.to_pickle(self._normalized_path(attr_name))
 
     def join(self, right: "Table", ref: ItemsView[str, str], descr: Optional[str] = None, how: str = 'outer') \
             -> "Table":
@@ -180,9 +219,11 @@ class Table:
 
         joined = left_data.merge(right_data, how=how, left_on=left_on, right_on=right_on)
 
+        os.makedirs(os.path.join(self._temp_cache, 'pair_joined'), exist_ok=True)
         result = Table(
             name=descr if descr is not None else f'{self._name}_{how}_join_{right._name}',
-            need_fit=False, id_cols=id_cols, data=joined
+            need_fit=False, id_cols=id_cols, data=joined,
+            temp_cache=os.path.join(self._temp_cache, 'pair_joined', descr)
         )
         result._fitted = True
 
@@ -205,7 +246,8 @@ class Table:
             result._attributes[f'{right._name}/{n}'] = v.rename(f'{right._name}/{v.name}', inplace=False)
 
         for n, v in result._attributes:
-            result._normalized_by_attr[n] = v.transform(joined[n])
+            transformed = v.transform(joined[n])
+            transformed.to_pickle(result._normalized_path(n))
 
         return result
 
@@ -242,14 +284,17 @@ class Table:
         - `degree_attributes` (`Dict[TwoLevelName, BaseAttribute]`): Attributes (typically fitted) of the degree
           table.
         """
-        self._augmented, self._degree = augmented, degree
+        augmented.to_pickle(self._augmented_path())
+        degree.to_pickle(self._degree_path())
         self._augmented_ids, self._degree_ids = augmented_ids, degree_ids
         self._augmented_attributes, self._degree_attributes = augmented_attributes, degree_attributes
 
         for name, attr in self._augmented_attributes.items():
-            self._augmented_normalized_by_attr[name] = attr.transform(self._augmented[name])
+            transformed = attr.transform(augmented[name])
+            transformed.to_pickle(self._augmented_normalized_path(name))
         for name, attr in self._degree_attributes.items():
-            self._degree_normalized_by_attr[name] = attr.transform(self._degree[name])
+            transformed = attr.transform(degree[name])
+            transformed.to_pickle(self._degree_normalized_path(name))
         self._augment_fitted = True
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
@@ -265,32 +310,37 @@ class Table:
         if (self._fitted and not force_redo) or not self._need_fit:
             _LOGGER.info(f'Table {self._name} is already fitted. Duplicated fitting is skipped.')
             return
-        self._data = data[[*self._attributes.keys()]]
+        self._length = len(data)
+        data = data[[*self._attributes.keys()]]
+        data.to_pickle(self._data_path())
         for name, attr in self._attributes.items():
             if attr.atype == 'id':
-                self._normalized_by_attr[name] = data[[name]]
+                data[[name]].to_pickle(self._normalized_path(name))
             else:
                 attr.fit(data[name], force_redo=force_redo)
-                self._normalized_by_attr[name] = attr.get_original_transformed()
+                attr.get_original_transformed().to_pickle(self._normalized_path(name))
         _LOGGER.debug(f'Fitted attributes for Table {self._name}.')
 
         if self._ttype != 'base':
-            for det in self._determinants:
+            for i, det in enumerate(self._determinants):
                 for col in det:
                     if self._attributes[col].atype not in {'categorical', 'id'}:
                         raise TypeError('Determinant should have all columns categorical (or rarely, ID).')
                 leader, children = det[0], det[1:]
-                det_describers = self._fit_determinant(leader, children, **kwargs)
-                self._describers.append(det_describers)
+                det_describers = self._fit_determinant(data, leader, children, **kwargs)
+                with open(self._describer_path(i), 'w') as f:
+                    json.dump(det_describers, f)
             _LOGGER.debug(f'Fitted determinants for Table {self._name}.')
 
         self._fitted = True
         _LOGGER.info(f'Fitted Table {self._name}.')
 
-    def _fit_determinant(self, leader: str, children: List[str], **kwargs) -> Dict[str, Dict]:
+    def _fit_determinant(self, complete_data: pd.DataFrame, leader: str, children: List[str], **kwargs) \
+            -> Dict[str, Dict]:
         describers = dict()
         os.makedirs('temp_det', exist_ok=True)
-        for grp_name, data in self._data[[leader] + children].groupby(by=[leader], sort=False, dropna=False):
+        for grp_name, data in complete_data[[leader] + children]\
+                .groupby(by=[leader], sort=False, dropna=False):
             describer = DataDescriber(**kwargs)
             if len(data) <= 1:
                 data = pd.concat([data, data]).reset_index(drop=True)
@@ -340,29 +390,37 @@ class Table:
         """
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
-        if self._data is None:
+        if self._length is None:
             raise NotFittedError('Table', 'getting its data')
         if variant == 'original':
+            data = pd.read_pickle(self._data_path())
             exclude_cols = self._id_cols if with_id == 'none' else set()
             exclude_cols |= {col for col in self._attributes if col not in self._core_cols} if core_only else set()
             if not normalize:
-                data = self._data[[col for col in self._data.columns if col not in exclude_cols]]
+                data = data[[col for col in data.columns if col not in exclude_cols]]
             else:
-                data = pd.concat({n: v for n, v in self._normalized_by_attr.items() if n not in exclude_cols}, axis=1)
+                data = pd.concat({
+                    n: pd.read_pickle(self._normalized_path(n))
+                    for n in self._attributes
+                    if n not in exclude_cols
+                }, axis=1)
         elif variant == 'augmented':
-            data = self._get_aug_or_deg_data(self._augmented, self._augmented_normalized_by_attr,
-                                             self._augmented_ids, normalize, with_id, core_only)
+            augmented = pd.read_pickle(self._augmented_path())
+            data = self._get_aug_or_deg_data(augmented, self._aug_norm_by_attr_files,
+                                             self._augmented_ids, normalize, with_id, core_only,
+                                             self._augmented_normalized_path)
         elif variant == 'degree':
-            data = self._get_aug_or_deg_data(self._degree, self._degree_normalized_by_attr, self._degree_ids,
-                                             normalize, with_id, core_only)
+            degree = pd.read_pickle(self._degree_path())
+            data = self._get_aug_or_deg_data(degree, self._deg_norm_by_attr_files, self._degree_ids,
+                                             normalize, with_id, core_only, self._degree_normalized_path)
         else:
             raise NotImplementedError(f'Getting data variant "{variant}" is not recognized.')
 
         return convert_data_as(data, return_as=return_as, copy=True)
 
-    def _get_aug_or_deg_data(self, data: pd.DataFrame, normalized_by_attr: Dict[TwoLevelName, pd.DataFrame],
+    def _get_aug_or_deg_data(self, data: pd.DataFrame, normalized_by_attr: Dict[TwoLevelName, str],
                              id_cols: Set[TwoLevelName], normalize: bool = False, with_id: str = 'this',
-                             core_only: bool = False) -> pd.DataFrame:
+                             core_only: bool = False, path_getter: Optional[FunctionType] = None) -> pd.DataFrame:
         if self.is_independent:
             raise NoPartiallyKnownError(self._name)
         if with_id == 'inherit':
@@ -380,7 +438,10 @@ class Table:
         if not normalize:
             data = data[[col for col in data.columns if col not in exclude_cols]]
         else:
-            data = pd.concat({n: v for n, v in normalized_by_attr.items() if n not in exclude_cols}, axis=1)
+            data = pd.concat({
+                n: pd.read_pickle(path_getter(n)) for n
+                in normalized_by_attr if n not in exclude_cols
+            }, axis=1)
         return data
 
     @property
@@ -478,7 +539,7 @@ class Table:
         return loaded
 
     def __len__(self):
-        return len(self._data)
+        return self._length
 
     @property
     def attributes(self) -> Dict[str, BaseAttribute]:
@@ -489,19 +550,22 @@ class Table:
 class SyntheticTable(Table):
     """Synthetic counterpart of real tables."""
     @classmethod
-    def from_real(cls, table: Table) -> "SyntheticTable":
+    def from_real(cls, table: Table, temp_cache: Optional[str] = None) -> "SyntheticTable":
         """
         Construct synthetic table from real one.
 
         **Args**:
 
         - `table` (`Table`): The original real table.
+        - `temp_cache` (`Optional[str]`): Directory path to save cached temporary files.
+          If not provided, the real one will be taken.
 
         **Return**: The constructed synthetic table.
         """
         synthetic = SyntheticTable(name=table._name, ttype=table._ttype, need_fit=False,
                                    id_cols={*table._id_cols}, attributes=table._attr_meta,
-                                   determinants=table._determinants, formulas=table._formulas)
+                                   determinants=table._determinants, formulas=table._formulas,
+                                   temp_cache=temp_cache if temp_cache is not None else table._temp_cache)
         synthetic._fitted = table._fitted
         synthetic._attributes = table._attributes
         return synthetic
@@ -540,9 +604,12 @@ class SyntheticTable(Table):
             recovered_df[col] = recovered
 
         os.makedirs('temp_det', exist_ok=True)
+        complete_data = pd.read_pickle(self._data_path())
         for i, det in enumerate(self._determinants):
-            leader, describer = det[0], self._describers[i]
-            for grp_name, data in self._data.groupby(by=[leader], sort=False, dropna=False):
+            leader = det[0]
+            with open(self._describer_path(i), 'r') as f:
+                describer = json.load(f)
+            for grp_name, data in complete_data.groupby(by=[leader], sort=False, dropna=False):
                 if pd.isnull(grp_name):
                     grp_name = self._attributes[leader].fill_nan_val
                 grp_name = str(grp_name)
@@ -566,10 +633,9 @@ class SyntheticTable(Table):
 
         recovered_df = recovered_df[[*self._attributes]]
         if replace_content:
-            self._data = recovered_df
-            self._normalized_by_attr = {
-                n: pd.DataFrame(normalized_core[n], columns=v) for n, v in columns.items()
-            }
+            recovered_df.to_pickle(self._data_path())
+            for n, v in columns.items():
+                pd.DataFrame(normalized_core[n], columns=v).to_pickle(self._normalized_path(n))
 
         return recovered_df
 
@@ -581,14 +647,18 @@ class SyntheticTable(Table):
 
         - `degrees` (`pd.Series`): The degrees to be assigned.
         """
-        self._degree[('', 'degree')] = degrees
-        self._degree_normalized_by_attr[('', 'degree')] = self._degree_attributes[('', 'degree')].transform(degrees)
-        self._augmented = self._degree.loc[self._degree.index.repeat(self._degree[self._degree.index])]\
+        degree_df = pd.read_pickle(self._degree_path())
+        degree_df[('', 'degree')] = degrees
+        self._degree_attributes[('', 'degree')].transform(degrees)\
+            .to_pickle(self._degree_normalized_path(('', 'degree')))
+        augmented = degree_df.loc[degree_df.index.repeat(degree_df[degree_df.index])]\
             .reset_index(drop=True)
+        augmented.to_pickle(self._augmented_path())
         for (table, attr_name), attr in self._augmented_attributes.items():
             if (table, attr_name) in self._augmented_ids:
                 if table != self._name or attr_name in self._known_cols:
-                    self._augmented_normalized_by_attr[(table, attr_name)] = self._augmented[[(table, attr_name)]]
+                    transformed = augmented[[(table, attr_name)]]
+                    transformed.to_pickle(self._augmented_normalized_path((table, attr_name)))
 
     def inverse_transform_degrees(self, degree_tensor: Tensor, scale: float = 1) -> pd.Series:
         """
