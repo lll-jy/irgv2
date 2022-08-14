@@ -62,13 +62,13 @@ class NumericalTransformer(BaseTransformer):
             return 0
         return val
 
-    def _fit(self, original: pd.Series):
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         minmax_transformed = self._minmax_scaler.fit_transform(original.to_numpy().reshape(-1, 1))
 
         self._bgm_transformer.fit(minmax_transformed)
         self._valid_component_indicator = self._bgm_transformer.weights_ > self._weight_threshold
 
-        self._transformed = self._transform(self._nan_info)
+        self._transformed = self._transform(nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))

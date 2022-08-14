@@ -39,10 +39,10 @@ class DatetimeTransformer(NumericalTransformer):
             return datetime.now()
         return val
 
-    def _fit(self, original: pd.Series):
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         original.to_pickle(self._as_date_path)
         original.apply(lambda x: x.toordinal()).to_pickle(self._data_path)
-        super()._fit()
+        super()._fit(original, nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info = nan_info.copy()
@@ -108,10 +108,10 @@ class TimedeltaTransformer(NumericalTransformer):
             return timedelta(seconds=0)
         return val
 
-    def _fit(self, original: pd.Series):
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         original.to_pickle(self._as_delta_path)
         original.apply(lambda x: x.total_seconds()).to_pickle(self._data_path)
-        super()._fit()
+        super()._fit(original, nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info = nan_info.copy()

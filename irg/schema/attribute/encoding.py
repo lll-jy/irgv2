@@ -59,12 +59,12 @@ class EncodingTransformer(BaseTransformer):
     def _calc_fill_nan(self, original: pd.Series) -> str:
         return '[UNK]'
 
-    def _fit(self, original: pd.Series):
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         values = [*self._vocab.values()]
         self._mean_enc = np.array(values).mean(axis=0)
         self._vocab_dim = len(values[0])
         self._knn.fit(values, [*self._vocab.keys()])
-        self._transformed = self._transform(self._nan_info)
+        self._transformed = self._transform(nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info['original'] = nan_info['original'].astype(str)

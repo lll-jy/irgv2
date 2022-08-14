@@ -19,7 +19,7 @@ class IdentityTransformer(BaseTransformer):
     def _calc_fill_nan(self, original: pd.Series) -> float:
         return np.nan
 
-    def _fit(self, original: pd.Series):
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         pass
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:

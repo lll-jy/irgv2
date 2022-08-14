@@ -43,8 +43,8 @@ class CategoricalTransformer(BaseTransformer):
                 return label
             idx += 1
 
-    def _fit(self, original: pd.Series):
-        self._transformed = self._transform(self._nan_info)
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        self._transformed = self._transform(nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         transformed = pd.DataFrame()

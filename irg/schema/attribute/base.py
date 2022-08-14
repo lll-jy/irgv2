@@ -36,9 +36,7 @@ class BaseTransformer:
         self._has_nan, self._fill_nan_val, self._temp_cache = False, None, temp_cache
 
         self._fitted, self._dim = False, -1
-        self._original_path, self._transformed_path, self._nan_info_path = None, None, None
         self._transformed: Optional[pd.DataFrame] = None
-        self._nan_info: Optional[pd.DataFrame] = None
 
     @property
     @abstractmethod
@@ -77,6 +75,10 @@ class BaseTransformer:
     def _data_path(self) -> str:
         return os.path.join(self._temp_cache, 'data.pkl')
 
+    @property
+    def _nan_info_path(self) -> str:
+        return os.path.join(self._temp_cache, 'nan_info.pkl')
+
     def fit(self, data: pd.Series, force_redo: bool = False):
         """
         Fit the attribute's normalization transformers.
@@ -92,12 +94,12 @@ class BaseTransformer:
             return
         data.to_pickle(self._data_path)
         self._fit_for_nan(data)
-        self._fit()
+        self._fit(data)
         self._fitted = True
 
     def _fit_for_nan(self, original: pd.Series):
         self._has_nan = original.hasnans
-        self._nan_info = self._construct_nan_info(original)
+        self._construct_nan_info(original).to_pickle(self._nan_info_path)
 
     @property
     def fill_nan_val(self) -> Any:
@@ -119,7 +121,7 @@ class BaseTransformer:
     def _calc_fill_nan(self, original: pd.Series) -> Any:
         raise NotImplementedError('Fill NaN value is not implemented for base transformer.')
 
-    def _construct_nan_info(self, original: pd.Series):
+    def _construct_nan_info(self, original: pd.Series) -> pd.DataFrame:
         nan_info = pd.DataFrame()
         nan_info['original'] = original
         self._fill_nan_val = self._calc_fill_nan(original)
@@ -128,7 +130,7 @@ class BaseTransformer:
         return nan_info
 
     @abstractmethod
-    def _fit(self, original: pd.Series):
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         raise NotImplementedError('Fit is not implemented for base transformer.')
 
     def get_original_transformed(self, return_as: str = 'pandas') -> Data2D:
