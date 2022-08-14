@@ -5,6 +5,7 @@ from collections import OrderedDict, defaultdict
 from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple, Dict
 import os
 import json
+import logging
 
 from jsonschema import validate
 import pandas as pd
@@ -14,6 +15,8 @@ from pandasql import sqldf
 from ..table import Table, SyntheticTable
 from ...utils.errors import ColumnNotFoundError, TableNotFoundError
 from ...utils.misc import load_from, Data2D
+
+_LOGGER = logging.getLogger()
 
 
 class ForeignKey:
@@ -31,6 +34,16 @@ class ForeignKey:
         """
         self._name, self._parent = my_name, parent_name
         self._ref = {my_col: parent_col for my_col, parent_col in zip(my_columns, parent_columns)}
+
+    @property
+    def dict(self) -> Dict[str, Any]:
+        """Represent foreign key as a dict."""
+        return {
+            'my_name': self._name,
+            'my_columns': [*self._ref.keys()],
+            'parent_name': self._parent,
+            'parent_columns': [*self._ref.values()]
+        }
 
     @property
     def child(self) -> str:
@@ -58,7 +71,7 @@ class ForeignKey:
         return [(self._parent, col) for col in self._ref.values()]
 
 
-class Database(ABC):
+class Database:
     """Database data structure."""
     _TABLE_CONF = {
         'type': 'object',
@@ -67,23 +80,24 @@ class Database(ABC):
                 'type': 'array',
                 'items': {'type': 'string'}
             },
+            'ttype': {'enum': ['base', 'normal', 'series']},
             'attributes': {'type': 'object'},
             'path': {'type': 'string'},
             'format': {'enum': ['csv', 'pickle']},
             'determinants': {
                 'type': 'array',
-                'items': {'type': 'array', 'items': 'string'}
+                'items': {'type': 'array', 'items': {'type': 'string'}}
             },
             'formulas': {'type': 'object'},
-            'primary_keys': {'type': 'array', 'items': 'string'},
+            'primary_keys': {'type': 'array', 'items': {'type': 'string'}},
             'foreign_keys': {
                 'type': 'array',
                 'items': {
                     'type': 'object',
                     'properties': {
-                        'columns': {'type': 'array', 'items': 'string'},
+                        'columns': {'type': 'array', 'items': {'type': 'string'}},
                         'parent': {'type': 'string'},
-                        'parent_columns': {'type': 'array', 'items': 'string'}
+                        'parent_columns': {'type': 'array', 'items': {'type': 'string'}}
                     },
                     'required': ['columns', 'parent'],
                     'additionalProperties': False
@@ -203,7 +217,10 @@ class Database(ABC):
         - `data_dir`: Argument for [constructor](#irg.schema.database.base.Database).
         """
         schema = load_from(file_path, engine)
-        return cls(OrderedDict(schema), data_dir)
+        result = Database(OrderedDict(schema), data_dir)
+        cls._update_cls(result)
+        _LOGGER.debug(f'Loaded database using config file {file_path} and data directory {data_dir}.')
+        return result
 
     @property
     @abstractmethod
@@ -281,13 +298,17 @@ class Database(ABC):
         with open(os.path.join(path, 'config.json'), 'w') as f:
             json.dump({
                 'primary_keys': self._primary_keys,
-                'foreign_keys': self._foreign_keys,
+                'foreign_keys': {n: [fk.dict for fk in v] for n, v in self._foreign_keys.items()},
                 'data_dir': self._data_dir,
                 'order': list(self._tables.keys())
             }, f, indent=2)
+            _LOGGER.debug(f'Saved config file to {os.path.join(path, "config.json")}.')
 
         for name, table in self.tables:
             table.save(os.path.join(path, f'{name}.pkl'))
+            _LOGGER.debug(f'Saved generated table {name} to {os.path.join(path, f"{name}.pkl")}.')
+
+        _LOGGER.debug(f'Saved {self.__class__} to {path}.')
 
     @property
     def all_joined(self) -> Table:
@@ -336,7 +357,8 @@ class Database(ABC):
 
         with open(os.path.join(path, 'config.json'), 'r') as f:
             content = json.load(f)
-        database._primary_keys, database._foreign_keys = content['primary_keys'], content['foreign_keys']
+        database._primary_keys = content['primary_keys']
+        database._foreign_keys = {n: [ForeignKey(**fk) for fk in v] for n, v in content['foreign_keys'].items()}
         database._data_dir, order = content['data_dir'], content['order']
 
         for table_name in order:

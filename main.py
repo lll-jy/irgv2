@@ -7,12 +7,15 @@ import pickle
 import os
 from typing import Optional, DefaultDict, Any, List
 import random
+import logging
 
 import torch
 import numpy as np
 
 from irg.utils.dist import init_process_group
 from irg import engine
+
+_LOGGER = logging.getLogger()
 
 
 def _parse_distributed_args(parser: ArgumentParser):
@@ -162,6 +165,8 @@ def parse_args() -> Namespace:
     _parse_eval_args(eval_parser)
 
     parser.add_argument('--seed', type=int, default=None, help="Fix seed before training for reproduction if provided.")
+    parser.add_argument('--log_level', type=str, default='INFO', help='Logging level.',
+                        choices=['NOTSET', 'DEBUG', 'INFO', 'WARN', 'WARNING', 'ERROR', 'FATAL', 'CRITICAL'])
     return parser.parse_args()
 
 
@@ -277,6 +282,8 @@ def main():
     args = parse_args()
     if args.seed is not None:
         _fix_seed(args.seed)
+    logging.basicConfig(level=args.log_level, format='%(asctime)s [%(levelname)s] - %(module)s : %(message)s')
+    _LOGGER.debug(f'Command line arguments: {args}')
 
     if args.op == 'train_gen':
         _train_gen(args)

@@ -17,6 +17,25 @@ _ENCODINGS: Dict[str, str] = {
     'alset': None,
     'rtd': 'ISO-8859-1'
 }
+_NAMES_MAP: Dict[str, Dict[str]] = {
+    'alset': {},
+    'rtd': {
+        'country': 'rtd',
+        'provstate': 'rtd',
+        'city': 'rtd',
+        'events': 'rtd',
+        'life_damage': 'rtd',
+        'eco_damage': 'rtd',
+        'hostkid': 'rtd',
+        'info_int': 'rtd',
+        'attack_type': 'rtd',
+        'target': 'rtd',
+        'group': 'rtd',
+        'claim': 'rtd',
+        'weapon': 'rtd',
+        'related': 'rtd'
+    }
+}
 
 
 def _parse_args() -> Namespace:
@@ -80,7 +99,7 @@ def main():
                 if not os.path.exists(data_path) or args.redo_data:
                     if args.src_data_dir is None:
                         raise ValueError('Need to access original data, please provide src_data_dir.')
-                    src_data_path = os.path.join(args.src_data_path, f'{table_name}.csv')
+                    src_data_path = os.path.join(args.src_data_path, f'{_NAMES_MAP[args.database][table_name]}.csv')
                     src = pd.read_csv(src_data_path, encoding=_ENCODINGS[args.database_name])
                     processed: pd.DataFrame = PROCESSORS[args.database_name][args.table_name](src)
                     processed.to_pickle(data_path)
@@ -93,7 +112,7 @@ def main():
                 loaded['format'] = 'pickle'
                 out_config[table_name] = loaded
         with open(args.out, 'w') as f:
-            json.dump(out_config, f)
+            json.dump(out_config, f, indent=2)
 
 
 if __name__ == '__main__':

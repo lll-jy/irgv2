@@ -3,7 +3,7 @@ Unrelated augmenting mechanism.
 All tables in the database are understood as if there is no relation between any two tables.
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from torch import Tensor
 import torch

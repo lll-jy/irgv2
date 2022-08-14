@@ -14,6 +14,8 @@ Or one can set `DOC_PORT` argument for `make docs` and visit `localhost` at this
 
 # Data Preparation
 
+For a detailed and elaborated tutorial on data preparation, please go to [`preparation`](./preparation).
+
 ## Pre-defined Datasets
 
 ### Use Make Script
@@ -30,7 +32,7 @@ For convenience, we copy the relevant script here.
         --redo_meta \
         --redo_data
 
-### Variables
+#### Variables
 
 The following table shows the variables of the script.
 
@@ -42,11 +44,11 @@ The following table shows the variables of the script.
 |`META_DIR`|`meta`|Path of directory to save per-table metadata JSON files to.|
 |`DB_CONFIG`|`config.json`|Path to save the configuration file of the entire database to.|
 
-### Input Structure
+#### Input Structure
 
 Initial data saved at `SRC_DATA_DIR`.
 
-### Output Structure
+#### Output Structure
 
 The structure is described in YAML-like format for readability.
 Everything inside `{}` can be changed according to actual need.
@@ -64,11 +66,16 @@ This format applies to all structure description in this guide.
       - {TABLE2_NAME}.json
       - ...
 
-## Use Python Script
+### Use Python Script
 
 In `examples` package, there are processing codes for a set of pre-defined databases.
 To generate required files for a database, one can simply call `python3 process.py database {DATABASE_NAME}`.
 To see detailed explanations on command line arguments, one can run `python3 process.py -h`.
+
+## Custom Datasets
+
+One can see `examples` package for demonstration of how to process datasets, and possibly
+add processing code for their own databases in this package.
 
 
 # Training

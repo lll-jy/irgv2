@@ -2,8 +2,11 @@
 
 from typing import Optional, OrderedDict
 import os
+import logging
 
 from ..schema import create_db, Database
+
+_LOGGER = logging.getLogger()
 
 
 def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,
@@ -22,9 +25,13 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
     """
     if save_db_to is not None and resume and os.path.exists(save_db_to):
         database = Database.load_from_dir(save_db_to)
+        _LOGGER.info(f'Loaded database from {save_db_to}.')
     else:
         database = create_db(schema, file_path, engine, data_dir, mtype)
+        _LOGGER.info(f'Created database based on data in {data_dir}.')
         database.augment()
+        _LOGGER.info('Augmented database.')
         if save_db_to is not None:
             database.save_to_dir(save_db_to)
+            _LOGGER.info(f'Saved database to {save_db_to}.')
     return database
