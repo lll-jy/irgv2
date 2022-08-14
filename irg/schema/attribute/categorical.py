@@ -1,10 +1,13 @@
 """Handler for categorical data."""
 
+import logging
 from typing import Optional, List, Tuple
 
 import pandas as pd
 
 from .base import BaseAttribute, BaseTransformer
+
+_LOGGER = logging.getLogger()
 
 
 class CategoricalTransformer(BaseTransformer):
@@ -60,8 +63,7 @@ class CategoricalTransformer(BaseTransformer):
                     cat_id = self._label2id[row['original']]
                     transformed.loc[i, f'cat_{cat_id}'] = 1
                 else:
-                    # TODO: raise OOV warning
-                    pass
+                    _LOGGER.warning(f'Categorical value {value} is OOV.')
         return transformed.astype('float32')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:

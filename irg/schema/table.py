@@ -107,6 +107,37 @@ class Table:
         """Table type."""
         return self._ttype
 
+    def shallow_copy(self) -> "Table":
+        """
+        Make a shallow copy of `Table`.
+
+        **Return**: Copied table.
+        """
+        copied = Table(
+            name=self._name, ttype=self._ttype, need_fit=False, attributes=self._attr_meta,
+            id_cols=self._id_cols, determinants=self._determinants, formulas=self._formulas,
+            temp_cache=self._temp_cache
+        )
+        copied._fitted, copied._attributes, copied._length = self._fitted, self._attributes, self._length
+        copied._known_cols, copied._unknown_cols, copied._augment_fitted = (self._known_cols, self._unknown_cols, \
+                                                                            self._augment_fitted)
+        copied._augmented_attributes, copied._degree_attributes = self._augmented_attributes, self._degree_attributes
+        copied._aug_norm_by_attr_files, copied._deg_norm_by_attr_files = (self._aug_norm_by_attr_files,
+                                                                          self._deg_norm_by_attr_files)
+        copied._augmented_ids, copied._degree_ids = self._augmented_ids, self._degree_ids
+        return copied
+
+    def update_temp_cache(self, new_path: str):
+        """
+        Update cache directory.
+
+        **Args**:
+
+        - `new_path` (`str`): Path of the new directory.
+        """
+        shutil.copytree(self._temp_cache, new_path, dirs_exist_ok=True)
+        self._temp_cache = new_path
+
     def _data_path(self) -> str:
         return os.path.join(self._temp_cache, 'data.pkl')
 
