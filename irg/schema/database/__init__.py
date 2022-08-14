@@ -30,7 +30,7 @@ _DB_TYPE_BY_NAME: Dict[str, Database.__class__] = {
 
 
 def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,
-           data_dir: str = '.', mtype: str = 'affecting') -> Database:
+           data_dir: str = '.', temp_cache: str = '.temp', mtype: str = 'affecting') -> Database:
     """
     Create database from schema.
 
@@ -44,23 +44,25 @@ def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None
     if file_path is not None:
         return create_from_file(file_path, engine, data_dir, mtype)
     if schema is not None:
-        return create_from_dict(schema, data_dir, mtype)
+        return create_from_dict(schema, data_dir, temp_cache, mtype)
     raise RuntimeError('Schema and file path cannot be None simultaneously.')
 
 
-def create_from_dict(schema: OrderedDict, data_dir: str = '.', mtype: str = 'affecting') -> Database:
+def create_from_dict(schema: OrderedDict, data_dir: str = '.', temp_cache: str = '.temp', mtype: str = 'affecting') \
+        -> Database:
     """
     Create database from schema as dict.
 
     **Args**:
 
-    - `schema` and `data_dir`: Arguments to [`Database`](./base#irg.schema.database.base.Database) constructor.
+    - `schema`, `data_dir`, and `temp_cache`: Arguments to [`Database`](./base#irg.schema.database.base.Database)
+      constructor.
     - `mtype` (`str`): Mechanism type. Supported types are 'unrelated', 'parent-child', 'ancestor-descendant',
       and 'affecting'. Default is 'affecting'.
 
     **Return**: Constructed database from the given information.
     """
-    return _DB_TYPE_BY_NAME[mtype](schema, data_dir)
+    return _DB_TYPE_BY_NAME[mtype](schema, data_dir, temp_cache)
 
 
 def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str = '.', mtype: str = 'affecting') \

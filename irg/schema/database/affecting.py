@@ -109,6 +109,7 @@ class AffectingDatabase(Database):
 
     def augment(self):
         for name, table in self.tables:
+            table = Table.load(table)
             self._augment_table(name, table)
 
     def _augment_table(self, name: str, table: Table):

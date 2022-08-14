@@ -7,7 +7,7 @@ import logging
 from torch import Tensor
 
 from ..tabular import TabularTrainer
-from ..schema import Database
+from ..schema import Database, Table
 from ..tabular import create_trainer as create_tab_trainer
 
 _LOGGER = logging.getLogger()
@@ -48,6 +48,7 @@ def train(database: Database, do_train: bool,
 
     tabular_models, deg_models = {}, {}
     for name, table in database.tables:
+        table = Table.load(table)
         tabular_known, tabular_unknown, cat_dims = table.ptg_data
         tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
                                             tab_trainer_args[name], tab_train_args[name], name)

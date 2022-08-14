@@ -6,6 +6,7 @@ from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, 
 import os
 import json
 import logging
+import shutil
 
 from jsonschema import validate
 import pandas as pd
@@ -107,7 +108,7 @@ class Database:
         'additionalProperties': False
     }
 
-    def __init__(self, schema: OrderedDictT, data_dir: str = '.'):
+    def __init__(self, schema: OrderedDictT, data_dir: str = '.', temp_cache: str = '.temp'):
         """
         **Args**:
 
@@ -129,6 +130,7 @@ class Database:
                   "columns" (in the same order), and will be assumed to be the same as "columns" if not provided.
         - `data_dir` (`str`): Directory of the data saved. It should typically contain all table paths
           as described in schema.
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
 
         **Raises**:
 
@@ -140,10 +142,12 @@ class Database:
         - [`ValidationError`](https://python-jsonschema.readthedocs.io/en/stable/errors/) if the provided schema is of
           invalid format.
         """
-        self._tables: OrderedDictT[str, Table] = OrderedDict({})
+        self._table_paths: OrderedDictT[str, str] = OrderedDict({})
+        self._table_columns: Dict[str, List[str]] = {}
         self._primary_keys: Dict[str, List[str]] = {}
         self._foreign_keys: Dict[str, List[ForeignKey]] = {}
-        self._data_dir = data_dir
+        self._data_dir, self._temp_cache = data_dir, os.path.join(temp_cache, 'real_db')
+        os.makedirs(self._temp_cache, exist_ok=True)
 
         for name, meta in schema.items():
             validate(meta, self._TABLE_CONF)
@@ -163,7 +167,7 @@ class Database:
                 id_cols=id_cols, attributes=attributes, data=data,
                 determinants=determinants, formulas=formulas
             )
-            self._tables[name] = table
+            table.save(os.path.join(temp_cache, f'{name}.pkl'))
             columns = table.columns
 
             primary_keys = meta['primary_keys'] if 'primary_keys' in meta else []
@@ -178,13 +182,13 @@ class Database:
                 this_columns = foreign_key['columns']
                 parent_columns = foreign_key['parent_columns'] if 'parent_columns' in foreign_key else this_columns
                 parent_name = foreign_key['parent']
-                if parent_name not in self._tables:
+                if parent_name not in self._table_paths:
                     raise TableNotFoundError(name)
                 for col in this_columns:
                     if col not in columns:
                         raise ColumnNotFoundError(name, col)
                 for col in parent_columns:
-                    if col not in set(self._tables[parent_name].columns):
+                    if col not in set(self._table_columns[parent_name]):
                         raise ColumnNotFoundError(parent_name, col)
                 self._foreign_keys[name].append(ForeignKey(name, this_columns, parent_name, parent_columns))
 
@@ -204,11 +208,11 @@ class Database:
 
             _LOGGER.debug(f'Finished loading table {name} to database.')
 
-    def __getitem__(self, item):
-        return self._tables[item]
+    def __getitem__(self, item) -> Table:
+        return Table.load(self._table_paths[item])
 
     def __len__(self):
-        return len(self._tables)
+        return len(self._table_paths)
 
     @classmethod
     def load_from(cls, file_path: str, engine: Optional[str] = None, data_dir: str = '.') -> "Database":
@@ -240,9 +244,9 @@ class Database:
         raise NotImplementedError()
 
     @property
-    def tables(self) -> ItemsView[str, Table]:
-        """Get all tables in list view."""
-        return self._tables.items()
+    def tables(self) -> ItemsView[str, str]:
+        """Get all table cached paths in list view."""
+        return self._table_paths.items()
 
     def data(self, **kwargs) -> Dict[str, Data2D]:
         """
@@ -255,7 +259,7 @@ class Database:
         **Return**: A `dict` of names of tables mapped to `data` retrieval result of the table.
         """
         return {
-            name: table.data(**kwargs)
+            name: Table.load(table).data(**kwargs)
             for name, table in self.tables
         }
 
@@ -304,12 +308,12 @@ class Database:
                 'primary_keys': self._primary_keys,
                 'foreign_keys': {n: [fk.dict for fk in v] for n, v in self._foreign_keys.items()},
                 'data_dir': self._data_dir,
-                'order': list(self._tables.keys())
+                'order': list(self._table_paths.keys())
             }, f, indent=2)
             _LOGGER.debug(f'Saved config file to {os.path.join(path, "config.json")}.')
 
         for name, table in self.tables:
-            table.save(os.path.join(path, f'{name}.pkl'))
+            shutil.copy(table, os.path.join(path, f'{name}.pkl'))
             _LOGGER.debug(f'Saved generated table {name} to {os.path.join(path, f"{name}.pkl")}.')
 
         _LOGGER.debug(f'Saved {self.__class__} to {path}.')
@@ -318,6 +322,7 @@ class Database:
     def all_joined(self) -> Table:
         data, id_cols, attributes, table_cnt = pd.DataFrame(), set(), {}, defaultdict(int)
         for name, table in self.tables:
+            table = Table.load(table)
             if data.empty or table.is_independent:
                 if data.empty:
                     data = pd.concat({f'{name}_0': table.data()}, axis=1)
@@ -366,7 +371,7 @@ class Database:
         database._data_dir, order = content['data_dir'], content['order']
 
         for table_name in order:
-            database._tables[table_name] = Table.load(os.path.join(path, f'{table_name}.pkl'))
+            database._table_paths[table_name] = os.path.join(path, f'{table_name}.pkl')
 
         return database
 
@@ -402,7 +407,9 @@ class SyntheticDatabase(Database, ABC):
 
         **Return**: Constructed empty synthetic database.
         """
-        syn_db = SyntheticDatabase(real_db, schema=OrderedDict({}))
+        temp_cache = os.path.join(real_db._temp_cache, 'synthetic_db')
+        os.makedirs(temp_cache, exist_ok=True)
+        syn_db = SyntheticDatabase(real_db, schema=OrderedDict({}), temp_cache=temp_cache)
         syn_db._primary_keys, syn_db._foreign_keys = real_db._primary_keys, real_db._foreign_keys
         syn_db._data_dir = save_to
         os.makedirs(save_to, exist_ok=True)
@@ -422,7 +429,9 @@ class SyntheticDatabase(Database, ABC):
         raise NotImplementedError()
 
     def __setitem__(self, key: str, value: SyntheticTable):
-        self._tables[key] = value
+        file_path = os.path.join(self._temp_cache, f'{key}.pkl')
+        value.save(file_path)
+        self._table_paths[key] = file_path
 
     def save_synthetic_data(self, file_format: str = 'csv'):
         """
@@ -435,6 +444,7 @@ class SyntheticDatabase(Database, ABC):
         if file_format not in {'csv', 'pickle'}:
             raise ValueError(f'File format {file_format} is not recognized.')
         for name, table in self.tables:
+            table = Table.load(table)
             if file_format == 'csv':
                 table.data().to_csv(os.path.join(self._data_dir, f'{name}.csv'), index=False)
             else:

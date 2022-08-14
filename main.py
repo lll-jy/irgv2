@@ -164,9 +164,10 @@ def parse_args() -> Namespace:
     eval_parser = subparsers.add_parser('evaluate')
     _parse_eval_args(eval_parser)
 
-    parser.add_argument('--seed', type=int, default=None, help="Fix seed before training for reproduction if provided.")
+    parser.add_argument('--seed', type=int, default=None, help='Fix seed before training for reproduction if provided.')
     parser.add_argument('--log_level', type=str, default='INFO', help='Logging level.',
                         choices=['NOTSET', 'DEBUG', 'INFO', 'WARN', 'WARNING', 'ERROR', 'FATAL', 'CRITICAL'])
+    parser.add_argument('--temp_cache', type=str, default='.temp', help='Directory to hold temporary cache files.')
     return parser.parse_args()
 
 
@@ -210,7 +211,8 @@ def _train_gen(args: Namespace):
     augmented_db = engine.augment(
         file_path=args.db_config_path, engine=args.engine,
         data_dir=args.data_dir, mtype=args.mtype,
-        save_db_to=args.db_dir_path, resume=args.aug_resume
+        save_db_to=args.db_dir_path, resume=args.aug_resume,
+        temp_cache=args.temp_cache
     )
     _LOGGER.info('Finished loading database.')
 

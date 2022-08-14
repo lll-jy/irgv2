@@ -99,7 +99,7 @@ class SyntheticDatabaseEvaluator:
             self._evaluators[type_descr] = evaluators
 
     def _construct_tables(self, db: Database) -> Dict[str, Dict[str, Table]]:
-        result = {}
+        result = {}  # TODO: construct by paths
 
         if self._eval_tables:
             result['tables'] = {table: db[table] for table in self._tables}.items() \

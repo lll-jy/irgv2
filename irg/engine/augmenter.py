@@ -10,7 +10,8 @@ _LOGGER = logging.getLogger()
 
 
 def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,
-            data_dir: str = '.', mtype: str = 'unrelated', save_db_to: Optional[str] = None, resume: bool = True) \
+            data_dir: str = '.', mtype: str = 'unrelated', save_db_to: Optional[str] = None, resume: bool = True,
+            temp_cache: str = '.temp') \
         -> Database:
     """
     Augment database.
@@ -20,6 +21,7 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
     - `schema` to `mtype`: Arguments to [database creator](../schema/database#irg.schema.database.create)
     - `save_db_to` (`Optional[str]`): Save database to path.
     - `resume` (`bool`): Whether to use database saved at `save_db_to` or augmenting another time.
+    - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
 
     **Return**: Augmented database.
     """
@@ -27,7 +29,8 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
         database = Database.load_from_dir(save_db_to)
         _LOGGER.info(f'Loaded database from {save_db_to}.')
     else:
-        database = create_db(schema, file_path, engine, data_dir, mtype)
+        os.makedirs(temp_cache, exist_ok=True)
+        database = create_db(schema, file_path, engine, data_dir, temp_cache, mtype)
         _LOGGER.info(f'Created database based on data in {data_dir}.')
         database.augment()
         _LOGGER.info('Augmented database.')
