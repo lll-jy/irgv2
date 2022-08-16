@@ -1,6 +1,8 @@
 """Handler for categorical data."""
 
 import logging
+import os
+import pickle
 from typing import Optional, List, Tuple
 
 import pandas as pd
@@ -19,7 +21,25 @@ class CategoricalTransformer(BaseTransformer):
     """
     def __init__(self, temp_cache: str = '.temp'):
         super().__init__(temp_cache)
-        self._label2id, self._id2label = {}, {}
+        self._label2id, self._id2label, self._cat_cnt = None, None, 0
+
+    def _save_additional_info(self):
+        with open(os.path.join(self._temp_cache, 'info.pkl'), 'wb') as f:
+            pickle.dump({
+                'label2id': self._label2id,
+                'id2label': self._id2label
+            }, f)
+
+    def _unload_additional_info(self):
+        self._label2id, self._id2label = None, None
+
+    def _load_additional_info(self):
+        if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
+            with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
+                loaded = pickle.load(f)
+            self._label2id, self._id2label = loaded['label2id'], loaded['id2label']
+        else:
+            self._label2id, self._id2label = {}, {}
 
     @property
     def atype(self) -> str:
@@ -29,7 +49,7 @@ class CategoricalTransformer(BaseTransformer):
         return [(0, 1), (1, self._calc_dim()+1)]
 
     def _calc_dim(self) -> int:
-        return len(self._label2id)
+        return self._cat_cnt
 
     def _calc_fill_nan(self, original: pd.Series) -> str:
         original = original.astype(str)
@@ -50,6 +70,7 @@ class CategoricalTransformer(BaseTransformer):
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
         transformed.to_pickle(self._transformed_path)
+        self._cat_cnt = len(self._label2id)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         transformed = pd.DataFrame()
@@ -58,9 +79,9 @@ class CategoricalTransformer(BaseTransformer):
             transformed[f'cat_{i}'] = 0
         for i, row in nan_info.iterrows():
             if not row['is_nan']:
-                value = row['original']
+                value = str(row['original'])
                 if value in self._label2id:
-                    cat_id = self._label2id[row['original']]
+                    cat_id = self._label2id[value]
                     transformed.loc[i, f'cat_{cat_id}'] = 1
                 else:
                     _LOGGER.warning(f'Categorical value {value} is OOV.')

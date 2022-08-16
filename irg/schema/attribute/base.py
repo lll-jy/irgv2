@@ -1,8 +1,8 @@
 """Abstract base class of attributes."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, Any, Collection, List, Tuple
 import os
+from typing import Optional, Any, Collection, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -33,9 +33,22 @@ class BaseTransformer:
 
         - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         """
+        os.makedirs(temp_cache, exist_ok=True)
         self._has_nan, self._fill_nan_val, self._temp_cache = False, None, temp_cache
 
         self._fitted, self._dim, self._transformed_columns = False, -1, None
+
+    @abstractmethod
+    def _save_additional_info(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _load_additional_info(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _unload_additional_info(self):
+        raise NotImplementedError()
 
     @property
     @abstractmethod
@@ -95,10 +108,13 @@ class BaseTransformer:
         """
         if self._fitted and not force_redo:
             return
+        self._load_additional_info()
         data.to_pickle(self._data_path)
         nan_info = self._fit_for_nan(data)
         self._fit(data, nan_info)
         self._fitted = True
+        self._save_additional_info()
+        self._unload_additional_info()
 
     def _fit_for_nan(self, original: pd.Series) -> pd.DataFrame:
         self._has_nan = original.hasnans
@@ -129,7 +145,8 @@ class BaseTransformer:
     def _construct_nan_info(self, original: pd.Series) -> pd.DataFrame:
         nan_info = pd.DataFrame()
         nan_info['original'] = original
-        self._fill_nan_val = self._calc_fill_nan(original)
+        if self._fill_nan_val is None:
+            self._fill_nan_val = self._calc_fill_nan(original)
         nan_info['is_nan'] = original.isnull()
         nan_info['original'].fillna(self._fill_nan_val, inplace=True)
         return nan_info
@@ -170,8 +187,10 @@ class BaseTransformer:
         """
         if not self._fitted:
             raise NotFittedError('Transformer', 'transforming other data')
+        self._load_additional_info()
         nan_info = self._construct_nan_info(data)
         transformed = self._transform(nan_info)
+        self._unload_additional_info()
         return convert_data_as(transformed, return_as=return_as, copy=False)
 
     @abstractmethod
@@ -198,6 +217,7 @@ class BaseTransformer:
         """
         if not self._fitted:
             raise NotFittedError('Transformer', 'inversely transforming other data')
+        self._load_additional_info()
         data = inverse_convert_data(data, self._transformed_columns)
         core_data = data.drop(columns=['is_nan']) if self._has_nan else data
         recovered_no_nan = self._inverse_transform(core_data)
@@ -209,6 +229,7 @@ class BaseTransformer:
                 nan_ratio = original.count() / len(original)
             threshold = data['is_nan'].quantile(1 - nan_ratio)
         recovered_no_nan[data['is_nan'] > threshold] = np.nan
+        self._unload_additional_info()
         return recovered_no_nan
 
     @abstractmethod
@@ -316,7 +337,7 @@ class BaseAttribute(ABC):
 
         **Return**: List of [L, R) pairs denoting the ranges representing categorical information.
         """
-        self._transformer.categorical_dimensions(base)
+        return self._transformer.categorical_dimensions(base)
 
     def fit(self, values: pd.Series, force_redo: bool = False):
         """

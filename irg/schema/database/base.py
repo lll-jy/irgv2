@@ -172,6 +172,8 @@ class Database:
                 temp_cache=os.path.join(self._temp_cache, 'tables', name)
             )
             table.save(os.path.join(temp_cache, f'{name}.pkl'))
+            self._table_paths[name] = os.path.join(temp_cache, f'{name}.pkl')
+            self._table_columns[name] = table.columns
             columns = table.columns
 
             primary_keys = meta['primary_keys'] if 'primary_keys' in meta else []

@@ -1,4 +1,6 @@
 """Handler for numerical data."""
+import pickle
+import os
 from typing import Optional, List, Tuple
 
 import numpy as np
@@ -37,19 +39,38 @@ class NumericalTransformer(BaseTransformer):
         """
         super().__init__(temp_cache)
         self._rounding, self._min_val, self._max_val = rounding, min_val, max_val
-        self._minmax_scaler = MinMaxScaler()
+        self._minmax_scaler: Optional[MinMaxScaler] = None
 
         self._clusters, self._max_clusters = 0, max_clusters
         self._std_multiplier, self._weight_threshold = std_multiplier, weight_threshold
 
-        self._bgm_transformer = BayesianGaussianMixture(
-            n_components=self._max_clusters,
-            weight_concentration_prior_type='dirichlet_process',
-            weight_concentration_prior=0.001,
-            n_init=1
-        )
+        self._bgm_transformer: Optional[BayesianGaussianMixture] = None
         self._valid_component_indicator = None
         self._component_indicator_transformer = CategoricalTransformer()
+
+    def _load_additional_info(self):
+        if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
+            with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
+                loaded = pickle.load(f)
+            self._minmax_scaler, self._bgm_transformer = loaded['scaler'] = loaded['bgm']
+        else:
+            self._minmax_scaler = MinMaxScaler()
+            self._bgm_transformer = BayesianGaussianMixture(
+                n_components=self._max_clusters,
+                weight_concentration_prior_type='dirichlet_process',
+                weight_concentration_prior=0.001,
+                n_init=1
+            )
+
+    def _unload_additional_info(self):
+        self._minmax_scaler, self._bgm_transformer = None, None
+
+    def _save_additional_info(self):
+        with open(os.path.join(self._temp_cache, 'info.pkl'), 'wb') as f:
+            pickle.dump({
+                'scaler': self._minmax_scaler,
+                'bgm': self._bgm_transformer
+            }, f)
 
     @property
     def atype(self) -> str:

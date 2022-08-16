@@ -41,7 +41,7 @@ class DatetimeTransformer(NumericalTransformer):
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         original.to_pickle(self._as_date_path)
-        original.apply(lambda x: x.toordinal()).to_pickle(self._data_path)
+        original.apply(lambda x: x if pd.isnull(x) else x.toordinal()).to_pickle(self._data_path)
         super()._fit(original, nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
@@ -51,8 +51,10 @@ class DatetimeTransformer(NumericalTransformer):
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         numerical_result = super()._inverse_transform(data)
-        datetime_result = numerical_result.astype(int).apply(datetime.fromordinal)
-        return datetime_result.apply(lambda x: datetime.strftime(x, self._format)).astype('datetime64')
+        datetime_result = numerical_result.apply(lambda x: x if pd.isnull(x) else datetime.fromordinal(int(x)))
+        return datetime_result.apply(lambda x:
+                                     x if pd.isnull(x) else datetime.strftime(x, self._format))\
+            .astype('datetime64[ns]')
 
 
 class DatetimeAttribute(BaseAttribute):
@@ -111,7 +113,7 @@ class TimedeltaTransformer(NumericalTransformer):
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         original.to_pickle(self._as_delta_path)
-        original.apply(lambda x: x.total_seconds()).to_pickle(self._data_path)
+        original.apply(lambda x: x if pd.isnull(x) else x.total_seconds()).to_pickle(self._data_path)
         super()._fit(original, nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
@@ -121,9 +123,9 @@ class TimedeltaTransformer(NumericalTransformer):
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         numerical_result = super()._inverse_transform(data)
-        timedelta_result = numerical_result.apply(lambda x: timedelta(seconds=x))
+        timedelta_result = numerical_result.apply(lambda x: x if pd.isnull(x) else timedelta(seconds=x))
         return timedelta_result.apply(
-            lambda x: (datetime.strptime('', '') + x).strftime(self._format)
+            lambda x: x if pd.isnull(x) else (datetime.strptime('', '') + x).strftime(self._format)
         )
 
 

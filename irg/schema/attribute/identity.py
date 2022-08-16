@@ -9,6 +9,16 @@ from .base import BaseAttribute, BaseTransformer
 
 class IdentityTransformer(BaseTransformer):
     """Transformer that retain values identical as originally given."""
+
+    def _unload_additional_info(self):
+        pass
+
+    def _load_additional_info(self):
+        pass
+
+    def _save_additional_info(self):
+        pass
+
     @property
     def atype(self) -> str:
         return 'identity'

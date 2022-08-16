@@ -16,6 +16,7 @@ DB_NAME=rtd
 META_DIR=meta
 SRC_DATA_DIR=src
 LOG_LEVEL=INFO
+TEMP_CACHE=.temp.nosync
 
 install:
 	${PYTHON} -m pip install --upgrade pip
@@ -58,7 +59,8 @@ train_gpu:
 			--default_deg_trainer_log_dir ${LOG_DIR}/deg \
 			--default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
 			--default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
-			--skip_generate
+			--skip_generate \
+			--temp_cache ${TEMP_CACHE}
 
 train_cpu:
 	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \

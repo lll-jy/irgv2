@@ -1,4 +1,6 @@
 """Handler for encoding data."""
+import os
+import pickle
 from typing import Optional, Dict, List, Union, Tuple
 
 import numpy as np
@@ -15,8 +17,28 @@ class EncodingTransformer(BaseTransformer):
         super().__init__(temp_cache)
         self._vocab: Optional[Dict[str, List[Union[int, float]]]] = None
         self._vocab_dim = -1
-        self._knn = KNeighborsClassifier(n_neighbors=1)
+        self._knn: Optional[KNeighborsClassifier] = None
         self._mean_enc: Optional[List[float]] = None
+
+    def _unload_additional_info(self):
+        self._vocab, self._knn, self._mean_enc = None, None, None
+
+    def _load_additional_info(self):
+        if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
+            with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
+                loaded = pickle.load(f)
+            self._vocab, self._knn, self._mean_enc = loaded['vocab'], loaded['knn'], loaded['mean_enc']
+        else:
+            self._vocab, self._mean_enc = None, None
+            self._knn = KNeighborsClassifier(n_neighbors=1)
+
+    def _save_additional_info(self):
+        with open(os.path.join(self._temp_cache, 'info.pkl'), 'wb') as f:
+            pickle.dump({
+                'vocab': self._vocab,
+                'knn': self._knn,
+                'mean_enc': self._mean_enc
+            }, f)
 
     @property
     def atype(self) -> str:
