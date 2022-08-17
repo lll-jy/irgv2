@@ -147,6 +147,16 @@ def fast_map(func: FunctionType, iterable: Iterable[Any], total_len: int, verbos
     return result
 
 
+def _kv_mapper(kv: Any, func: FunctionType, **kwargs):
+    k, v = kv
+    return func(k, v, **kwargs)
+
+
+def _k_mapper(kv: Any, func: FunctionType, **kwargs):
+    k, v = kv
+    return func(k, **kwargs)
+
+
 def fast_map_dict(func: FunctionType, dictionary: Dict, verbose_descr: Optional[str] = None,
                   key_mapper: Optional[FunctionType] = None, key_filter: Optional[FunctionType] = None,
                   input_filter: Optional[FunctionType] = None, output_value_filter: Optional[FunctionType] = None,
@@ -187,24 +197,14 @@ def fast_map_dict(func: FunctionType, dictionary: Dict, verbose_descr: Optional[
     length = len(dictionary)
 
     if key_filter is not None:
-        def kv_key_filter(kv, **kwargs):
-            k, v = kv
-            return key_filter(k, **kwargs)
-        items = fast_filter(kv_key_filter, items, length, **key_filter_kwargs)
+        items = fast_filter(partial(_k_mapper, func=key_filter), items, length, **key_filter_kwargs)
         length = len(items)
 
     if input_filter is not None:
-        def kv_input_filter(kv, **kwargs):
-            k, v = kv
-            return input_filter(k, v, **kwargs)
-        items = fast_filter(kv_input_filter, items, length, **input_filter_kwargs)
+        items = fast_filter(partial(_kv_mapper, func=input_filter), items, length, **input_filter_kwargs)
         length = len(items)
 
-    def kv_func(kv, **kwargs):
-        k, v = kv
-        return func(k, v, **kwargs)
-
-    iter_result = fast_map(kv_func, items, length, verbose_descr, func_kwargs=func_kwargs)
+    iter_result = fast_map(partial(_kv_mapper, func=func), items, length, verbose_descr, func_kwargs=func_kwargs)
     result = {}
     for (k, v), res in zip(items, iter_result):
         if output_value_filter is not None:

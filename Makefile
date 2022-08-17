@@ -1,22 +1,19 @@
 PORT=1234
-DB_CONFIG=config.json
-DATA_DIR=.
 MTYPE=affecting
-CACHE_DB=real_db
-OUT_DIR=generated
-LOG_DIR=logs
-CKPT_DIR=checkpoints
 SCALING=1
-CACHE_DB_FAKE=fake_db
 EVAL_CONFIG=eval_conf
-EVAL_OUT_DIR=evaluation
 DOC_PORT=8080
 PYTHON=python3
 DB_NAME=rtd
-META_DIR=meta
 SRC_DATA_DIR=src
 LOG_LEVEL=INFO
 TEMP_CACHE=.temp.nosync
+FAKE_DB=
+
+DATA_OUTPUT_DIR=data
+MODEL_OUTPUT_DIR=output
+GENERATE_OUTPUT_DIR=generated
+EVAL_OUTPUT_DIR=evaluation
 
 install:
 	${PYTHON} -m pip install --upgrade pip
@@ -34,9 +31,9 @@ docs:
 prepare:
 	${PYTHON} process.py database ${DB_NAME} \
 		--src_data_dir ${SRC_DATA_DIR} \
-		--data_dir ${DATA_DIR} \
-        --meta_dir ${META_DIR} \
-        --out ${DB_CONFIG} \
+		--data_dir ${DATA_OUTPUT_DIR}/data \
+        --meta_dir ${DATA_OUTPUT_DIR}/metadata \
+        --out ${DATA_OUTPUT_DIR}/db_config.json \
         --redo_meta \
         --redo_data
 
@@ -48,32 +45,32 @@ train_gpu:
 			--temp_cache ${TEMP_CACHE} \
 			train_gen \
 			--distributed \
-			--db_config_path ${DB_CONFIG} \
-			--data_dir ${DATA_DIR} \
+			--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
+			--data_dir ${DATA_OUTPUT_DIR}/data \
 			--mtype ${MTYPE} \
-			--db_dir_path ${CACHE_DB} \
+			--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
 			--aug_resume \
 			--default_tab_trainer_distributed True \
 			--default_deg_trainer_distributed True \
 			--default_tab_trainer_autocast True \
 			--default_deg_trainer_autocast True \
-			--default_tab_trainer_log_dir ${LOG_DIR}/tab \
-			--default_deg_trainer_log_dir ${LOG_DIR}/deg \
-			--default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
-			--default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
+			--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
+			--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
+			--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
+			--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
 			--skip_generate
 
 train_cpu:
 	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
-		--db_config_path ${DB_CONFIG} \
-		--data_dir ${DATA_DIR} \
+		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
+		--data_dir ${DATA_OUTPUT_DIR}/data \
 		--mtype ${MTYPE} \
-		--db_dir_path ${CACHE_DB} \
+		--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
 		--aug_resume \
-		--default_tab_trainer_log_dir ${LOG_DIR}/tab \
-		--default_deg_trainer_log_dir ${LOG_DIR}/deg \
-		--default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
-		--default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
+		--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
+		--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
+		--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
+		--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
 		--skip_generate
 
 generate_gpu:
@@ -82,10 +79,10 @@ generate_gpu:
 		--master_port=${PORT} \
 		main.py --log_level ${LOG_LEVEL} train_gen \
 			--distrubted \
-			--db_config_path ${DB_CONFIG} \
-			--data_dir ${DATA_DIR} \
+			--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
+			--data_dir ${DATA_OUTPUT_DIR}/data \
 			--mtype ${MTYPE} \
-			--db_dir_path ${CACHE_DB} \
+			--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
 			--aug_resume \
 			--skip_train \
 			--default_tab_train_resume \
@@ -94,44 +91,44 @@ generate_gpu:
 			--default_deg_trainer_distributed \
 			--default_tab_trainer_autocast \
 			--default_deg_trainer_autocast \
-			--default_tab_trainer_log_dir ${LOG_DIR}/tab \
-			--default_deg_trainer_log_dir ${LOG_DIR}/deg \
-			--default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
-			--default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
-			--save_generated_to ${OUT_DIR} \
+			--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
+			--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
+			--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
+			--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
+			--save_generated_to ${GENERATE_OUTPUT_DIR}/generated \
 			--default_scaling ${SCALING} \
-			--save_synth_db ${CACHE_DB_FAKE}
+			--save_synth_db ${GENERATE_OUTPUT_DIR}/fake_db
 
 generate_cpu:
-	${PYTHON} main.py --log_level ${LOG_LEVEL} train_gen \
+	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
 		--distrubted \
-		--db_config_path ${DB_CONFIG} \
-		--data_dir ${DATA_DIR} \
+		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
+		--data_dir ${DATA_OUTPUT_DIR}/data \
 		--mtype ${MTYPE} \
-		--db_dir_path ${CACHE_DB} \
+		--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
 		--aug_resume \
 		--skip_train \
 		--default_tab_train_resume \
 		--default_deg_train_resume \
-		--default_tab_trainer_log_dir ${LOG_DIR}/tab \
-		--default_deg_trainer_log_dir ${LOG_DIR}/deg \
-		--default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
-		--default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
-		--save_generated_to ${OUT_DIR} \
+		--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
+		--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
+		--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
+		--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
+		--save_generated_to ${GENERATE_OUTPUT_DIR}/generated \
 		--default_scaling ${SCALING} \
-		--save_synth_db ${CACHE_DB_FAKE}
+		--save_synth_db ${GENERATE_OUTPUT_DIR}/fake_db
 
 evaluate:
-	mkdir -p ${EVAL_OUT_DIR}
-	mkdir -p ${EVAL_OUT_DIR}/tables
-	${PYTHON} main.py --log_level ${LOG_LEVEL} evaluate \
-		--real_db_dir ${CACHE_DB} \
-		--fake_db_dir ${CACHE_DB_FAKE} \
+	mkdir -p ${EVAL_OUTPUT_DIR}
+	mkdir -p ${EVAL_OUTPUT_DIR}/tables
+	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} evaluate \
+		--real_db_dir ${MODEL_OUTPUT_DIR}/real_db \
+		--fake_db_dir ${FAKE_DB} \
 		--evaluator_path ${EVAL_CONFIG}/constructor.json \
 		--evaluate_path ${EVAL_CONFIG}/evaluate.json \
-		--save_eval_res_to ${EVAL_OUT_DIR}/trivial \
-		--save_complete_result_to ${EVAL_OUT_DIR}/complete \
-		--save_synthetic_tables_to ${EVAL_OUT_DIR}/tables/synthetic \
-		--save_tables_to ${EVAL_OUT_DIR}/tables/real \
-		--save_visualization_to ${EVAL_OUT_DIR}/visualization \
-		--save_all_res_to ${EVAL_OUT_DIR}/result
+		--save_eval_res_to ${EVAL_OUTPUT_DIR}/trivial \
+		--save_complete_result_to ${EVAL_OUTPUT_DIR}/complete \
+		--save_synthetic_tables_to ${EVAL_OUTPUT_DIR}/tables/synthetic \
+		--save_tables_to ${EVAL_OUTPUT_DIR}/tables/real \
+		--save_visualization_to ${EVAL_OUTPUT_DIR}/visualization \
+		--save_all_res_to ${EVAL_OUTPUT_DIR}/result

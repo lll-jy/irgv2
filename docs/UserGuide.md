@@ -26,9 +26,9 @@ For convenience, we copy the relevant script here.
 
     python3 process.py database ${DB_NAME} \
         --src_data_dir ${SRC_DATA_DIR} \
-        --data_dir ${DATA_DIR} \
-        --meta_dir ${META_DIR} \
-        --out ${DB_CONFIG} \
+        --data_dir ${DATA_OUTPUT_DIR}/data \
+        --meta_dir ${DATA_OUTPUT_DIR}/metadata \
+        --out ${DATA_OUTPUT_DIR}/db_config.json \
         --redo_meta \
         --redo_data
 
@@ -40,9 +40,7 @@ The following table shows the variables of the script.
 |:---|:---|:---|
 |`DB_NAME`|`rtd`|Name of predefined database.|
 |`SRC_DATA_DIR`|`src`|Path of directory holding the source data files.|
-|`DATA_DIR`|`.`|Path of directory to save processed data files to.|
-|`META_DIR`|`meta`|Path of directory to save per-table metadata JSON files to.|
-|`DB_CONFIG`|`config.json`|Path to save the configuration file of the entire database to.|
+|`DATA_OUTPUT_DIR`|`data`|Path of directory to save processed data and metadata files to.|
 
 #### Input Structure
 
@@ -56,15 +54,16 @@ Capitalized directory names are the variables.
 JSON files' content may also be desribed in YAML-like format if elaboration is needed there.
 This format applies to all structure description in this guide.
 
-    DB_CONFIG: "JSON file with database configuration"
-    DATA_DIR:
-      - {TABLE1_NAME}.csv
-      - {TABLE2_NAME}.csv
-      - ...
-    META_DIR:
-      - {TABLE1_NAME}.json
-      - {TABLE2_NAME}.json
-      - ...
+    DATA_OUTPUT_DIR:
+      db_config.json: "JSON file with database configuration"
+      data:
+        - {TABLE1_NAME}.csv
+        - {TABLE2_NAME}.csv
+        - ...
+      metadata:
+        - {TABLE1_NAME}.json
+        - {TABLE2_NAME}.json
+        - ...
 
 ### Use Python Script
 
@@ -94,16 +93,16 @@ Run `make train_gpu` to run distributed training on GPUs, and `make train_cpu` t
 
 For convenience, we copy the relevant script (CPU) here.
 
-    python3 main.py train_gen \
-        --db_config_path ${DB_CONFIG} \
-        --data_dir ${DATA_DIR} \
+    python3 -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
+        --db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
+        --data_dir ${DATA_OUTPUT_DIR}/data \
         --mtype ${MTYPE} \
-        --db_dir_path ${CACHE_DB} \
+        --db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
         --aug_resume \
-        --default_tab_trainer_log_dir ${LOG_DIR}/tab \
-        --default_deg_trainer_log_dir ${LOG_DIR}/deg \
-        --default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
-        --default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
+        --default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
+        --default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
+        --default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
+        --default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
         --skip_generate
 
 ### Variables
@@ -114,57 +113,55 @@ The following table shows the variables of the script.
 |:---|:---|:---|
 |`NUM_GPUS`|-|Number of GPUs (only used for distributed training).|
 |`PORT`|`1234`|Master port for distributed training (only used for distributed training).|
-|`DB_CONFIG`|`config.json`|Path with the configuration of database described as JSON file saved at.|
-|`DATA_DIR`|`.`|Path to the directory with all tables, where each table is saved as `TABLE_NAME.csv`.|
+|`DATA_OUTPUT_DIR`|`data`|Directory holding data of the database.|
 |`MTYPE`|`affecting`|Database joining mechanism name.|
-|`CACHE_DB`|`real_db`|Path to the directory where cached database with internal structure is saved.|
-|`LOG_DIR`|`logs`|Directory saving the tensorboard logging. Tabular models are in `tab/` sub directory and degree models are in `deg/` subdirectory.|
-|`CKPT_DIR`|`checkpoints`|Directory saving all checkpoints of trained models. The subdirectory structure is the same as `LOG_DIR`.|
+|`MODEL_OUTPUT_DIR`|`output`|Directory saving model outputs.|
 
 ### Input Structure
 
-`DB_CONFIG` and `DATA_DIR` from preparation stage.
+`DATA_OUTPUT_DIR` from data processing.
 
 ### Output Structure
 
-    CACHE_DB:
-      - config.json: 
-        - primary_keys: "Input primary_keys for Database constructor"
-        - foreign_keys: "Input foreign_keys for Database constructor"
-        - data_dir: "Input data_dir for Database constructor"
-        - order: "Order of tables by name"
-      - {TABLE1_NAME}.pkl: "Table object"
-      - {TABLE2_NAME}.pkl
-      - ...
-    LOG_DIR:
-      - tab
-        - {TABLE1_NAME}:
-          - events.out.tfevents...
-          - events.out.tfevents...
-        - {TABLE2_NAME}:
-          - ...
+    MODEL_OUTPUT_DIR:
+      real_db:
+        - config.json: 
+            primary_keys: "Input primary_keys for Database constructor"
+            foreign_keys: "Input foreign_keys for Database constructor"
+            data_dir: "Input data_dir for Database constructor"
+            order: "Order of tables by name"
+        - {TABLE1_NAME}.pkl: "Table object"
+        - {TABLE2_NAME}.pkl
         - ...
-      - deg:
-        - {TABLE2_NAME}:
-          - events.out.tfevents...
-          - events.out.tfevents...
-        - ...
-    CKPT_DIR:
-      - tab:
-        - {TABLE1_NAME}:
-          - epoch_0000001.pt: "Checkpoint after 1 epoch"
-          - epoch_0000002.pt: "Checkpoint after 2 epoch"
+      tf:
+        tab: "tabuar models"
+          - {TABLE1_NAME}:
+            - events.out.tfevents...
+            - events.out.tfevents...
+          - {TABLE2_NAME}:
+            - ...
           - ...
-          - step_0000001.pt: "Checkpoint after 1*save_freq steps"
-          - step_0000002.pt: "Checkpoint after 2*save_freq steps"
+        deg:
+          - {TABLE2_NAME}:
+            - events.out.tfevents...
+            - events.out.tfevents...
           - ...
-        - {TABLE2_NAME}:
+      ckpt:
+        tab:
+          - {TABLE1_NAME}:
+            - epoch_0000001.pt: "Checkpoint after 1 epoch"
+            - epoch_0000002.pt: "Checkpoint after 2 epoch"
+            - ...
+            - step_0000001.pt: "Checkpoint after 1*save_freq steps"
+            - step_0000002.pt: "Checkpoint after 2*save_freq steps"
+            - ...
+          - {TABLE2_NAME}:
+            - ...
           - ...
-        - ...
-      - deg:
-        - {TABLE2_NAME}:
+        deg:
+          - {TABLE2_NAME}:
+            - ...
           - ...
-        - ...
 
 ## Use Python Script
 
@@ -219,23 +216,24 @@ Run `make generate_gpu` to run distributed generation on GPUs, and `make generat
 
 For convenience, we copy the relevant script (CPU) here.
 
-	python3 main.py train_gen \
-		--distrubted \
-		--db_config_path ${DB_CONFIG} \
-		--data_dir ${DATA_DIR} \
-		--mtype ${MTYPE} \
-		--db_dir_path ${CACHE_DB} \
-		--aug_resume \
-		--skip_train \
-		--default_tab_train_resume \
-		--default_deg_train_resume \
-		--default_tab_trainer_log_dir ${LOG_DIR}/tab \
-		--default_deg_trainer_log_dir ${LOG_DIR}/deg \
-		--default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
-		--default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
-		--save_generated_to ${OUT_DIR} \
-		--default_scaling ${SCALING} \
-		--save_synth_db ${CACHE_DB_FAKE}
+	python3 -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
+        --distrubted \
+        --db_config_path ${DB_CONFIG} \
+        --data_dir ${DATA_DIR} \
+        --mtype ${MTYPE} \
+        --db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
+        --aug_resume \
+        --skip_train \
+        --default_tab_train_resume \
+        --default_deg_train_resume \
+        --default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
+        --default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
+        --default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
+        --default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
+        --save_generated_to ${OUT_DIR} \
+        --default_scaling ${SCALING} \
+        --save_synth_db ${MODEL_OUTPUT_DIR}/fake_db
+
 
 ### Variables
 
@@ -243,20 +241,18 @@ The following table shows the variables of the script in addition to training st
 
 | Name | Default | Description | 
 |:---|:---|:---|
-|`OUT_DIR`|`generated`|Output directory of generated tables.|
+|`GENERATE_OUTPUT_DIR`|`generated`|Output directory of generated output.|
 |`SCALING`|`1`|Scaling factor (uniform, i.e. for all tables).|
-|`CACHE_DB_FAKE`|`fake_db`|Fake database cached directory with internal structure for execution.|
 
 ### Input Structure
 
-    CACHE_DB: "Result from training"
-    LOG_DIR: "Result from training"
-    CKPT_DIR: "Result from training"
+`MODEL_OUTPUT_DIR` from training stage.
 
 ### Output Structure
 
-    OUT_DIR: "Same structure as DATA_DIR but for synthetic version"
-    CACHE_DB_FAKE: "Same structure as CACHE_DB but for synthetic version"
+    GENERATE_OUTPUT_DIR:
+      generated: "Same structure as DATA_OUTPUT_DIR/data but for synthetic version"
+      fake_db: "Same structure as MODEL_OUTPUT_DIR/real_db but for synthetic version"
     
 
 ## Use Python Script
@@ -295,17 +291,17 @@ Run `make evaluate` to execute evaluation.
 
 For convenience, we copy the relevant script here.
 
-	python3 main.py evaluate \
-		--real_db_dir ${CACHE_DB} \
-		--fake_db_dir ${CACHE_DB_FAKE} \
-		--evaluator_path ${EVAL_CONFIG}/constructor.json \
-		--evaluate_path ${EVAL_CONFIG}/evaluate.json \
-		--save_eval_res_to ${EVAL_OUT_DIR}/trivial \
-		--save_complete_result_to ${EVAL_OUT_DIR}/complete \
-		--save_synthetic_tables_to ${EVAL_OUT_DIR}/tables/synthetic \
-		--save_tables_to ${EVAL_OUT_DIR}/tables/real \
-		--save_visualization_to ${EVAL_OUT_DIR}/visualization \
-		--save_all_res_to ${EVAL_OUT_DIR}/result
+	python3 -W ignore main.py --log_level ${LOG_LEVEL} evaluate \
+        --real_db_dir ${MODEL_OUTPUT_DIR}/real_db \
+        --fake_db_dir ${FAKE_DB} \
+        --evaluator_path ${EVAL_CONFIG}/constructor.json \
+        --evaluate_path ${EVAL_CONFIG}/evaluate.json \
+        --save_eval_res_to ${EVAL_OUTPUT_DIR}/trivial \
+        --save_complete_result_to ${EVAL_OUTPUT_DIR}/complete \
+        --save_synthetic_tables_to ${EVAL_OUTPUT_DIR}/tables/synthetic \
+        --save_tables_to ${EVAL_OUTPUT_DIR}/tables/real \
+        --save_visualization_to ${EVAL_OUTPUT_DIR}/visualization \
+        --save_all_res_to ${EVAL_OUTPUT_DIR}/result
 
 ### Variables
  
@@ -313,22 +309,22 @@ The following table shows the variables of the script.
 
 | Name | Default | Description | 
 |:---|:---|:---|
-|`CACHE_DB`|`real_db`|Real database saved directory path.|
-|`CACHE_DB_FAKE`|`fake_db`|Fake databases saved directory path. If multiple synthetic databases (based on the same real database) are to be evaluated, one can specify this variable as `CACHE_DB_FAKE=(DB1 DB2 DB3)`.|
+|`MODEL_OUTPUT_DIR`|`output`|Training output directory.|
+|`FAKE_DB`|`fake_db`|Fake databases saved directory path (from `GENERATE_OUTPUT_DIR/fake_db` of generation). If multiple synthetic databases (based on the same real database) are to be evaluated, one can specify this variable as `CACHE_DB_FAKE=(DB1 DB2 DB3)`.|
 |`EVAL_CONFIG`|`eval_conf`|Path to configurations for evaluation. Should contain two files: `constructor.json` and `evaluate.json`.|
-|`EVAL_OUT_DIR`|`evaluation`|Path to save the evaluation output.|
+|`EVAL_GENERATE_OUTPUT_DIR`|`evaluation`|Path to save the evaluation output.|
 
 ### Input Structure
 
-    CACHE_DB: "Result from training"
-    CACHE_DB_FAKE: "Result from training, but can be a list"
+    MODEL_OUTPUT_DIR: "Result from training"
+    FAKE_DB: "Result from generation, but can be a list"
     EVAL_CONFIG:
       - constructor.json: "Arguments to SyntheticDatabaseEvaluator.__init__"
       - evaluate.json: "Arguments to SyntheticDatabaseEvaluator.evaluate"
 
 ### Output Structure
 
-    EVAL_OUT_DIR:
+    EVAL_GENERATE_OUTPUT_DIR:
       - trivial
         - {SYNTHETIC1}
           - tables
