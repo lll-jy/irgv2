@@ -30,7 +30,14 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
         _LOGGER.info(f'Loaded database from {save_db_to}.')
     else:
         os.makedirs(temp_cache, exist_ok=True)
-        database = create_db(schema, file_path, engine, data_dir, temp_cache, mtype)
+        database = create_db(
+            schema=schema,
+            file_path=file_path,
+            engine=engine,
+            data_dir=data_dir,
+            temp_cache=temp_cache,
+            mtype=mtype
+        )
         _LOGGER.info(f'Created database based on data in {data_dir}.')
         database.augment()
         _LOGGER.info('Augmented database.')

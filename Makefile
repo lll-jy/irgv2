@@ -132,3 +132,8 @@ evaluate:
 		--save_tables_to ${EVAL_OUTPUT_DIR}/tables/real \
 		--save_visualization_to ${EVAL_OUTPUT_DIR}/visualization \
 		--save_all_res_to ${EVAL_OUTPUT_DIR}/result
+
+stop:
+	pkill -9 -f main.py
+	pkill -9 -f multiprocessing.fork
+	pkill -9 -f multiprocessing.spawn

@@ -42,7 +42,7 @@ def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None
     **Raises**: `RuntimeError` if neither `create_from_dict` nor `create_from_file` is applicable.
     """
     if file_path is not None:
-        return create_from_file(file_path, engine, data_dir, mtype)
+        return create_from_file(file_path, engine, data_dir, temp_cache, mtype)
     if schema is not None:
         return create_from_dict(schema, data_dir, temp_cache, mtype)
     raise RuntimeError('Schema and file path cannot be None simultaneously.')
