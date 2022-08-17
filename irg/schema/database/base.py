@@ -15,7 +15,8 @@ from pandasql import sqldf
 
 from ..table import Table, SyntheticTable
 from ...utils.errors import ColumnNotFoundError, TableNotFoundError
-from ...utils.misc import load_from, Data2D
+from ...utils.misc import Data2D
+from ...utils.io import load_from
 
 _LOGGER = logging.getLogger()
 

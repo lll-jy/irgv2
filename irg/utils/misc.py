@@ -1,20 +1,18 @@
-import json
-import pickle
-from typing import Optional, Union, Collection, Any
-import yaml
+"""Miscellaneous util functions."""
+
+from typing import Optional, Union, Collection
 from statistics import harmonic_mean
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from torch import Tensor, from_numpy as tensor_from_numpy, load as torch_load
+from torch import Tensor, from_numpy as tensor_from_numpy
 
 __all__ = (
     'Data2D',
     'SparseDType',
     'convert_data_as',
     'inverse_convert_data',
-    'load_from',
     'calculate_mean'
 )
 
@@ -76,47 +74,6 @@ def inverse_convert_data(src: Data2D, columns: Optional[Collection]) -> pd.DataF
         return pd.DataFrame(src.numpy(), columns=columns)
     raise NotImplementedError(f'Unrecognized return type {type(src)}. '
                               f'Please make sure the input is one of [pd.DataFrame, np.ndarray, Tensor] type. ')
-
-
-def load_from(file_path: str, engine: Optional[str] = None) -> Any:
-    """
-    Load content from file.
-
-    **Args**:
-
-    - `file_path` (`str`): Path to the file.
-    - `engine` (`Optional[str]`) [default `None`]: File format. Supported format include json, pickle, yaml, and torch.
-      If `None`, infer from the extension name of the file path.
-
-    **Return**: Content of the file.
-
-    **Raise**: `NotImplementedError` if the engine is not recognized.
-    """
-    if engine is None:
-        if file_path.endswith('.json'):
-            engine = 'json'
-        elif file_path.endswith('.pkl'):
-            engine = 'pickle'
-        elif file_path.endswith('.yaml'):
-            engine = 'yaml'
-        elif file_path.endswith('.pt') or file_path.endswith('.bin') or file_path.endswith('.pth'):
-            engine = 'torch'
-
-    if engine == 'json':
-        with open(file_path, 'r') as f:
-            content = json.load(f)
-        return content
-    if engine == 'pickle':
-        with open(file_path, 'rb') as f:
-            content = pickle.load(f)
-        return content
-    if engine == 'yaml':
-        with open(file_path, 'r') as f:
-            content = yaml.load(f, Loader=yaml.FullLoader)
-        return content
-    if engine == 'torch':
-        return torch_load(file_path)
-    raise NotImplementedError(f'Data file of {engine} is not recognized as a valid engine.')
 
 
 def calculate_mean(x: Union[pd.Series, np.ndarray, Tensor], mean: str = 'arithmetic', smooth: float = 0.1) -> float:

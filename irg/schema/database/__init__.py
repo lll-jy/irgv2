@@ -2,6 +2,7 @@
 
 from typing import OrderedDict, Dict, Optional
 
+import irg.utils.io
 from .base import Database, SyntheticDatabase
 from .unrelated import UnrelatedDatabase
 from .parent import ParentChildDatabase
@@ -79,4 +80,4 @@ def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str
 
     **Return**: Constructed database from the given information.
     """
-    return _DB_TYPE_BY_NAME[mtype].load_from(file_path, engine, data_dir, temp_cache)
+    return irg.utils.io.load_from(file_path, engine, data_dir, temp_cache)

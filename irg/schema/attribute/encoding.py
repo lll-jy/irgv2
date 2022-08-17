@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 
 from .base import BaseAttribute, BaseTransformer
-from ...utils.misc import load_from
+from ...utils.io import load_from
 
 
 class EncodingTransformer(BaseTransformer):

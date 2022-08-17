@@ -63,6 +63,7 @@ class Table:
 
         self._temp_cache = temp_cache
         os.makedirs(temp_cache, exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'normalized'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'describers'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'norm_aug'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
@@ -148,7 +149,7 @@ class Table:
         return os.path.join(self._temp_cache, 'data.pkl')
 
     def _normalized_path(self, attr_name: str) -> str:
-        return os.path.join(self._temp_cache, 'normalized.h5')
+        return os.path.join(self._temp_cache, 'normalized', f'{attr_name}.h5')
 
     def _describer_path(self, idx: int) -> str:
         return os.path.join(self._temp_cache, 'describers', f'describer{idx}.json')
@@ -217,7 +218,7 @@ class Table:
         new_data.to_pickle(self._data_path())
         for n, attr in self._attributes.items():
             transformed = attr.transform(new_data[n])
-            transformed.astype(SparseDType).to_hdf(self._normalized_path(n), n)
+            transformed.astype(SparseDType).to_hdf(self._normalized_path(n), 'df')
 
     def replace_attributes(self, new_attributes: Dict[str, BaseAttribute]):
         """
@@ -240,7 +241,7 @@ class Table:
             data = pd.read_pickle(self._data_path())
             if attr_name in data.columns:
                 new_transformed = new_attributes[attr_name].transform(data[attr_name])
-                new_transformed.astype(SparseDType).to_hdf(self._normalized_path(attr_name), attr_name)
+                new_transformed.astype(SparseDType).to_hdf(self._normalized_path(attr_name), 'df')
 
     def join(self, right: "Table", ref: ItemsView[str, str], descr: Optional[str] = None, how: str = 'outer') \
             -> "Table":
@@ -298,7 +299,7 @@ class Table:
 
         for n, v in result._attributes:
             transformed = v.transform(joined[n])
-            transformed.astype(SparseDType).to_hdf(result._normalized_path(n), n)
+            transformed.astype(SparseDType).to_hdf(result._normalized_path(n), 'df')
 
         return result
 
@@ -387,10 +388,11 @@ class Table:
 
     def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool):
         if attr.atype == 'id':
-            data[[name]].astype(SparseDType).to_hdf(self._normalized_path(name), name)
+            data[[name]].to_hdf(self._normalized_path(name), 'df')
         else:
             attr.fit(data[name], force_redo=force_redo)
-            attr.get_original_transformed().astype(SparseDType).to_hdf(self._normalized_path(name), name)
+            attr.get_original_transformed.sp
+            attr.get_original_transformed().astype(SparseDType).to_hdf(self._normalized_path(name), 'df')
 
     def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs):
         for col in det:
@@ -466,8 +468,9 @@ class Table:
                 data = data[[col for col in data.columns if col not in exclude_cols]]
             else:
                 data = pd.concat({
-                    n: pd.read_hdf(self._normalized_path(n), n).to_dense()
-                    for n in self._attributes if n not in exclude_cols
+                    n: pd.read_hdf(self._normalized_path(n), 'df').to_dense()
+                    if attr.atype != 'id' else pd.read_hdf(self._normalized_path(n), 'df')
+                    for n, attr in self._attributes.items() if n not in exclude_cols
                 }, axis=1)
         elif variant == 'augmented':
             augmented = pd.read_pickle(self._augmented_path())
@@ -731,7 +734,8 @@ class SyntheticTable(Table):
         if replace_content:
             recovered_df.to_pickle(self._data_path())
             for n, v in columns.items():
-                pd.DataFrame(normalized_core[n], columns=v).astype(SparseDType).to_hdf(self._normalized_path(n), n)
+                pd.DataFrame(normalized_core[n], columns=v).astype(SparseDType)\
+                    .to_hdf(self._normalized_path(n), 'df')
 
         return recovered_df
 
