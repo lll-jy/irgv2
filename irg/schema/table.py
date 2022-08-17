@@ -195,13 +195,17 @@ class Table:
         """
         id_cols = [] if id_cols is None else id_cols
         force_cat = [] if force_cat is None else force_cat
-        return {
-            attr_name: (
-                learn_meta(data[attr_name], attr_name in id_cols, attr_name) | {'name': attr_name}
-                if attr_name not in force_cat else {'name': attr_name, 'type': 'categorical'}
-            )
-            for attr_name in data.columns
-        }
+        return fast_map_dict(
+            func=cls._learn_attr_meta,
+            dictionary=data.to_dict('series'),
+            func_kwargs=dict(id_cols=id_cols, force_cat=force_cat)
+        )
+
+    @staticmethod
+    def _learn_attr_meta(attr_name: str, col_data: pd.Series, id_cols: Iterable[str], force_cat: Iterable[str]) \
+            -> Dict[str, Any]:
+        return learn_meta(col_data, attr_name in id_cols, attr_name) | \
+               {'name': attr_name} if attr_name not in force_cat else {'name': attr_name, 'type': 'categorical'}
 
     def replace_data(self, new_data: pd.DataFrame):
         """

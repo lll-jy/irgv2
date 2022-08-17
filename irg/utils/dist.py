@@ -2,7 +2,7 @@
 from datetime import timedelta
 from functools import partial
 from types import FunctionType
-from typing import Optional, Collection, Any, Dict, List, Tuple
+from typing import Optional, Iterable, Any, Dict, List, Tuple
 
 import torch
 import torch.distributed as dist
@@ -70,7 +70,7 @@ def init_process_group(distributed: bool = True, num_processes: int = 200):
     _pool = mp.Pool(processes=num_processes)
 
 
-def fast_filter(func: FunctionType, iterable: Collection[Any], **kwargs) -> List[Any]:
+def fast_filter(func: FunctionType, iterable: Iterable[Any], total_len: int, **kwargs) -> List[Any]:
     """
     Filter an iterable by some criterion.
 
@@ -79,11 +79,12 @@ def fast_filter(func: FunctionType, iterable: Collection[Any], **kwargs) -> List
     - `func` (`FunctionType`): The predicate function.
       The first argument of the function should be a single element in the iterable.
     - `iterable` (`Iterable[Any]`): The source iterable elements.
+    - `total_len` (`int`): Total length of the iterable.
     - `kwargs`: Other arguments to the predicate other than the element.
 
     **Return**: The filtered iterables.
     """
-    indicator = fast_map(func, iterable, func_kwargs=kwargs)
+    indicator = fast_map(func, iterable, total_len, func_kwargs=kwargs)
     filtered = [
         ele for ind, ele
         in zip(indicator, iterable) if ind
@@ -91,7 +92,7 @@ def fast_filter(func: FunctionType, iterable: Collection[Any], **kwargs) -> List
     return filtered
 
 
-def fast_map(func: FunctionType, iterable: Collection[Any], verbose_descr: Optional[str] = None,
+def fast_map(func: FunctionType, iterable: Iterable[Any], total_len: int, verbose_descr: Optional[str] = None,
              filter_input: Optional[FunctionType] = None, filter_output: Optional[FunctionType] = None,
              func_kwargs: Optional[Dict[str, Any]] = None, input_kwargs: Optional[Dict[str, Any]] = None,
              output_kwargs: Optional[Dict[str, Any]] = None) \
@@ -104,6 +105,7 @@ def fast_map(func: FunctionType, iterable: Collection[Any], verbose_descr: Optio
     - `func` (`FunctionType`): The function to execute.
       The first argument of the function should be a single element in the iterable.
     - `iterable` (`Iterable[Any]`): The source iterable elements.
+    - `total_len` (`int`): Total length of the iterable.
     - `verbose_descr` (`Optional[str]`): Verbose description of the execution process.
       Not verbosed if `None` given.
     - `filter_input` (`Optional[FunctionType]`): Boolean function that checks whether an element in the iterable
@@ -124,14 +126,13 @@ def fast_map(func: FunctionType, iterable: Collection[Any], verbose_descr: Optio
     output_kwargs = {} if output_kwargs is None else output_kwargs
     func = partial(func, **func_kwargs)
     if filter_input is not None:
-        iterable = fast_filter(filter_input, **input_kwargs)
-    length = len(iterable)
-    result = [None] * length
+        iterable = fast_filter(filter_input, iterable, total_len, **input_kwargs)
+    result = [None] * total_len
 
     if _pool is not None:
         iterable = _pool.imap(func, iterable)
     if verbose_descr is not None:
-        iterable = tqdm(iterable, total=len(iterable))
+        iterable = tqdm(iterable, total=total_len)
         iterable.set_description(verbose_descr)
 
     if _pool is None:
@@ -142,7 +143,7 @@ def fast_map(func: FunctionType, iterable: Collection[Any], verbose_descr: Optio
             result[i] = ele_res
 
     if filter_output is not None:
-        result = fast_filter(filter_output, result, func_kwargs=output_kwargs)
+        result = fast_filter(filter_output, result, total_len, **output_kwargs)
     return result
 
 
@@ -182,51 +183,34 @@ def fast_map_dict(func: FunctionType, dictionary: Dict, verbose_descr: Optional[
 
     **Return**: The returning iterables.
     """
-    keys, values = dictionary.keys(), dictionary.values()
+    items = dictionary.items()
+    length = len(dictionary)
 
     if key_filter is not None:
         def kv_key_filter(kv, **kwargs):
             k, v = kv
             return key_filter(k, **kwargs)
-        filtered = fast_filter(kv_key_filter, list(zip(keys, values)), **key_filter_kwargs)
-        keys, values = _separate_kv(filtered)
+        items = fast_filter(kv_key_filter, items, length, **key_filter_kwargs)
+        length = len(items)
 
     if input_filter is not None:
         def kv_input_filter(kv, **kwargs):
             k, v = kv
             return input_filter(k, v, **kwargs)
-        filtered = fast_filter(kv_input_filter, list(zip(keys, values)), **input_filter_kwargs)
-        keys, values = _separate_kv(filtered)
+        items = fast_filter(kv_input_filter, items, length, **input_filter_kwargs)
+        length = len(items)
 
     def kv_func(kv, **kwargs):
         k, v = kv
         return func(k, v, **kwargs)
 
-    iter_result = fast_map(kv_func, list(zip(keys, values)), verbose_descr, func_kwargs=func_kwargs)
-
-    if output_value_filter is not None:
-        def kv_output_filter(kv, **kwargs):
-            k, v = kv
-            return output_value_filter(v, **kwargs)
-        filtered = fast_filter(kv_output_filter, list(zip(keys, iter_result)), **output_value_filter_kwargs)
-        keys, iter_result = _separate_kv(filtered)
-
+    iter_result = fast_map(kv_func, items, length, verbose_descr, func_kwargs=func_kwargs)
     result = {}
-    if key_mapper is not None:
-        keys = fast_map(key_mapper, list(keys), func_kwargs=mapper_kwargs)
-    for i, key in enumerate(keys):
-        result[key] = iter_result[i]
+    for (k, v), res in zip(items, iter_result):
+        if output_value_filter is not None:
+            if not output_value_filter(v, **output_value_filter_kwargs):
+                continue
+        if key_mapper is not None:
+            k = key_mapper(k, **mapper_kwargs)
+        result[k] = res
     return result
-
-
-def _separate_kv(iterable: Collection[Tuple[Any, Any]]) -> Tuple[List[Any], List[Any]]:
-    def extract_keys(kv):
-        k, v = kv
-        return k
-
-    def extract_values(kv):
-        k, v = kv
-        return v
-    keys = fast_map(extract_keys, iterable)
-    values = fast_map(extract_values, iterable)
-    return keys, values
