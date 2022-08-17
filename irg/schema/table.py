@@ -19,6 +19,7 @@ from DataSynthesizer.DataGenerator import DataGenerator
 from .attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute
 from ..utils.misc import Data2D, convert_data_as, inverse_convert_data
 from ..utils.errors import NoPartiallyKnownError, NotFittedError
+from ..utils.dist import fast_map_dict
 
 TwoLevelName = Tuple[str, str]
 _LOGGER = logging.getLogger()
@@ -75,14 +76,12 @@ class Table:
             _LOGGER.debug(f'Learned metadata for table {self._name}.')
         self._length = None
         self._attr_meta, self._id_cols = attributes, id_cols
-        self._attributes: Dict[str, BaseAttribute] = {
-            attr_name: create_attribute(
-                meta=meta,
-                values=data[attr_name] if need_fit and data is not None else None,
-                temp_cache=self._attribute_cache_path(attr_name)
-            )
-            for attr_name, meta in self._attr_meta.items()
-        }
+        self._attributes: Dict[str, BaseAttribute] = fast_map_dict(
+            func=self._create_attribute,
+            dictionary=self._attr_meta,
+            verbose_descr=f'Construct attribute for {self._name}',
+            func_kwargs=dict(need_fit=need_fit, data=data)
+        )
 
         det_child_cols = {col for det in self._determinants for col in det[1:]}
         self._core_cols = [
@@ -126,6 +125,14 @@ class Table:
                                                                           self._deg_norm_by_attr_files)
         copied._augmented_ids, copied._degree_ids = self._augmented_ids, self._degree_ids
         return copied
+
+    def _create_attribute(self, attr_name: str, meta: Dict[str, Any],
+                          need_fit: bool = True, data: Optional[pd.DataFrame] = None) -> BaseAttribute:
+        return create_attribute(
+            meta=meta,
+            values=data[attr_name] if need_fit and data is not None else None,
+            temp_cache=self._attribute_cache_path(attr_name)
+        )
 
     def update_temp_cache(self, new_path: str):
         """

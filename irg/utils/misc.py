@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from torch import Tensor, from_numpy as tensor_from_numpy, load as torch_load
 
-
 __all__ = (
     'Data2D',
     'convert_data_as',
@@ -21,6 +20,7 @@ __all__ = (
 
 Data2D = Union[pd.DataFrame, np.ndarray, Tensor]
 """2D data type, including `pd.DataFrame`, `np.ndarray`, and `torch.Tensor`."""
+
 
 
 def convert_data_as(src: pd.DataFrame, return_as: str = 'pandas', copy: bool = True) -> Data2D:

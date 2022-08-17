@@ -168,6 +168,8 @@ def parse_args() -> Namespace:
     parser.add_argument('--log_level', type=str, default='INFO', help='Logging level.',
                         choices=['NOTSET', 'DEBUG', 'INFO', 'WARN', 'WARNING', 'ERROR', 'FATAL', 'CRITICAL'])
     parser.add_argument('--temp_cache', type=str, default='.temp', help='Directory to hold temporary cache files.')
+    parser.add_argument('--num_processes', type=int, default=200,
+                        help='Number of processes to run in parallel maximally.')
     return parser.parse_args()
 
 
@@ -205,8 +207,7 @@ def _fix_seed(seed: int):
 
 
 def _train_gen(args: Namespace):
-    if args.distributed:
-        init_process_group()
+    init_process_group(args.distributed, args.num_processes)
 
     augmented_db = engine.augment(
         file_path=args.db_config_path, engine=args.engine,

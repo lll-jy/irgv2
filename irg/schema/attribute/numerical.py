@@ -86,7 +86,7 @@ class NumericalTransformer(BaseTransformer):
         return val
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
-        minmax_transformed = self._minmax_scaler.fit_transform(original.to_numpy().reshape(-1, 1))
+        minmax_transformed = self._minmax_scaler.fit_transform(nan_info['original'].to_numpy().reshape(-1, 1))
 
         self._bgm_transformer.fit(minmax_transformed)
         self._valid_component_indicator = self._bgm_transformer.weights_ > self._weight_threshold
@@ -124,7 +124,7 @@ class NumericalTransformer(BaseTransformer):
         else:
             self._clusters = len(set(selected_component))
             self._component_indicator_transformer.fit(selected_component)
-            selected_component = self._component_indicator_transformer.get_original_transformed()
+            selected_component = self._component_indicator_transformer.get_original_transformed().iloc[:, 1:]
 
         rows = [normalized.reshape(len(normalized), 1), selected_component.to_numpy()]
         col_names = ['value'] + [f'cluster_{i}' for i in range(self._clusters)]
