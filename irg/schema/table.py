@@ -149,7 +149,7 @@ class Table:
         return os.path.join(self._temp_cache, 'data.pkl')
 
     def _normalized_path(self, attr_name: str) -> str:
-        return os.path.join(self._temp_cache, 'normalized', f'{attr_name}.pkl')
+        return os.path.join(self._temp_cache, 'normalized.h5')
 
     def _describer_path(self, idx: int) -> str:
         return os.path.join(self._temp_cache, 'describers', f'describer{idx}.json')
@@ -218,7 +218,7 @@ class Table:
         new_data.to_pickle(self._data_path())
         for n, attr in self._attributes.items():
             transformed = attr.transform(new_data[n])
-            transformed.to_pickle(self._normalized_path(n))
+            transformed.to_hdf(self._normalized_path(n), n)
 
     def replace_attributes(self, new_attributes: Dict[str, BaseAttribute]):
         """
@@ -241,7 +241,7 @@ class Table:
             data = pd.read_pickle(self._data_path())
             if attr_name in data.columns:
                 new_transformed = new_attributes[attr_name].transform(data[attr_name])
-                new_transformed.to_pickle(self._normalized_path(attr_name))
+                new_transformed.to_hdf(self._normalized_path(attr_name), attr_name)
 
     def join(self, right: "Table", ref: ItemsView[str, str], descr: Optional[str] = None, how: str = 'outer') \
             -> "Table":
@@ -299,7 +299,7 @@ class Table:
 
         for n, v in result._attributes:
             transformed = v.transform(joined[n])
-            transformed.to_pickle(result._normalized_path(n))
+            transformed.to_hdf(result._normalized_path(n), n)
 
         return result
 
@@ -388,10 +388,10 @@ class Table:
 
     def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool):
         if attr.atype == 'id':
-            data[[name]].to_pickle(self._normalized_path(name))
+            data[[name]].to_hdf(self._normalized_path(name), name)
         else:
             attr.fit(data[name], force_redo=force_redo)
-            attr.get_original_transformed().to_pickle(self._normalized_path(name))
+            attr.get_original_transformed().to_hdf(self._normalized_path(name), name)
 
     def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs):
         for col in det:
@@ -467,9 +467,8 @@ class Table:
                 data = data[[col for col in data.columns if col not in exclude_cols]]
             else:
                 data = pd.concat({
-                    n: pd.read_pickle(self._normalized_path(n))
-                    for n in self._attributes
-                    if n not in exclude_cols
+                    n: pd.read_hdf(self._normalized_path(n), n)
+                    for n in self._attributes if n not in exclude_cols
                 }, axis=1)
         elif variant == 'augmented':
             augmented = pd.read_pickle(self._augmented_path())
@@ -733,7 +732,7 @@ class SyntheticTable(Table):
         if replace_content:
             recovered_df.to_pickle(self._data_path())
             for n, v in columns.items():
-                pd.DataFrame(normalized_core[n], columns=v).to_pickle(self._normalized_path(n))
+                pd.DataFrame(normalized_core[n], columns=v).to_hdf(self._normalized_path(n), n)
 
         return recovered_df
 
