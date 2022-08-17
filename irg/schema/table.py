@@ -365,27 +365,42 @@ class Table:
         self._length = len(data)
         data = data[[*self._attributes.keys()]]
         data.to_pickle(self._data_path())
-        for name, attr in self._attributes.items():
-            if attr.atype == 'id':
-                data[[name]].to_pickle(self._normalized_path(name))
-            else:
-                attr.fit(data[name], force_redo=force_redo)
-                attr.get_original_transformed().to_pickle(self._normalized_path(name))
+        fast_map_dict(
+            func=self._fit_attribute,
+            dictionary=self._attributes,
+            verbose_descr=f'Fit attributes for {self._name}',
+            func_kwargs=dict(data=data, force_redo=force_redo)
+        )
+
         _LOGGER.debug(f'Fitted attributes for Table {self._name}.')
 
         if self._ttype != 'base':
-            for i, det in enumerate(self._determinants):
-                for col in det:
-                    if self._attributes[col].atype not in {'categorical', 'id'}:
-                        raise TypeError('Determinant should have all columns categorical (or rarely, ID).')
-                leader, children = det[0], det[1:]
-                det_describers = self._fit_determinant(data, leader, children, **kwargs)
-                with open(self._describer_path(i), 'w') as f:
-                    json.dump(det_describers, f)
+            fast_map_dict(
+                func=self._fit_determinant_helper,
+                dictionary=dict(zip(range(len(self._determinants)), self._determinants)),
+                verbose_descr=f'Fit determinants for Table {self._name}',
+                func_kwargs=dict(data=data, **kwargs)
+            )
             _LOGGER.debug(f'Fitted determinants for Table {self._name}.')
 
         self._fitted = True
         _LOGGER.info(f'Fitted Table {self._name}.')
+
+    def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool):
+        if attr.atype == 'id':
+            data[[name]].to_pickle(self._normalized_path(name))
+        else:
+            attr.fit(data[name], force_redo=force_redo)
+            attr.get_original_transformed().to_pickle(self._normalized_path(name))
+
+    def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs):
+        for col in det:
+            if self._attributes[col].atype not in {'categorical', 'id'}:
+                raise TypeError('Determinant should have all columns categorical (or rarely, ID).')
+        leader, children = det[0], det[1:]
+        det_describers = self._fit_determinant(data, leader, children, **kwargs)
+        with open(self._describer_path(i), 'w') as f:
+            json.dump(det_describers, f)
 
     def _fit_determinant(self, complete_data: pd.DataFrame, leader: str, children: List[str], **kwargs) \
             -> Dict[str, Dict]:
