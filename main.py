@@ -22,7 +22,6 @@ def _parse_distributed_args(parser: ArgumentParser):
     group = parser.add_argument_group('Distributed')
     group.add_argument('--distributed', default=False, action='store_true',
                        help='Whether this is distributed training.')
-    group.add_argument('--local_rank', type=int, default=-1, help='Local rank for distributed training group.')
 
 
 def _parse_database_args(parser: ArgumentParser):
@@ -170,6 +169,8 @@ def parse_args() -> Namespace:
     parser.add_argument('--temp_cache', type=str, default='.temp', help='Directory to hold temporary cache files.')
     parser.add_argument('--num_processes', type=int, default=200,
                         help='Number of processes to run in parallel maximally.')
+    parser.add_argument('--local_rank', type=int, default=-1, help='Local rank for distributed training group.')
+
     return parser.parse_args()
 
 

@@ -41,26 +41,27 @@ prepare:
         --redo_data
 
 train_gpu:
-	${PYTHON} -m torch.distributed.launch \
+	${PYTHON} -W ignore -m torch.distributed.launch \
 		--nproc_per_node=${NUM_GPUS} \
 		--master_port=${PORT} \
-		main.py --log_level ${LOG_LEVEL} train_gen \
-			--distrubted \
+		main.py --log_level ${LOG_LEVEL} \
+			--temp_cache ${TEMP_CACHE} \
+			train_gen \
+			--distributed \
 			--db_config_path ${DB_CONFIG} \
 			--data_dir ${DATA_DIR} \
 			--mtype ${MTYPE} \
 			--db_dir_path ${CACHE_DB} \
 			--aug_resume \
-			--default_tab_trainer_distributed \
-			--default_deg_trainer_distributed \
-			--default_tab_trainer_autocast \
-			--default_deg_trainer_autocast \
+			--default_tab_trainer_distributed True \
+			--default_deg_trainer_distributed True \
+			--default_tab_trainer_autocast True \
+			--default_deg_trainer_autocast True \
 			--default_tab_trainer_log_dir ${LOG_DIR}/tab \
 			--default_deg_trainer_log_dir ${LOG_DIR}/deg \
 			--default_tab_trainer_ckpt_dir ${CKPT_DIR}/tab \
 			--default_deg_trainer_ckpt_dir ${CKPT_DIR}/deg \
-			--skip_generate \
-			--temp_cache ${TEMP_CACHE}
+			--skip_generate
 
 train_cpu:
 	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
