@@ -11,6 +11,7 @@ from torch import Tensor, from_numpy as tensor_from_numpy, load as torch_load
 
 __all__ = (
     'Data2D',
+    'SparseDType',
     'convert_data_as',
     'inverse_convert_data',
     'load_from',
@@ -20,7 +21,8 @@ __all__ = (
 
 Data2D = Union[pd.DataFrame, np.ndarray, Tensor]
 """2D data type, including `pd.DataFrame`, `np.ndarray`, and `torch.Tensor`."""
-
+SparseDType = pd.SparseDtype('float32', fill_value=0)
+"""Sparse data type for general usage."""
 
 
 def convert_data_as(src: pd.DataFrame, return_as: str = 'pandas', copy: bool = True) -> Data2D:

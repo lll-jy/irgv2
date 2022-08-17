@@ -18,3 +18,4 @@ setuptools~=60.0.3
 tensorboard~=2.8.0
 tensorflow~=2.8.0
 jsonschema~=4.2.1
+tables~=3.7.0

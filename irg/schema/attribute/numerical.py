@@ -52,7 +52,7 @@ class NumericalTransformer(BaseTransformer):
         if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
             with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
                 loaded = pickle.load(f)
-            self._minmax_scaler, self._bgm_transformer = loaded['scaler'] = loaded['bgm']
+            self._minmax_scaler, self._bgm_transformer = loaded['scaler'], loaded['bgm']
         else:
             self._minmax_scaler = MinMaxScaler()
             self._bgm_transformer = BayesianGaussianMixture(
