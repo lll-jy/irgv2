@@ -3,12 +3,14 @@
 import logging
 import os
 import pickle
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 import pandas as pd
 
 from .base import BaseAttribute, BaseTransformer
 from ...utils.io import pd_to_pickle
+from ...utils.dist import fast_map_dict
+from ...utils import pd_mp
 
 _LOGGER = logging.getLogger()
 
@@ -55,7 +57,7 @@ class CategoricalTransformer(BaseTransformer):
     def _calc_fill_nan(self, original: pd.Series) -> str:
         original = original.astype(str)
         original.to_pickle(self._data_path)
-        categories = set(original.dropna().reset_index(drop=True))
+        categories = set(pd_mp.unique(original).dropna().reset_index(drop=True))
         cat_cnt = 0
         for cat in categories:
             self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
@@ -74,19 +76,23 @@ class CategoricalTransformer(BaseTransformer):
         self._cat_cnt = len(self._label2id)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
-        transformed = pd.DataFrame()
+        transformed = pd.DataFrame(columns=['is_nan'] + [f'cat_{i}' for i in self._id2label])
         transformed['is_nan'] = nan_info['is_nan']
-        for i in self._id2label:
-            transformed[f'cat_{i}'] = 0
-        for i, row in nan_info.iterrows():
-            if not row['is_nan']:
-                value = str(row['original'])
-                if value in self._label2id:
-                    cat_id = self._label2id[value]
-                    transformed.loc[i, f'cat_{cat_id}'] = 1
-                else:
-                    _LOGGER.warning(f'Categorical value {value} is OOV.')
-        return transformed.astype('float32')
+        fast_map_dict(
+            func=self._transform_row,
+            dictionary=nan_info.to_dict(orient='index'),
+            func_kwargs=dict(transformed=transformed)
+        )
+        return pd_mp.fillna(transformed, value=0).astype('float32')
+
+    def _transform_row(self, i: int, row: Dict, transformed: pd.DataFrame):
+        if not row['is_nan']:
+            value = str(row['original'])
+            if value in self._label2id:
+                cat_id = self._label2id[value]
+                transformed.loc[i, f'cat_{cat_id}'] = 1
+            else:
+                _LOGGER.warning(f'Categorical value {value} is OOV.')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         cat_ids = data.idxmax(axis=1)

@@ -1,7 +1,7 @@
 """Pandas functions by multiprocessing."""
 import math
 from types import FunctionType
-from typing import Union, Any
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -22,10 +22,23 @@ def _wrapper(func: FunctionType, data: PandasData, chunk_size: int = 100, **kwar
         total_len=len(split),
         func_kwargs=kwargs
     )
-    result = pd.concat(fragments).reset_index(drop=True)
+    if len(fragments) == 0:
+        if isinstance(data, pd.Series):
+            return pd.Series()
+        else:
+            return pd.DataFrame()
+
+    if isinstance(fragments[0], np.ndarray):
+        result = data.__class__(np.hstack(fragments))
+    else:
+        result = pd.concat(fragments).reset_index(drop=True)
     result.index = data.index
     return result
 
 
 def fillna(data: PandasData, chunk_size: int = 100, **kwargs) -> PandasData:
     return _wrapper(data.__class__.fillna, data, chunk_size, **kwargs)
+
+
+def unique(data: PandasData, chunk_size: int = 100, **kwargs) -> PandasData:
+    return _wrapper(data.__class__.unique, data, chunk_size, **kwargs)
