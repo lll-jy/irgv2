@@ -10,6 +10,7 @@ from sklearn.mixture import BayesianGaussianMixture
 
 from .base import BaseAttribute, BaseTransformer
 from .categorical import CategoricalTransformer
+from ...utils.io import pd_to_pickle
 
 
 # GMM part adatped from https://github.com/sdv-dev/RDT/blob/stable/rdt/transformers/numerical.py
@@ -93,7 +94,7 @@ class NumericalTransformer(BaseTransformer):
 
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
-        transformed.to_pickle(self._transformed_path)
+        pd_to_pickle(transformed, self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))

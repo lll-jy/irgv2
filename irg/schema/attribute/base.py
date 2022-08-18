@@ -2,13 +2,14 @@
 
 from abc import ABC, abstractmethod
 import os
-from typing import Optional, Any, Collection, List, Tuple
+from typing import Any, Collection, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 from ...utils.errors import NotFittedError
-from ...utils.misc import convert_data_as, inverse_convert_data, Data2D
+from ...utils.misc import convert_data_as, inverse_convert_data, Data2D, Data2DName
+from ...utils.io import pd_to_pickle, pd_read_compressed_pickle
 
 
 class BaseTransformer:
@@ -119,7 +120,7 @@ class BaseTransformer:
     def _fit_for_nan(self, original: pd.Series) -> pd.DataFrame:
         self._has_nan = original.hasnans
         nan_info = self._construct_nan_info(original)
-        nan_info.to_pickle(self._nan_info_path)
+        pd_to_pickle(nan_info, self._nan_info_path)
         return nan_info
 
     @property
@@ -155,13 +156,13 @@ class BaseTransformer:
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         raise NotImplementedError('Fit is not implemented for base transformer.')
 
-    def get_original_transformed(self, return_as: str = 'pandas') -> Data2D:
+    def get_original_transformed(self, return_as: Data2DName = 'pandas') -> Data2D:
         """
         Get the transformed dataframe built based on the data used for fitting.
 
         **Args**:
 
-        - `return_as` (`str`): [Valid types to convert](../../utils/misc#convert_data_as).
+        - `return_as` (`Data2DName`): [Valid types to convert](../../utils/misc#convert_data_as).
 
         **Return**: The data of transformed fitting data in the desired format. The returned results is a copy.
 
@@ -169,17 +170,17 @@ class BaseTransformer:
         """
         if not self._fitted:
             raise NotFittedError('Transformer', 'retrieving original transformed')
-        transformed = pd.read_pickle(self._transformed_path)
+        transformed = pd_read_compressed_pickle(self._transformed_path)
         return convert_data_as(transformed, return_as=return_as)
 
-    def transform(self, data: pd.Series, return_as: str = 'pandas') -> pd.DataFrame:
+    def transform(self, data: pd.Series, return_as: Data2DName = 'pandas') -> pd.DataFrame:
         """
         Transform a new set of data for this attribute based on the fitted result.
 
         **Args**:
 
         - `values` (`pd.Series`): The values to be transformed.
-        - `return_as` (`str`): [Valid types to return](../../utils/misc#convert_data_as).
+        - `return_as` (`Data2DName`): [Valid types to return](../../utils/misc#convert_data_as).
 
         **Return**: The data of transformed fitting data in the desired format.
 
@@ -357,13 +358,13 @@ class BaseAttribute(ABC):
     def _create_transformer(self):
         raise NotImplementedError('Please specify attribute type for preparing corresponding transformer.')
 
-    def get_original_transformed(self, return_as: str = 'pandas') -> Data2D:
+    def get_original_transformed(self, return_as: Data2DName = 'pandas') -> Data2D:
         """
         Get the transformed dataframe built based on the data used for fitting.
 
         **Args**:
 
-        - `return_as` (`str`): [Valid types to convert](../../utils/misc#convert_data_as).
+        - `return_as` (`Data2DName`): [Valid types to convert](../../utils/misc#convert_data_as).
 
         **Return**: The data of transformed fitting data in the desired format. The returned results is a copy.
 
@@ -371,14 +372,14 @@ class BaseAttribute(ABC):
         """
         return self._transformer.get_original_transformed(return_as)
 
-    def transform(self, data: pd.Series, return_as: str = 'pandas') -> pd.DataFrame:
+    def transform(self, data: pd.Series, return_as: Data2DName = 'pandas') -> pd.DataFrame:
         """
         Transform a new set of data for this attribute based on the fitted result.
 
         **Args**:
 
         - `values` (`pd.Series`): The values to be transformed.
-        - `return_as` (`str`): [Valid types to return](../../utils/misc#convert_data_as).
+        - `return_as` (`Data2DName`): [Valid types to return](../../utils/misc#convert_data_as).
 
         **Return**: The data of transformed fitting data in the desired format.
 

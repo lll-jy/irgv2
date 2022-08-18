@@ -1,6 +1,6 @@
 """Miscellaneous util functions."""
 
-from typing import Optional, Union, Collection
+from typing import Optional, Union, Collection, Literal
 from statistics import harmonic_mean
 from datetime import datetime
 
@@ -10,6 +10,7 @@ from torch import Tensor, from_numpy as tensor_from_numpy
 
 __all__ = (
     'Data2D',
+    'Data2DName',
     'SparseDType',
     'convert_data_as',
     'inverse_convert_data',
@@ -21,19 +22,24 @@ Data2D = Union[pd.DataFrame, np.ndarray, Tensor]
 """2D data type, including `pd.DataFrame`, `np.ndarray`, and `torch.Tensor`."""
 SparseDType = pd.SparseDtype('float32', fill_value=0)
 """Sparse data type for general usage."""
+Data2DName = Literal['pandas', 'numpy', 'tensor']
+"""
+2D data type name. Literal of `pandas`, `numpy`, and `tensor`.
+
+- `pandas`: `pd.DataFrame`.
+- `numpy`: `np.ndarray`.
+- `tensor`: `torch.Tensor`.
+"""
 
 
-def convert_data_as(src: pd.DataFrame, return_as: str = 'pandas', copy: bool = True) -> Data2D:
+def convert_data_as(src: pd.DataFrame, return_as: Data2DName = 'pandas', copy: bool = True) -> Data2D:
     """
     Convert a pd.DataFrame to desired data type.
 
     **Args**:
 
     - `src` (`pd.DataFrame`): The data to be converted.
-    - `return_as` (`str`) [default 'pandas']: Valid values include
-        * `'pandas'` for `pd.DataFrame`;
-        * `'numpy'` for `np.ndarray`;
-        * `'tensor'` for `torch.Tensor`.
+    - `return_as` (`Data2DName`) [default 'pandas']: Data type to return.
     - `copy` (`bool`) [default `True`]: Whether to make a copy when returning the data.
 
     **Return**: The converted data of the desired type.

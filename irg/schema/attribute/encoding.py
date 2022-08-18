@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 
 from .base import BaseAttribute, BaseTransformer
-from ...utils.io import load_from
+from ...utils.io import load_from, pd_to_pickle
 
 
 class EncodingTransformer(BaseTransformer):
@@ -88,7 +88,7 @@ class EncodingTransformer(BaseTransformer):
         self._knn.fit(values, [*self._vocab.keys()])
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
-        transformed.to_pickle(self._transformed_path)
+        pd_to_pickle(transformed, self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info['original'] = nan_info['original'].astype(str)

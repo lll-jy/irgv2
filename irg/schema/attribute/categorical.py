@@ -8,6 +8,7 @@ from typing import Optional, List, Tuple
 import pandas as pd
 
 from .base import BaseAttribute, BaseTransformer
+from ...utils.io import pd_to_pickle
 
 _LOGGER = logging.getLogger()
 
@@ -69,7 +70,7 @@ class CategoricalTransformer(BaseTransformer):
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
-        transformed.to_pickle(self._transformed_path)
+        pd_to_pickle(transformed, self._transformed_path)
         self._cat_cnt = len(self._label2id)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:

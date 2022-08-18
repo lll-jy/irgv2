@@ -8,6 +8,8 @@ import yaml
 from torch import load as torch_load
 import pandas as pd
 
+from .misc import SparseDType
+
 
 def load_from(file_path: str, engine: Optional[str] = None) -> Any:
     """
@@ -50,27 +52,34 @@ def load_from(file_path: str, engine: Optional[str] = None) -> Any:
     raise NotImplementedError(f'Data file of {engine} is not recognized as a valid engine.')
 
 
-def pd_to_pickle(df: pd.DataFrame, output_path: str):
+def pd_to_pickle(df: pd.DataFrame, output_path: str, sparse: bool = True):
     """
-    Save dataframe to pickle.
+    Save dataframe to pickle (compressed).
 
     **Args**:
 
     - `df` (`pd.DataFrame`): The dataframe to save.
     - `output_path` (`str`): File path to save.
+    - `sparse` (`bool`): Whether to save the dataframe as sparse data. Default is `True`.
     """
+    if sparse:
+        df = df.astype(SparseDType)
     df.to_pickle(output_path,
                  compression={'method': 'gzip', 'compresslevel': 9})
 
 
-def pd_read_compressed_pickle(file_path: str) -> pd.DataFrame:
+def pd_read_compressed_pickle(file_path: str, sparse: bool = True) -> pd.DataFrame:
     """
     Read dataframe from pickle (compressed).
 
     **Args**:
 
     - `file_path` (`str`): Path of the file to load.
+    - `sparse` (`bool`): Whether the saved dataframe is sparse data. Default is `True`.
 
     **Return**: Loaded dataframe.
     """
-    return pd.read_pickle(file_path, compression={'method': 'gzip', 'compresslevel': 9})
+    loaded = pd.read_pickle(file_path, compression={'method': 'gzip', 'compresslevel': 9})
+    if sparse:
+        loaded = loaded.to_dense()
+    return loaded
