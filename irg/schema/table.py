@@ -237,7 +237,7 @@ class Table:
         )
 
     def _replace_data_by_attr(self, n: Union[str, TwoLevelName], attr: BaseAttribute, new_data: pd.DataFrame,
-                              variant: Variant = 'original'):
+                              variant: Variant = 'original') -> int:
         transformed = attr.transform(new_data[n])
         path_by_variant = {
             'original': self._normalized_path,
@@ -245,6 +245,7 @@ class Table:
             'degree': self._degree_normalized_path
         }
         pd_to_pickle(transformed, path_by_variant[variant](n))
+        return 0
 
     def replace_attributes(self, new_attributes: Dict[str, BaseAttribute]):
         """
@@ -277,12 +278,13 @@ class Table:
                 new_transformed = new_attributes[attr_name].transform(data[attr_name])
                 pd_to_pickle(new_transformed, self._normalized_path(attr_name))
 
-    def _replace_attr_by_attr(self, attr_name: str, new_attributes: Dict[str, BaseAttribute]):
+    def _replace_attr_by_attr(self, attr_name: str, new_attributes: Dict[str, BaseAttribute]) -> int:
         self._attributes[attr_name] = new_attributes[attr_name]
         data = pd.read_pickle(self._data_path())
         if attr_name in data.columns:
             new_transformed = new_attributes[attr_name].transform(data[attr_name])
             pd_to_pickle(new_transformed, self._normalized_path(attr_name))
+        return 0
 
     @staticmethod
     def _check_attr_in_new(attr_name: str, new_attributes: Dict[str, BaseAttribute]) -> bool:
@@ -438,14 +440,15 @@ class Table:
         self._fitted = True
         _LOGGER.info(f'Fitted Table {self._name}.')
 
-    def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool):
+    def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool) -> int:
         if attr.atype == 'id':
             pd_to_pickle(data[[name]], self._normalized_path(name))
         else:
             attr.fit(data[name], force_redo=force_redo)
             pd_to_pickle(attr.get_original_transformed(), self._normalized_path(name))
+        return 0
 
-    def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs):
+    def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs) -> int:
         for col in det:
             if self._attributes[col].atype not in {'categorical', 'id'}:
                 raise TypeError('Determinant should have all columns categorical (or rarely, ID).')
@@ -453,6 +456,7 @@ class Table:
         det_describers = self._fit_determinant(data, leader, children, **kwargs)
         with open(self._describer_path(i), 'w') as f:
             json.dump(det_describers, f)
+        return 0
 
     def _fit_determinant(self, complete_data: pd.DataFrame, leader: str, children: List[str], **kwargs) \
             -> Dict[str, Dict]:

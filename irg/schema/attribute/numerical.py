@@ -121,7 +121,7 @@ class NumericalTransformer(BaseTransformer):
 
         selected_component = pd.Series(selected_component, dtype='str')
         if self._fitted:
-            selected_component = self._component_indicator_transformer.transform(selected_component)
+            selected_component = self._component_indicator_transformer.transform(selected_component).iloc[:, 1:]
         else:
             self._clusters = len(set(selected_component))
             self._component_indicator_transformer.fit(selected_component)
