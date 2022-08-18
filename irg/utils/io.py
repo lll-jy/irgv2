@@ -1,12 +1,14 @@
 """IO util functions."""
 
 import json
+import os
 import pickle
-from typing import Optional, Any
+import sys
+from typing import Any, Optional
 
-import yaml
 from torch import load as torch_load
 import pandas as pd
+import yaml
 
 from .misc import SparseDType
 
@@ -83,3 +85,17 @@ def pd_read_compressed_pickle(file_path: str, sparse: bool = True) -> pd.DataFra
     if sparse:
         loaded = loaded.to_dense()
     return loaded
+
+
+class HiddenPrints:
+    """
+    Helper class to hide print in some block.
+    Adapted from https://stackoverflow.com/questions/8391411/how-to-block-calls-to-print#:~:text=If%20you%20don't%20want,the%20top%20of%20the%20file.
+    """
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout

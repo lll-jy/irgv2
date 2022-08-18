@@ -1,6 +1,7 @@
 """Abstract base class of attributes."""
 
 from abc import ABC, abstractmethod
+import logging
 import os
 from typing import Any, Collection, List, Optional, Tuple
 
@@ -10,6 +11,8 @@ import pandas as pd
 from ...utils.errors import NotFittedError
 from ...utils.misc import convert_data_as, inverse_convert_data, Data2D, Data2DName
 from ...utils.io import pd_to_pickle, pd_read_compressed_pickle
+
+_LOGGER = logging.getLogger()
 
 
 class BaseTransformer:
@@ -353,6 +356,7 @@ class BaseAttribute(ABC):
         """
         self._create_transformer()
         self._transformer.fit(values, force_redo)
+        _LOGGER.debug(f'Fitted attribute {self._name}.')
 
     @abstractmethod
     def _create_transformer(self):

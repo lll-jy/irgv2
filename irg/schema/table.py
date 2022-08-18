@@ -20,7 +20,7 @@ from .attribute import learn_meta, create as create_attribute, BaseAttribute, Se
 from ..utils.misc import Data2D, Data2DName, convert_data_as, inverse_convert_data
 from ..utils.errors import NoPartiallyKnownError, NotFittedError
 from ..utils.dist import fast_map_dict, fast_map
-from ..utils.io import pd_to_pickle, pd_read_compressed_pickle
+from ..utils.io import pd_to_pickle, pd_read_compressed_pickle, HiddenPrints
 
 TwoLevelName = Tuple[str, str]
 """Two-level name type, which is a tuple of two strings."""
@@ -426,12 +426,13 @@ class Table:
         _LOGGER.debug(f'Fitted attributes for Table {self._name}.')
 
         if self._ttype != 'base':
-            fast_map_dict(
-                func=self._fit_determinant_helper,
-                dictionary=dict(zip(range(len(self._determinants)), self._determinants)),
-                verbose_descr=f'Fit determinants for Table {self._name}',
-                func_kwargs=dict(data=data, **kwargs)
-            )
+            with HiddenPrints():
+                fast_map_dict(
+                    func=self._fit_determinant_helper,
+                    dictionary=dict(zip(range(len(self._determinants)), self._determinants)),
+                    verbose_descr=f'Fit determinants for Table {self._name}',
+                    func_kwargs=dict(data=data, **kwargs)
+                )
             _LOGGER.debug(f'Fitted determinants for Table {self._name}.')
 
         self._fitted = True
