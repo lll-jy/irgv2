@@ -15,6 +15,8 @@ MODEL_OUTPUT_DIR=output
 GENERATE_OUTPUT_DIR=generated
 EVAL_OUTPUT_DIR=evaluation
 
+EXTRACT_TO=IRGv2_copy
+
 install:
 	${PYTHON} -m pip install --upgrade pip
 	${PYTHON} -m pip install -r requirements.txt
@@ -137,3 +139,12 @@ stop:
 	pkill -9 -f main.py
 	pkill -9 -f multiprocessing.fork
 	pkill -9 -f multiprocessing.spawn
+
+extract:
+	rm -rf ../${EXTRACT_TO}
+	mkdir ../${EXTRACT_TO}
+	cp *.py ../${EXTRACT_TO}/
+	cp Makefile ../${EXTRACT_TO}/
+	cp requirements.txt ../${EXTRACT_TO}/
+	cp -r irg ../${EXTRACT_TO}/
+	cp -r examples ../${EXTRACT_TO}/
