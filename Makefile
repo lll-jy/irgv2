@@ -31,6 +31,7 @@ docs:
 	pdoc --http localhost:${DOC_PORT} -c latex_math=True irg docs examples
 
 prepare:
+	mkdir -p ${DATA_OUTPUT_DIR}
 	${PYTHON} process.py database ${DB_NAME} \
 		--src_data_dir ${SRC_DATA_DIR} \
 		--data_dir ${DATA_OUTPUT_DIR}/data \
@@ -40,6 +41,7 @@ prepare:
         --redo_data
 
 train_gpu:
+	mkrit -p ${MODEL_OUTPUT_DIR}
 	${PYTHON} -W ignore -m torch.distributed.launch \
 		--nproc_per_node=${NUM_GPUS} \
 		--master_port=${PORT} \
@@ -63,6 +65,7 @@ train_gpu:
 			--skip_generate
 
 train_cpu:
+	mkdir -p ${MODEL_OUTPUT_DIR}
 	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
 		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
 		--data_dir ${DATA_OUTPUT_DIR}/data \
@@ -76,6 +79,7 @@ train_cpu:
 		--skip_generate
 
 generate_gpu:
+	mkdir -p ${GENERATE_OUTPUT_DIR}
 	${PYTHON} -m torch.distributed.launch \
 		--nproc_per_node=${NUM_GPUS} \
 		--master_port=${PORT} \
@@ -102,6 +106,7 @@ generate_gpu:
 			--save_synth_db ${GENERATE_OUTPUT_DIR}/fake_db
 
 generate_cpu:
+	mkdir -p ${GENERATE_OUTPUT_DIR}
 	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
 		--distrubted \
 		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \

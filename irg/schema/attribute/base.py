@@ -10,7 +10,7 @@ import pandas as pd
 
 from ...utils.errors import NotFittedError
 from ...utils.misc import convert_data_as, inverse_convert_data, Data2D, Data2DName
-from ...utils.io import pd_to_pickle, pd_read_compressed_pickle
+from ...utils.io import pd_read_compressed_pickle
 
 _LOGGER = logging.getLogger()
 
@@ -123,7 +123,7 @@ class BaseTransformer:
     def _fit_for_nan(self, original: pd.Series) -> pd.DataFrame:
         self._has_nan = original.hasnans
         nan_info = self._construct_nan_info(original)
-        pd_to_pickle(nan_info, self._nan_info_path)
+        nan_info.to_pickle(self._nan_info_path)
         return nan_info
 
     @property

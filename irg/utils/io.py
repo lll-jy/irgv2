@@ -65,8 +65,8 @@ def pd_to_pickle(df: pd.DataFrame, output_path: str, sparse: bool = True):
     - `sparse` (`bool`): Whether to save the dataframe as sparse data. Default is `True`.
     """
     if sparse:
-        df = df.astype(SparseDType)
-    df.to_pickle(output_path,
+        df = df.astype(SparseDType).sparse
+    pd.to_pickle(df, output_path,
                  compression={'method': 'gzip', 'compresslevel': 9})
 
 
