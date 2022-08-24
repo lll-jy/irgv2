@@ -109,7 +109,7 @@ class CategoricalAttribute(BaseAttribute):
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
         - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         """
-        super().__init__(name, 'categorical', values.astype(str), temp_cache)
+        super().__init__(name, 'categorical', values.astype(str) if values is not None else values, temp_cache)
 
     def _create_transformer(self):
         self._transformer = CategoricalTransformer(self._temp_cache)

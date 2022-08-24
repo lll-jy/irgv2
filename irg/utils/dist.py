@@ -214,3 +214,12 @@ def fast_map_dict(func: FunctionType, dictionary: Dict, verbose_descr: Optional[
             k = key_mapper(k, **mapper_kwargs)
         result[k] = res
     return result
+
+
+def pool_initialized() -> bool:
+    """
+    Check whether the pool is initialized.
+
+    **Return**: True if the pool is initialized.
+    """
+    return _pool is not None
