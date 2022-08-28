@@ -3,7 +3,7 @@ numpy~=1.22.4
 packaging~=21.3
 pandas~=1.4.3
 torch~=1.12.0
-tqdm~=4.62.3
+tqdm==4.64.0
 DataSynthesizer~=0.1.10
 sdv~=0.16.0
 matplotlib~=3.5.1
@@ -19,3 +19,4 @@ tensorboard~=2.8.0
 tensorflow~=2.8.0
 jsonschema~=4.2.1
 tables~=3.7.0
+SQLAlchemy~=1.4.36

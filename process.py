@@ -5,37 +5,8 @@ Run this script with `python3 PATH/TO/THIS/FILE -h` for CLI argument helpers.
 """
 
 from argparse import ArgumentParser, Namespace
-import os
-from typing import Dict
-import json
 
-import pandas as pd
-
-from examples import PROCESSORS, META_CONSTRUCTORS
-
-_ENCODINGS: Dict[str, str] = {
-    'alset': None,
-    'rtd': 'ISO-8859-1'
-}
-_NAMES_MAP: Dict[str, Dict[str]] = {
-    'alset': {},
-    'rtd': {
-        'country': 'rtd',
-        'provstate': 'rtd',
-        'city': 'rtd',
-        'events': 'rtd',
-        'life_damage': 'rtd',
-        'eco_damage': 'rtd',
-        'hostkid': 'rtd',
-        'info_int': 'rtd',
-        'attack_type': 'rtd',
-        'target': 'rtd',
-        'group': 'rtd',
-        'claim': 'rtd',
-        'weapon': 'rtd',
-        'related': 'rtd'
-    }
-}
+from examples import DATABASE_PROCESSORS, DatabaseProcessor
 
 
 def _parse_args() -> Namespace:
@@ -71,48 +42,15 @@ def main():
     args = _parse_args()
 
     if args.target == 'table':
+        processor: DatabaseProcessor = DATABASE_PROCESSORS[args.database_name].create_dummy()
         if args.mode == 'data':
-            src = pd.read_csv(args.src, encoding=_ENCODINGS[args.database_name])
-            out = os.path.join(args.out, f'{args.table_name}.pkl') if os.path.isdir(args.out) else args.out
-            processed: pd.DataFrame = PROCESSORS[args.database_name][args.table_name](src)
-            processed.to_pickle(out)
+            processor.process_table_data(args.table_name, args.src, args.out)
         else:
-            src = pd.read_pickle(args.src)
-            out = os.path.join(args.out, f'{args.table_name}.json') if os.path.isdir(args.out) else args.out
-            constructed: Dict = META_CONSTRUCTORS[args.database_name][args.table_name](src)
-            with open(out, 'w') as f:
-                json.dump(constructed, f, indent=2)
+            processor.construct_table_metadata(args.table_name, args.src, args.out)
     else:
-        os.makedirs(args.meta_dir, exist_ok=True)
-        if not args.tables:
-            args.tables = [*PROCESSORS[args.database]]
-
-        out_config = {}
-        for table_name in args.tables:
-            meta_path = os.path.join(args.meta_dir, f'{table_name}.json')
-            if not os.path.exists(meta_path) or args.redo_meta:
-                if args.data_dir is None:
-                    raise ValueError('Need to access processed data, please provide data_dir.')
-                if not os.path.exists(args.data_dir):
-                    os.makedirs(args.data_dir)
-                data_path = os.path.join(args.data_dir, f'{table_name}.pkl')
-                if not os.path.exists(data_path) or args.redo_data:
-                    if args.src_data_dir is None:
-                        raise ValueError('Need to access original data, please provide src_data_dir.')
-                    src_data_path = os.path.join(args.src_data_path, f'{_NAMES_MAP[args.database][table_name]}.csv')
-                    src = pd.read_csv(src_data_path, encoding=_ENCODINGS[args.database_name])
-                    processed: pd.DataFrame = PROCESSORS[args.database_name][args.table_name](src)
-                    processed.to_pickle(data_path)
-                processed = pd.read_pickle(args.data_path)
-                constructed: Dict = META_CONSTRUCTORS[args.database_name][args.table_name](processed)
-                with open(meta_path, 'w') as f:
-                    json.dump(constructed, f, indent=2)
-            with open(meta_path, 'r') as f:
-                loaded = json.load(f)
-                loaded['format'] = 'pickle'
-                out_config[table_name] = loaded
-        with open(args.out, 'w') as f:
-            json.dump(out_config, f, indent=2)
+        processor: DatabaseProcessor = DATABASE_PROCESSORS[args.database_name](args.src_data_dir, args.data_dir,
+                                                                               args.meta_dir, args.out, args.tables)
+        processor.process_database(args.redo_meta, args.redo_data)
 
 
 if __name__ == '__main__':
