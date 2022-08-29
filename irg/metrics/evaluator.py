@@ -34,7 +34,7 @@ class SyntheticDatabaseEvaluator:
                  parent_child_pairs: Optional[List[Union[ForeignKey, Dict[str, Any]]]] = None,
                  all_direct_parent_child: bool = True,
                  queries: Optional[Dict[str, str]] = None, query_args: Optional[Dict[str, Dict[str, Any]]] = None,
-                 save_tables_to: Optional[str] = None,
+                 save_tables_to: str = 'eval_tables',
                  tabular_args: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
                  default_args: Optional[Dict[str, Any]] = None):
         """
@@ -56,8 +56,8 @@ class SyntheticDatabaseEvaluator:
         - `query_args` (`Optional[Dict[str, Dict[str, Any]]]`): `kwargs` to
           [`Database.query`](../schema/database/base#irg.schema.database.base.Database.query) per query if needed.
           Keys of the `dict` should match the keys of `queries` if provided.
-        - `save_tables_to` (`Optional[str]`): Path to save the constructed tabular data in the format of `Table` based
-          on the real database.
+        - `save_tables_to` (`str`): Path to save the constructed tabular data in the format of `Table` based
+          on the real database. Default is `'eval_tables'`.
         - `tabular_args` (`Optional[Dict[str, Dict[str, Dict[str, Any]]]]`): Arguments to
           [`SyntheticTableEvaluator`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator)
           for each set of tabular data. The first level keys are the names of the four tabular types.
@@ -68,6 +68,7 @@ class SyntheticDatabaseEvaluator:
           for `tabular_args` if the relevant keys are not found.
         """
         self._real = real
+
         (self._eval_tables, self._eval_parent_child,
          self._eval_joined, self._eval_queries) = eval_tables, eval_parent_child, eval_joined, eval_queries
         self._tables = tables
@@ -78,52 +79,68 @@ class SyntheticDatabaseEvaluator:
         self._query_args = query_args if isinstance(query_args, DefaultDict) else defaultdict(dict, query_args) \
             if query_args is not None else defaultdict(dict)
 
-        self._real_tables = self._construct_tables(real)
-        if save_tables_to is not None:
-            os.makedirs(save_tables_to, exist_ok=True)
+        self._table_dir = save_tables_to
+        os.makedirs(self._table_dir, exist_ok=True)
+        self._real_tables = self._construct_tables(real, 'real')
 
         eval_args = defaultdict(lambda: defaultdict(lambda: default_args))
         for type_descr, tables_in_type in tabular_args.items():
             for table_descr, table_args in tables_in_type.items():
                 eval_args[type_descr][table_descr] |= table_args
         self._evaluators = {}
+        os.makedirs(os.path.join(self._table_dir, 'complete'), exist_ok=True)
+        os.makedirs(os.path.join(self._table_dir, 'complete', 'real'), exist_ok=True)
         for type_descr, tables_in_type in self._real_tables.items():
             evaluators = {}
-            if save_tables_to is not None:
-                os.makedirs(os.path.join(save_tables_to, type_descr), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, 'complete', 'real', type_descr), exist_ok=True)
             for table_descr, table in tables_in_type.items():
                 evaluator = SyntheticTableEvaluator(**eval_args[type_descr][table_descr])
                 evaluators[table_descr] = evaluator
-                if save_tables_to is not None:
-                    table.save(os.path.join(save_tables_to, type_descr, f'{table_descr}.pkl'))
+                table = Table.load(table)
+                table.save_complete(os.path.join(self._table_dir, 'complete', 'real', type_descr, table_descr))
             self._evaluators[type_descr] = evaluators
 
-    def _construct_tables(self, db: Database) -> Dict[str, Dict[str, Table]]:
-        result = {}  # TODO: construct by paths
+    def _construct_tables(self, db: Database, db_descr: str) -> Dict[str, Dict[str, str]]:
+        result = {}
+        os.makedirs(os.path.join(self._table_dir, 'cache'), exist_ok=True)
+        os.makedirs(os.path.join(self._table_dir, 'cache', db_descr), exist_ok=True)
 
         if self._eval_tables:
-            result['tables'] = {table: db[table] for table in self._tables}.items() \
-                if self._tables is not None else db.tables
+            tables = self._tables if self._tables is not None else [name for name, _ in db.tables]
+            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'tables'), exist_ok=True)
+            result['tables'] = {}
+            for table in tables:
+                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'tables', f'{table}.pkl')
+                db[table].save(saved_path)
+                result['tables'][table] = saved_path
 
         if self._eval_parent_child:
-            result['parent child'] = {
-                f'{i}__{fk.child}__{fk.parent}': db.join(fk) for i, fk in enumerate(self._all_fk)
-            }
+            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'parentchild'), exist_ok=True)
+            result['parent child'] = {}
+            for i, fk in enumerate(self._all_fk):
+                descr = f'{i}__{fk.child}__{fk.parent}'
+                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'parentchild', f'{descr}.pkl')
+                db.join(fk).save(saved_path)
+                result['parent child'][descr] = saved_path
 
         if self._eval_joined:
-            result['joined'] = {'joined': db.all_joined}
+            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'joined'), exist_ok=True)
+            saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'joined', 'joined.pkl')
+            db.all_joined.save(saved_path)
+            result['joined'] = {'joined': saved_path}
 
         if self._eval_queries:
-            result['queries'] = {
-                descr: db.query(query, descr, **self._query_args[descr])
-                for descr, query in self._queries
-            }
+            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'queries'), exist_ok=True)
+            result['queries'] = {}
+            for descr, query in self._queries:
+                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'queries', f'{descr}.pkl')
+                db.query(query, descr, **self._query_args[descr]).save(saved_path)
+                result['queries'][descr] = saved_path
 
         return result
 
-    def evaluate(self, synthetic: SyntheticDatabase, mean: str = 'arithmetic', smooth: float = 0.1,
+    def evaluate(self, synthetic: SyntheticDatabase, descr: str, mean: str = 'arithmetic', smooth: float = 0.1,
                  save_eval_res_to: Optional[str] = None, save_complete_result_to: Optional[str] = None,
-                 save_synthetic_tables_to: Optional[str] = None,
                  save_visualization_to: Optional[str] = None,
                  visualize_args: Optional[Dict[str, Dict[str, Any]]] = None) -> pd.DataFrame:
         """
@@ -132,14 +149,13 @@ class SyntheticDatabaseEvaluator:
         **Args**:
 
         - `synthetic` (`SyntheticDatabase`): Synthetic database.
+        - `descr` (`str`): Description of the synthetic database.
         - `mean` and `smooth`: Arguments to
           [`SyntheticTableEvaluator.summary`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator.summary).
         - `save_eval_res_to` (`Optional[str]`): Path to save extra evaluation result that is not returned.
           Not saved if not provided.
         - `save_complete_result_to` (`Optional[str]`): Path to save complete evaluation results for each tabular data
           set to. If it is not provided, this piece of information is not saved.
-        - `save_synthetic_tables_to` (`Optional[str]`): Path to save constructed tabular data set of the synthetic
-          database.
         - `save_visualization_to` (`Optional[str]`): If provided, all constructed tabular data sets are visualized and
           saved to the designated directory.
         - `visualize_args` (`Optional[Dict[str, Dict[str, Any]]]`): Visualization arguments. For each pair of real and
@@ -150,36 +166,35 @@ class SyntheticDatabaseEvaluator:
 
         **Return**: A `pd.DataFrame` describing the metrics result.
         """
-        synthetic_tables = self._construct_tables(synthetic)
+        synthetic_tables = self._construct_tables(synthetic, descr)
         if save_eval_res_to is not None:
             os.makedirs(save_eval_res_to, exist_ok=True)
-        if save_synthetic_tables_to is not None:
-            os.makedirs(save_synthetic_tables_to, exist_ok=True)
         if save_visualization_to is not None:
             os.makedirs(save_visualization_to, exist_ok=True)
         visualize_args = visualize_args if visualize_args is not None else {'default': {}}
 
         results, summary = {}, {}
+        os.makedirs(os.path.join(self._table_dir, 'complete', descr), exist_ok=True)
         for type_descr, evaluators_in_type in self._evaluators.items():
             type_results, type_summary = {}, {}
             if save_eval_res_to is not None:
                 os.makedirs(os.path.join(save_eval_res_to, type_descr), exist_ok=True)
-            if save_synthetic_tables_to is not None:
-                os.makedirs(os.path.join(save_synthetic_tables_to, type_descr), exist_ok=True)
             if save_visualization_to is not None:
                 os.makedirs(os.path.join(save_visualization_to, type_descr), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, 'complete', descr, type_descr), exist_ok=True)
 
             for table_descr, evaluator in evaluators_in_type.items():
                 real_table = self._real_tables[type_descr][table_descr]
+                real_table = Table.load(real_table)
                 synthetic_table = synthetic_tables[type_descr][table_descr]
+                synthetic_table = Table.load(synthetic_table)
+                synthetic_table.save_complete(os.path.join(self._table_dir, 'complete', descr, type_descr, table_descr))
                 evaluator.evaluate(real_table, synthetic_table,
                                    os.path.join(save_eval_res_to, type_descr, table_descr)
                                    if save_eval_res_to is not None else None)
                 type_results[table_descr] = evaluator.result
                 type_summary[table_descr] = evaluator.summary(mean, smooth)
 
-                if save_synthetic_tables_to is not None:
-                    synthetic_table.save(os.path.join(save_synthetic_tables_to, type_descr, f'{table_descr}.pkl'))
                 if save_visualization_to is not None:
                     visualizer = TableVisualizer(real_table, synthetic_table)
                     vis_dir = os.path.join(save_visualization_to, type_descr, table_descr)

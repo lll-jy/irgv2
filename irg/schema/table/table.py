@@ -1,4 +1,4 @@
-"""Table data structure that holds data and metadata of tables in a database."""
+"""Normal tabular table data structure that holds data and metadata of tables in a database."""
 
 import json
 import logging
@@ -16,11 +16,11 @@ import numpy as np
 from DataSynthesizer.DataDescriber import DataDescriber
 from DataSynthesizer.DataGenerator import DataGenerator
 
-from .attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute
-from ..utils.misc import Data2D, Data2DName, convert_data_as, inverse_convert_data
-from ..utils.errors import NoPartiallyKnownError, NotFittedError
-from ..utils.dist import fast_map_dict, fast_map
-from ..utils.io import pd_to_pickle, pd_read_compressed_pickle, HiddenPrints
+from ..attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute
+from ...utils.misc import Data2D, Data2DName, convert_data_as, inverse_convert_data
+from ...utils.errors import NoPartiallyKnownError, NotFittedError
+from ...utils.dist import fast_map_dict, fast_map
+from ...utils.io import pd_to_pickle, pd_read_compressed_pickle, HiddenPrints
 
 TwoLevelName = Tuple[str, str]
 """Two-level name type, which is a tuple of two strings."""
@@ -177,7 +177,8 @@ class Table:
     def _attribute_cache_path(self, attr_name: str) -> str:
         return os.path.join(self._temp_cache, 'attributes', attr_name)
 
-    def _reduce_name_level(self, two_level: TwoLevelName) -> str:
+    @staticmethod
+    def _reduce_name_level(two_level: TwoLevelName) -> str:
         left, right = two_level
         left = re.sub(f'[/:<>"|*^]', '&', left)
         return f'{left}__{right}'

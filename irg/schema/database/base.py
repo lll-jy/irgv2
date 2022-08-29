@@ -215,8 +215,20 @@ class Database:
 
             _LOGGER.debug(f'Finished loading table {name} to database.')
 
-    def __getitem__(self, item) -> Table:
+    def __getitem__(self, item: str) -> Table:
         return Table.load(self._table_paths[item])
+
+    def path_of_table(self, table_name: str) -> str:
+        """
+        Get path with the table cached.
+
+        **Args**:
+
+        - `table_name` (`str`): Name of the table to get the path.
+
+        **Return**: Saved table path.
+        """
+        return self._table_paths[table_name]
 
     def __len__(self):
         return len(self._table_paths)
@@ -287,6 +299,7 @@ class Database:
         sqldb = self.data()
         query_data = sqldf(query, sqldb)
         temp_cache = os.path.join(self._temp_cache, 'queries', descr)
+        os.makedirs(os.path.join(self._temp_cache, 'queries'), exist_ok=True)
         os.makedirs(temp_cache, exist_ok=True)
         query_table = Table(name=descr, data=query_data, temp_cache=temp_cache, **kwargs)
         return query_table
@@ -330,6 +343,7 @@ class Database:
 
     @property
     def all_joined(self) -> Table:
+        """All tables joined according to all foreign keys."""
         data, id_cols, attributes, table_cnt = pd.DataFrame(), set(), {}, defaultdict(int)
         for name, table in self.tables:
             table = Table.load(table)
