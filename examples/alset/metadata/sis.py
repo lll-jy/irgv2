@@ -45,7 +45,7 @@ def academic_plan_offer(src: pd.DataFrame) -> Dict[str, Any]:
 
 
 def academic_subplan_offer(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['academic_plan', 'academic_program']
+    id_cols = ['academic_plan', 'academic_program', 'academic_subplan']
     attributes = Table.learn_meta(src, id_cols)
     return {
         'id_cols': id_cols,
@@ -56,7 +56,7 @@ def academic_subplan_offer(src: pd.DataFrame) -> Dict[str, Any]:
         ],
         'primary_keys': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'academic_subplan'],
         'foreign_keys': [{
-            'columns':['academic_plan', 'academic_program', 'tyear', 'tsem'],
+            'columns': ['academic_plan', 'academic_program', 'tyear', 'tsem'],
             'parent': 'academic_plan_offer'
         }]
     }
@@ -108,44 +108,32 @@ def student_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
-def academic_career(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['student_token']
-    num_cat_cols = ['career_nbr', 'faculty_code']
-    attributes = Table.learn_meta(src, id_cols, num_cat_cols)
+def subplan_declarations(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['academic_plan', 'academic_program', 'department', 'student_token', 'academic_subplan']
+    attributes = Table.learn_meta(src, id_cols)
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'determinants': [
-            ['attached_to_ri', 'attached_to_ri_descr'],
-            ['degree', 'degree_descr'],
-            ['degree_checkout_status', 'degree_checkout_status_descr'],
-            ['department', 'department_descr'],
-            ['faculty_code', 'faculty_descr']
-        ],
-        'primary_keys': ['student_token', 'academic_career', 'career_nbr'],
+        'primary_keys': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'degree', 'department',
+                         'student_token', 'academic_subplan'],
         'foreign_keys': [{
-            'columns': ['student_token'],
-            'parent': 'personal_data'
+            'columns': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'degree', 'department', 'student_token'],
+            'parent': 'student_enrolment'
+        }, {
+            'columns': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'academic_subplan'],
+            'parent': 'academic_subplan_offer',
         }]
     }
 
 
-def academic_program(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['student_token']
-    num_cat_cols = ['career_nbr']
-    attributes = Table.learn_meta(src, id_cols, num_cat_cols)
+def career_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['academic_plan', 'academic_program', 'department', 'student_token', 'academic_subplan']
+    attributes = Table.learn_meta(src, id_cols, ['career_nbr'])
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'determinants': [
-            ['academic_program', 'academic_program_descr', 'program_category'],
-            ['dual_academic_program', 'dual_academic_program_descr'],
-            ['partner_university', 'partner_university_descr']
-        ],
-        'primary_keys': ['student_token', 'academic_career', 'career_nbr',
-                         'academic_program', 'academic_program_descr'],
         'foreign_keys': [{
-            'columns': ['student_token', 'academic_career', 'career_nbr'],
-            'parent': 'academic_career'
+            'columns': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'degree', 'department', 'student_token'],
+            'parent': 'student_enrolment'
         }]
     }

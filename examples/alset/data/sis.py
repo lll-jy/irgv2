@@ -9,7 +9,7 @@ import pandas as pd
 
 def personal_data(src: pd.DataFrame) -> pd.DataFrame:
     """
-    **Processed table**:
+    **Processed table**: TODO: personal data
     """
     pass
 
@@ -104,7 +104,7 @@ def academic_plan_offer(src: pd.DataFrame) -> pd.DataFrame:
 
     Academic plan offered each term.
     """
-    result = src[['academic_career', 'academic_plan', 'academic_plan_descr', 
+    result = src[['academic_career', 'academic_plan', 'academic_plan_descr',
                   'academic_plan_type', 'academic_plan_type_descr',
                   'academic_program', 'term']]\
         .drop_duplicates().reset_index(drop=True)
@@ -122,6 +122,7 @@ def academic_subplan_offer(src: pd.DataFrame) -> pd.DataFrame:
 
     Academic subplans offered each term per academic plan.
     """
+    empty_str = ['academic_subplan', 'academic_subplan_descr']
     result = pd.concat([
         src[[
             f'academic_subplan{i}', f'academic_subplan{i}_descr',
@@ -132,6 +133,9 @@ def academic_subplan_offer(src: pd.DataFrame) -> pd.DataFrame:
         })
         for i in range(1, 4)
     ]).drop_duplicates().reset_index(drop=True)
+    for col in empty_str:
+        result[col] = result[col].apply(lambda x: x if x.strip() != '' else np.nan)
+    result = result.loc[~result['academic_subplan'].isna()].reset_index(drop=True)
     result = _process_term(result, '')
     return result
 
@@ -186,11 +190,21 @@ def subplan_declarations(src: pd.DataFrame) -> pd.DataFrame:
 
     **Processed table**:
 
-    Subplans per
+    Subplans per student enrolment.
     """
+    result = pd.concat([
+        src[[
+            'academic_plan', 'academic_program', 'term', f'academic_subplan{i}',
+            'degree', 'department', 'student_token'
+        ]].rename(columns={f'academic_subplan{i}': 'academic_subplan'})
+        .loc[src[f'academic_subplan{i}'] != ' '].drop_duplicates().reset_index(drop=True)
+        for i in range(1, 4)
+    ])
+    result = _process_term(result, '')
+    return result
 
 
-def academic_career(src: pd.DataFrame) -> pd.DataFrame:
+def career_enrolment(src: pd.DataFrame) -> pd.DataFrame:
     """
     **Raw table**:
 
@@ -198,77 +212,19 @@ def academic_career(src: pd.DataFrame) -> pd.DataFrame:
 
     **Processed table**:
 
-    Academic career enrolment per student. Including information like important dates associated with the academic
-    career, faculty, and department.
+    Academic career enrolment per student per term.
     """
-    datetime_columns = ['businessdate', 'candidature_end_date', 'candidature_start_date', 'registration_date']
-    int_columns = ['career_nbr']
-    term_prefixes = ['admit_', 'completion_', 'expected_graduation_', 'requirement_']
-    empty_str = ['attached_to_ri', 'attached_to_ri_descr']
+    term_prefixes = ['admit_', 'completion_', 'expected_graduation_', 'requirement_', '']
+    datetime_columns = ['candidature_start_date', 'candidature_end_date', 'registration_date']
     result = src[[
-        'student_token', 'academic_career', 'academic_load_descr', 'admit_term', 'admit_term_descr',
-        'attached_to_ri', 'attached_to_ri_descr', 'businessdate', 'candidature_end_date', 'candidature_start_date',
-        'career_nbr', 'completion_term',
-        'degree', 'degree_checkout_status', 'degree_checkout_status_descr', 'degree_descr',
-        'department', 'department_descr', 'expected_graduation_term',
-        'faculty_code', 'faculty_descr', 'final_candidature_extension',
-        'registration_date', 'requirement_term', 'requirement_term_descr'
-    ]].drop_duplicates().reset_index(drop=True) \
-        .astype({col: str for col in datetime_columns}) \
-        .astype({col: 'datetime64[ns]' for col in datetime_columns}
-                | {col: 'Int32' for col in int_columns} | {'faculty_code': str})
+        'academic_plan', 'academic_program', 'term', 'degree', 'department', 'student_token',
+        'admit_term', 'admit_term_descr', 'candidature_start_date', 'candidature_end_date', 'completion_term',
+        'degree_checkout_status', 'degree_checkout_status_descr', 'degree_descr',
+        'expected_graduation_term', 'primary_program', 'career_nbr',
+        'program_action', 'program_reason', 'program_category', 'program_type'
+        'program_status', 'program_status_descr', 'registration_date', 'requirement_term', 'requirement_term_descr'
+    ]].drop_duplicates().reset_index(drop=True).astype({dc: 'datetime64[ns]' for dc in datetime_columns})
     for prefix in term_prefixes:
         result = _process_term(result, prefix)
-    for col in empty_str:
-        result[col] = result[col].apply(lambda x: x if x.strip() != '' else np.nan)
+    result['career_nbr'] = result['career_nbr'].astype('Int32')
     return result
-
-
-def academic_program(src: pd.DataFrame) -> pd.DataFrame:
-    """
-    **Raw table**:
-
-    EduRec data.
-
-    **Processed table**:
-
-    Academic program enrolment per student.
-    """
-    result = src[[
-        'student_token', 'academic_career', 'career_nbr',
-        'academic_program', 'academic_program_descr', 'program_category',
-        'dual_academic_program', 'dual_academic_program_descr',
-        'exchange_level', 'partner_university_descr', 'partner_unversity'
-    ]].rename(columns={'partner_unversity': 'partner_university'}).astype({'career_nbr': 'Int32'})
-    result['exchange_level'] = result['exchange_level'].apply(lambda x: x.replace('( UG)', '(UG)'))
-    empty_str = ['dual_academic_program', 'dual_academic_program_descr',
-                 'exchange_level', 'partner_university_descr', 'partner_unversity']
-    for col in empty_str:
-        result[col] = result[col].apply(lambda x: x if x.strip() != '' else np.nan)
-    return result
-
-
-def academic_plan(src: pd.DataFrame) -> pd.DataFrame:
-    """
-    **Raw table**:
-
-    EduRec data.
-
-    **Processed table**:
-
-    Academic plan enrolment per student.
-    """
-    pass
-
-
-def academic_subplan(src: pd.DataFrame) -> pd.DataFrame:
-    """
-    **Raw table**:
-
-    EduRec data.
-
-    **Processed table**:
-
-    Academic sub plans per student.
-    """
-    pass
