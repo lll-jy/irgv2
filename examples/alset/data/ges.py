@@ -1,9 +1,30 @@
+from datetime import datetime
 from functools import partial
 from typing import Dict, Set, Any, Type, Union
 
 import numpy as np
 import pandas as pd
 
+
+"""
+Ignored:
+'company': {
+    2010: 'ans_11',
+}
+'occupation': {
+    2010: 'ans_13',
+    2011: 'q11',
+    2012: 'q16',
+    2013: 'q12',
+    2014: 'q12',
+    2015: 'q12',
+    2016: 'occupation',
+    2017: 'q12',
+    2018: 'q12',
+    2019: 'q12',
+    2020: 'q12'
+}
+"""
 
 _GES_COLUMNS: Dict[str, Dict[int, str]] = {
     'student_token': {
@@ -277,6 +298,115 @@ _GES_COLUMNS: Dict[str, Dict[int, str]] = {
         2018: 'q4',
         2019: 'q4',
         2020: 'q4'
+    },
+    'company_type': {
+        2010: 'ans_10',
+        2011: 'q8',
+        2012: 'q5',
+        2013: 'q5',
+        2014: 'q5',
+        2015: 'q5',
+        2016: 'ogranisation_type_recoded',
+        2017: 'q5',
+        2018: 'q5',
+        2019: 'q5',
+        2020: 'q5'
+    },
+    'industry': {
+        2010: 'ans_12',
+        2011: 'q10',
+        2012: 'q15',
+        2013: 'q11',
+        2014: 'q11',
+        2025: 'q11',
+        2016: 'industry',
+        2017: 'q11',
+        2018: 'q11',
+        2019: 'q11',
+        2020: 'q11'
+    },
+    'basic_salary': {
+        2010: 'ans_14',
+        2011: 'q12a',
+        2012: 'q14_basic',
+        2013: 'q10_basic',
+        2014: 'q10_basic',
+        2015: 'q10_basic',
+        2016: 'basic_monthly_salary',
+        2017: 'q10_basic',
+        2018: 'q10_basic',
+        2019: 'q10_basic',
+        2020: 'q10_basic'
+    },
+    'gross_salary': {
+        2011: 'q12b',
+        2012: 'q14_sum',
+        2013: 'q10_sum',
+        2014: 'q10_gross',
+        2015: 'q10_gross',
+        2016: 'gross_salary'
+    },
+    'ot_salary': {
+        2012: 'q14_ot',
+        2013: 'q10_ot',
+        2014: 'q10_ot',
+        2015: 'q10_ot',
+        2016: 'additional_pay_components',
+        2017: 'q10_overtime',
+        2018: 'q10_overtime',
+        2019: 'q10_overtime',
+        2020: 'q10_overtime'
+    },
+    'start_search': {
+        2012: 'start_search',
+        2013: 'q20_date',
+        2014: 'start_search',
+        2015: 'q20',
+        2016: 'start_search',
+        2017: 'q20_date',
+        2018: 'q22_date',
+        2019: 'start_search',
+        2020: 'start_search'
+    },
+    'gap_grad_search': {
+        2012: 'r_mth_q8_q7',
+        2014: 'q20',
+        2015: 'q20_recode',
+        2016: 'gap_grad_search'
+    },
+    'offer_date': {
+        2012: 'offer_date',
+        2013: 'q19_date',
+        2014: 'offer_date',
+        2015: 'q19',
+        2016: 'offer_date',
+        2017: 'q19_date',
+        2018: 'q25_date',
+        2019: 'offer_date',
+        2020: 'offer_date'
+    },
+    'offer_count': {
+        2010: 'offer_count',
+        2011: 'offer_count',
+        2012: 'offer_count',
+        2013: 'q18',
+        2014: 'q18',
+        2015: 'q18',
+        2016: 'number_of_ftp_offers',
+        2017: 'q18',
+        2018: 'q24',
+        2019: 'q24',
+        2020: 'q18_b'
+    },
+    'offer_wait': {
+        2010: 'ans_20',
+        2011: 'q15',
+        2012: 'offer_wait',
+        2013: 'offer_wait',
+        2014: 'q19_recode',
+        2017: 'dv10_code',
+        2018: 'dv10_code',
+        2019: 'dv10_code'
     }
 }
 _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
@@ -785,6 +915,268 @@ _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
         'Employee': {'1', '1.0', 'Employee'},
         'Self-employed': {'2', '2.0', 'Self-employed'},
         'Nil': {'.', 'Not Applicable based on skip pattern', 'Not applicable based on skipping pattern'}
+    },
+    'company_type': {
+        'Private': {'Private firm - Multinational Company (MNC)', '1', '1.0',
+                    'Private firm - Government-linked Company (GLC)', '2', '2.0',
+                    'Private firm – Small-Medium Enterprise (SME)', '3', '3.0',
+                    'Private firm (including government-linked companies)',
+                    '(For employee only) Private firm (including government-linked companies)'},
+        'Government': {'Government', '6', '6.0', '(For employee only) Government',
+                       '(For employee only) Government (including Ministries and State Organisations)',
+                       'Government (including Ministries and State Organisations)'},
+        'Statutory board': {'Statutory board', '4', '4.0', '(For employee only) Statutory board'},
+        'Voluntary organisation': {'Voluntary organisation', '5', '5.0', '(For employee only) Voluntary organisation'},
+        'Own': {'8', '8.0'},
+        'Entrepreneur': {'Own business in a <u>non-technical</u> field (entrepreneur)',
+                         'Own business in a non-technical field (entrepreneur)',
+                         '(For self-employed only) Own business in a non-technical field (entrepreneur)'},
+        'Technopreneur': {'Own business in a <u>technical</u> field (technopreneur)',
+                          'Own business in a technical field (technopreneur)',
+                          '(For self-employed only) Own business in a technical field (technopreneur)'},
+        'Family': {'Own family business', '(For both) Own family business'},
+        'Others': {'Others <i>(Please specify)</i>', '99', '10.0', 'Others', 'Others, please specify:',
+                   'Others, please specify'},
+        'Refused': {'Refused to disclose'},
+        'Freelance': {'Self-employed / Freelancer / Insurance / property agents'},
+        'Reiligious': {'Religious Organisation'},
+        'Nil': {'.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern'}
+    },
+    'industry': {
+        'Nil': {'.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern'},
+        'Public Admin & Defense': {
+            'Public Admin (Ministries, Stat Boards except Defence)', '22', '22.0', '15', '32',
+            'Public Administration and Defence', '23', 'Defence & Security - MINDEF, Police, Civil Defence, etc',
+            'Security & Investigative Activities', 'Investigation & Security'
+        },
+        'Healthcare': {
+            'Healthcare', '23', '23.0', 'Healthcare (Includes hospitals, medical, dental activities &',
+            'Healthcare (Includes hospitals, medical, dental activities & pharmacies)'
+        },
+        'Information and Communications': {
+            'Information & Communications', 'Publishing', 'Communications & Media',
+            'Information & Communication (Includes publishing, motion pic', '16', '16.0',
+            'Information & Communication (Includes publishing, motion pictures & video production, radio & television '
+            'broadcasting ac', 'Information & Communication',
+            'Information & Communication (Includes publishing, motion picture & video production, radio & television '
+            'broadcasting act'
+        },
+        'IT': {'IT Services (Computer Programming, Data, Web)', 'IT & Information services'},
+        'Financial': {
+            'Financial and Insurance', 'Financial Services & Insurance', '2', '2.0', '21', '21.0', '30', '30.0', '27',
+            '27.0'
+        },
+        'Legal, Accounting and Auditing': {'Legal, Accounting and Auditing', '26', '26.0'},
+        'Electronic Products': {
+            'Manufacturing (Semicon, Communications, Electronics)', 'Manufacturing - Electronic Products',
+            'Manufacturing (Consumer Electronics)', 'Electronic Products (includes semiconductor, communications',
+            'Electrical Products', 'Electronic Products (includes semiconductor, communications equipment, etc.)',
+            'Electronic Products (includes semiconductor, communications equipment, computing & data processing '
+            'equipment, TV & radio', 'Electronic Products'
+        },
+        'Gasoline': {
+            'Manufacturing (Refined Petroleum Pdts)', '10', '31', '10.0', '31.0',
+            'Oilfield and gasfield machinery and equipment manufacturing',
+            'Petroleum, mining and prospecting services (Including offsho',
+            'Petroleum, mining and prospecting services (Including offshore exploration services)',
+            'Petroleum, mining and prospecting services', 'Oilfield and gasfield machinery and equipment manufac'
+        },
+        'Aerospace': {'Aerospace'},
+        'Offshore': {
+            'Marine and offshore engineering', 'Maritime/Shipping', 'Maritime/ Shipping', 'Maritime\\Shipping',
+            'Maritime\\ Shipping'
+        },
+        'Pharmaceutical Products': {
+            'Pharmaceutical & Biological Products manufacturing', 'Pharmaceutical &  Biological Products manufacturing',
+            'Manufacturing (Pharmaceuticals & Biological Pdts)'
+        },
+        'Chemical': {
+            'Manufacturing - Chemical incl Petrochemical', 'Chemical manufacturing', '1', '13', '1.0', '13.0',
+            'Manufacturing (Chemicals, Plastics & Rubber)', '4', '4.0'
+        },
+        'Transport Equipment': {
+            'Transport Equipment', 'Manufacturing (Non-motor vehicle Transport)',
+            'Manufacturing (Motor vehicles, Trailers, Semi-trailers)', 'Transport Equipment (excluding Aerospace)'
+        },
+        'Medical Instruments': {'Medical & precision instruments', 'Medical and Precision Instruments'},
+        'Machinery': {'Manufacturing (Machinery & Equipment)', 'Machinery and Equipment'},
+        'Metal': {
+            'Manufacturing (Metallic Pdts except Machinery/Equipment)', 'Manufacturing (Basic Metals)',
+            'Fabricated Metal Products'
+        },
+        'Light': {'Light and other manufacturing', 'Manufacturing - Light & Others'},
+        'Manufacturing': {
+            'Other manufacturing (includes wood, glass products & furnitu', '39', '39.0', 'Other manufacturing',
+            'Other engineering manufacturing', 'Other manufacturing (includes wood, glass products & furniture)',
+            'Other manufacturing (includes wood, glass products &amp; fur'
+        },
+        'Engineering': {
+            'Other engineering activities (general building, process plan',  'Manufacturing - Engineering', '7.0',
+            'Other engineering activities (general building, process plant, industrial plant, ' 
+            'infrastructure engineering services)', '9', '24', '9.0', '24.0', 'Other engineering activities', '7', '12',
+            'Industrial design activities', 'Other engineering services activities', '11', '11.0', '17', '17.0', '12.0',
+            '29', '20.0', '33', '33.0', '3', '3.0', '25', '25.0', '38', '38.0', '6', '6.0', '32.0', '29.0'
+        },
+        'Printing': {'Paper Products & Printing', 'Paper Products &amp; Printing'},
+        'Education': {
+            'Education', 'Education (Cultural - Non-Academic)', '20', '20.0', '18', '18.0', '19', '19.0',
+            'Educational Support Services (Pte Tutors, etc)'
+        },
+        'Scientific R&D': {
+            'Scientific R&D (Natural Sciences & Engineering)', '36', '36.0', 'Scientific Research & Development',
+            'Scientific Research & Development (Includes R&D on Natural S',
+            'Professional, Scientific and Technical Activities necs', 'Life Sciences',
+            'Other Professional, Scientific & Technical activities (Inclu',
+            'Scientific Research & Development (Includes R&D on Natural Sciences & Engineering, Social Sciences & '
+            'Humanities)', 'Other Professional, Scientific & Technical activities',
+            'Other Professional, Scientific & Technical activities (Includes Specialized Design Activities, '
+            'Photographic Activities)', 'Other Professional, Scientific & Technical activit',
+            'Other Professional, Scientific & Technical activities (Includes Specialized Design Activities (excluding '
+            'Industrial Desi', '34', '34.0'
+        },
+        'Administrative': {
+            'Administrative and Support Services Activities (Includes Ren', 'Administrative & Support Services',
+            'Administrative and Support Services Activities',
+            'Administrative and Support Services Activities (Includes Rental & Leasing, Employment Agencies, Travel '
+            'Agencies, Investi',
+            'Administrative and Support Services Activities (Includes Rental & Leasing, Employment Agencies, Travel '
+            'Agencies etc.)',
+            'Administrative and Support Services Activities (Includes Rental & Leasing, Employment Agencies, Travel '
+            'Agencies, Buildin', '40', '40.0', '32.0'
+        },
+        'Food & Beverage': {
+            'F&B Services', 'Food & Beverage ( Includes Restaurants, Bars, Food Caterers,', 'Food, Beverages & Tobacco',
+            'Manufacturing (F&B, Tobacco, Textiles, Apparel, Wood, Paper)',
+            'Food & Beverages (Includes Restaurants, Bars, Food Caterers, Hawkers)',
+            'Food & Beverages (Includes Restaurants, Bars, Food Caterers,', 'Food & Beverage',
+            'Food & Beverage ( Includes Restaurants, Bars, Food Caterers, Hawkers)',
+            'Food & Beverage (Includes Restaurants, Bars, Food Caterers, Hawkers)'
+        },
+        'Personal Services': {
+            'Personal & Other Service Activities (Includes  Membership Or',
+            'Personal Svcs (Laundries, Hair & Beauty, Weddings, Funerals)',
+            'Membership Orgainizations (Clubs, Unions, Religious, Politic',
+            'Employer & Professional Membership Organisations',
+            'Personal & Other Service Activities (Includes  Membership Organisations, Repair of Computers, Personal & '
+            'Household Goods', 'Personal & Other Service Activities'},
+        'Accommodation': {
+            'Accomodation/Hospitality (Hotels, Hostels, Serviced Apts)', 'Accommodation (Includes Hotels)',
+            'Tourism & Hospitality', '24', '24.0', 'Accommodation'
+        },
+        'Society & Community': {
+            'Society & Community (Includes child-care services, social se', '37', '37.0',
+            'Social & Community Services (without Accomodation)', 'Social & Community',
+            'Society & Community (Includes child-care services, social services for families / elderly, activities '
+            'related to communi', 'Society & Community',
+            'Society & Community (Includes child-care services, social services for families\\ elderly, activities '
+            'related to communit'
+        },
+        'Architectural': {
+            'Architectural & Engineering; Technical Testing', '8', '8.0',
+            'Architectural  (Includes architectural services, landscape d',
+            'Architectural  (Includes architectural services, landscape design & architecture), Engineering, Land '
+            'Surveying & Technic', 'Architectural', 'Architectural, Engineering, Land Surveying & Technical Services)',
+            'Architectural, Engineering, Land Surveying & Technical Services',
+            'Architectural (Includes architectural services, landscape design & architecture), Engineering, Land '
+            'Surveying & Technica'},
+        'Retail Trade': {'Retail Trade'},
+        'Wholesale Trade': {'Wholesale Trade'},
+        'Extra-Territorial Organisations': {
+            'Extra-Territorial Organisations', 'Activities of Extra-territorial Organisation and Bodies'
+        },
+        'Entertainment': {
+            'Creative Arts & Entertainment', 'Arts, Entertainment, Library, Sports & Recreation',
+            'Arts, Entertainment and Recreation (Includes sports activiti',
+            'Arts, Entertainment and Recreation (Includes sports activities, libraries)',
+            'Arts, Entertainment and Recreation'
+        },
+        'Consultancy': {
+            'Business & Management Consultancy', 'Head Offices & Management Consultancy Activities', '2', '2.0',
+            'Business and Management Consultancy (Includes Head Offices &', 'Business and Management Consultancy',
+            'Business and Management Consultancy (Includes Head Offices & business representative offices)'
+        },
+        'Advertising & Market': {'Advertising Services & Market Research', 'Advertising services and Market Research'},
+        'Others': {
+            'Activities not adequately defined', 'Others (Includes Agriculture - Growing of Crops/Nursery Prod',
+            'Others (Includes Agriculture - Growing of Crops/Nursery Prod', 'Others',
+            'Others (Includes Agriculture - Growing of Crops/Nursery Products & Horticulture, Fishing, Mining and '
+            'Quarrying, Electric', 'Others please specify', 'Others, Please specify', '5.0', '15.0'
+        },
+        'Resources': {
+            'Water Supply & Waste Management', 'Electricity, Gas & Airconditioning Supply',
+            'Solar, wind, water treatment', 'Electricity, Gas And Air-Conditioning Supply'
+        },
+        'Transport & Storage': {
+            'Transportation &amp; Storage (Includes land transport,  air', 'Postal & Courier Svcs',
+            'Transport, Logistics, Storage - Land\\Air\\Water, allied svcs', 'Air Transport', 'Water Transport',
+            'Logistics, Warehousing & Storage', 'Logistics and Supply Chain Management',
+            'Transportation & Storage (Includes land transport,  air tranport, water transport, warehousing & support '
+            'activities for', '28', '28.0','Transportation & Storage', 'Other transportation & storage',
+            'Transportation & Storage (Includes land transport,  air tran', 'Land Transport',
+            'Other transportation & Storage', 'Other Transportation & Storage',
+            'Water Transport (including Maritime\\Shipping)'
+        },
+        'Refuse': {'Refuse to disclose', 'Refused'},
+        'Cleaning': {'Cleaning'},
+        'Employment & Recruitment': {'Employment & Recruitment'},
+        'Telecommunications': {'Telecommunications'},
+        'Real Estate': {
+            'Real Estate Services', 'Real Estate', 'Real Estate (Sales, Rental & Leasing)', '35', '35.0',
+            'Real Estate(Sales, Rental & Leasing)', '14', '14.0'
+        },
+        'Construction': {'Construction', 'Construction & Civil Enginerering'},
+        'Textile': {'Textile & Wearing Apparel', 'Textile & Wearing Apparels'}
+    },
+    'gap_grad_search': {
+        '1 to 4 weeks after graduation': {'1 to 4 weeks after graduation', 'Within month of graduation'} |
+                                         {str(i) for i in range(5)},
+        '5 to 8 weeks after graduation': {'5 to 8 weeks after graduation',  'Between 1 and 2 months after graduation'} |
+                                         {str(i) for i in range(5, 9)},
+        '9 to 12 weeks after graduation': {'9 to 12 weeks after graduation'} | {str(i) for i in range(9, 13)},
+        '13 to 16 weeks after graduation': {'13 to 16 weeks after graduation',
+                                            'Between 3 and 4 months after graduation'} |
+                                           {str(i) for i in range(13, 17)},
+        '17 to 20 weeks after graduation': {'17 to 20 weeks after graduation'} | {str(i) for i in range(17, 21)},
+        '21 to 24 weeks after graduation': {'21 to 24 weeks after graduation',
+                                            'Between 5 and 6 months after graduation'} |
+                                           {str(i) for i in range(21, 25)},
+        '25 to 28 weeks after graduation': {'25 to 28 weeks after graduation'} | {str(i) for i in range(25, 29)},
+        'More than 28 weeks after graduation': {'More than 28 weeks after graduation', '29', '30',
+                                                'More than 6 months after graduation'},
+        '1 to 8 weeks before graduation': {'1 to 8 weeks before graduation', '1 month before graduation'} | {str(i) for i in range(-8, 0)},
+        '9 to 16 weeks before graduation': {'9 to 16 weeks before graduation',
+                                            'Between 2 and 3 months before graduation'} |
+                                           {str(i) for i in range(-16, -8)},
+        '17 to 24 weeks before graduation': {'17 to 24 weeks before graduation',
+                                             'Between 4 and 6 months before graduation'} |
+                                            {str(i) for i in range(-24, -16)},
+        'More than 24 weeks before graduation': {'More than 24 weeks before graduation',
+                                                 'At least 6 months before graduation'} |
+                                                {str(i) for i in range(-30, -24)}
+    },
+    'offer_count': {
+        'One': {'One', '2.0', '5'},
+        'Two': {'Two', '3.0', '6'},
+        'Three': {'Three', '4.0', '7'},
+        'Four': {'Four', '5.0', '8'},
+        'Five': {'Five', '6.0', '9'},
+        'Six or more': {'Six or more', '7.0', '10'},
+        'Nil': {'.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern'},
+        'None (Bonded)': {'None (Bonded)', 'None (Bonded to Sponsoring Organisation)', '4'},
+        'None (Self-employed)': {'None (Self-employed)', 'None (Self Employed)', '2'},
+        'None (Family business)': {'None (Family business)', 'None (Family Business)', '3'},
+        'Refused': {'Refused'},
+        'None': {'None', '1.0', '1'}
+    },
+    'offer_wait': {
+        'Less than 1 month': {'Less than 1 month', 'Less than one month', '1', '1.0'},
+        '1 to less than 3 months': {'1 to less than 3 months', 'One month to less than 3 months',
+                                    'One to less than three months', 'One month to less than three months', '2', '2.0'},
+        '3 to less than 6 months': {'3 to less than 6 months', '3 months to less than 6 months',
+                                    'Three to less than six months', 'Three months to less than six months', '3',
+                                    '3.0'},
+        '6 months or more': {'6 months or more', 'Six months and more', 'Six months or more', '4', '4.0'},
+        'Nil': {'.', '#NULL!'}
     }
 }
 _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
@@ -817,7 +1209,17 @@ _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
     'final_exam': 'datetime64[ns]',
     'activity_status': 'string',
     'not_ft_perm_reason': 'string',
-    'employment_status': 'string'
+    'employment_status': 'string',
+    'company_type': 'string',
+    'industry': 'string',
+    'basic_salary': 'float32',
+    'gross_salary': 'float32',
+    'ot_salary': 'float32',
+    'start_search': 'datetime64[ns]',
+    'gap_grad_search': 'string',
+    'offer_date': 'datetime64[ns]',
+    'offer_count': 'string',
+    'offer_wait': 'string'
 }
 
 _degree2major_map: Dict[str, str] = {
@@ -927,8 +1329,12 @@ def _process_year(year: int, df: pd.DataFrame) -> pd.DataFrame:
         result.loc[:, 'is_first_choice'] = result.apply(
             lambda row: 'Y' if row['first_choice'] == row['major'] else 'N', axis=1
         )
-    for col in ['not_ft_perm_reason', 'employment_status']:
+    for col in ['not_ft_perm_reason', 'employment_status', 'company_type', 'industry', 'offer_count']:
         result.loc[:, col] = result[col].replace({'Nil': np.nan})
+    if 'ot_salary' in all_columns and 'gross_salary' not in all_columns:
+        result.loc[:, 'gross_salary'] = result['basic_salary'] + result['ot_salary']
+    if 'ot_salary' not in all_columns and 'gross_salary' in all_columns:
+        result.loc[:, 'ot_salary'] = result['gross_salary'] - result['basic_salary']
     return result
 
 
@@ -956,6 +1362,7 @@ def ges2010(src: pd.DataFrame) -> pd.DataFrame:
             4: 'Working Part-Time in a Temporary job'
         }[row['ans_07']] if row['ans_06'] == 1 else row['ans_06'], axis=1
     )
+    result.loc[:, 'offer_count'] = _combine_columns('ans_19', 'ans_37', result)
     return _process_year(2010, result)
 
 
@@ -975,6 +1382,12 @@ def ges2011(src: pd.DataFrame) -> pd.DataFrame:
             4: 'Working Part-Time in a Temporary job'
         }[row['q5']] if row['q4'] == 1 else row['q4'], axis=1
     )
+    result.loc[:, 'q16'] = result['q16'].apply(
+        lambda x: x if x.strip() == '.' else str(x).zfill(5)
+    )
+    result.loc[:, 'q12a'] = result['q12a'].replace({'.': np.nan})
+    result.loc[:, 'q12b'] = result['q12b'].replace({'.': np.nan})
+    result.loc[:, 'offer_count'] = _combine_columns('q14', 'q27', result)
     return _process_year(2011, result)
 
 
@@ -990,12 +1403,46 @@ def ges2012(src: pd.DataFrame) -> pd.DataFrame:
         lambda row: np.nan if pd.isnull(row['cd_year']) else
         f'{row["cd_mth"]} {int(row["cd_year"])}', axis=1
     )
+    result.loc[:, 'start_search'] = result.apply(
+        lambda row: datetime.strptime(row['r_q7'], '%b-%y').strftime('%Y-%m-%d') if isinstance(row['r_q7'], str) else
+        np.nan if pd.isnull(row['q24_1']) else f'{int(row["q24_2"])}-{row["q24_1"]}-01', axis=1
+    )
+    result.loc[:, 'offer_date'] = result.apply(
+        lambda row: datetime.strptime(row['r_q8'], '%b-%y').strftime('%Y-%m-%d') if isinstance(row['r_q8'], str) else
+        np.nan if pd.isnull(row['q25_1']) else f'{int(row["q25_2"])}-{row["q25_1"]}-01', axis=1
+    )
+    result.loc[:, 'offer_count'] = _combine_columns('q17', 'q23', result)
+    result.loc[:, 'offer_wait'] = result.apply(
+        lambda row: row['r_mth_q8_cd'] if not pd.isnull(row['r_mth_q8_cd'])
+        else np.nan if pd.isnull(row['mth_q25_q24']) else
+        '6 months or more' if row['mth_q25_q24'] >= 6 else
+        '3 to less than 6 months' if 3 <= row['mth_q25_q24'] < 6 else
+        '1 to less than 3 months' if 1 <= row['mth_q25_q24'] < 3 else
+        'Less than 1 month', axis=1
+    )
     return _process_year(2012, result)
 
 
 def ges2013(src: pd.DataFrame) -> pd.DataFrame:
     result = src.copy()
+    result.loc[:, 'offer_wait'] = result['q19_q20_difference'].apply(
+        lambda x: '6 months or more' if x >= 6 else
+        '3 to less than 6 months' if 3 <= x < 6 else
+        '1 to less than 3 months' if 1 <= x < 3 else
+        'Less than 1 month'
+    )
     return _process_year(2013, result)
+
+
+def ges2014(src: pd.DataFrame) -> pd.DataFrame:
+    result = src.copy()
+    result.loc[:, 'start_search'] = result.apply(
+        lambda row: f'{int(row["q20_year"])}-{int(row["q20_month"])}-01', axis=1
+    )
+    result.loc[:, 'offer_date'] = result.apply(
+        lambda row: f'{int(row["q19_year"])}-{int(row["q19_month"])}-01', axis=1
+    )
+    return _process_year(2014, result)
 
 
 def ges2015(src: pd.DataFrame) -> pd.DataFrame:
@@ -1014,6 +1461,9 @@ def ges2015(src: pd.DataFrame) -> pd.DataFrame:
         lambda row: row['d2'] if not pd.isnull(row['d2']) and row['d2'].strip() != ''
         else row['nationality'], axis=1
     )
+    result.loc[:, 'q10_basic'] = result['q10_basic'].apply(lambda x: x.replace(',', '') if isinstance(x, str) else x)
+    result.loc[:, 'q10_gross'] = result['q10_gross'].apply(lambda x: x.replace(',', '') if isinstance(x, str) else x)
+    result.loc[:, 'q10_ot'] = result['q10_ot'].apply(lambda x: x.replace(',', '') if isinstance(x, str) else x)
     return _process_year(2015, result)
 
 
@@ -1022,11 +1472,46 @@ def ges2016(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'hon'] = result['honours_class_1st_major'].apply(
         lambda x: 'Y' if 'Hon' in x else 'N'
     )
+    result.loc[:, 'start_search'] = result.apply(
+        lambda row: f'{"MAY" if pd.isnull(row["start_of_job_search_month"]) else row["start_of_job_search_month"]} '
+                    f'{2016 if pd.isnull(row["start_of_job_search_year"]) else int(row["start_of_job_search_year"])}'
+        if not pd.isnull(row['start_of_job_search_month']) and not pd.isnull(row['start_of_job_search_year'])
+        else np.nan, axis=1
+    )
+    term2mth = {
+        0: 'May',
+        10: 'Dec',
+        20: 'May',
+        30: 'Jul',
+        40: 'Aug'
+    }
+    result.loc[:, 'grad_date'] = result['expected_graduation_term'].apply(
+        lambda x: np.nan if pd.isnull(x) else datetime.strptime(f'{x // 100}-{term2mth[x % 100]}', '%y-%b')
+        .strftime('%Y-%m-%d')
+    ).astype('datetime64[ns]')
+    result.loc[:, 'gap_grad_search'] = result.apply(
+        lambda row: np.nan if pd.isnull(row['start_search'])
+        else str(max(-30, min(30, (row['start_search'] - row['grad_date']).days // 7))), axis=1
+    )
+    result.loc[:, 'offer_date'] = result.apply(
+        lambda row: f'{"January" if pd.isnull(row["date_of_1st_offer_month"]) else row["date_of_1st_offer_month"]} '
+                    f'{2016 if pd.isnull(row["date_of_1st_offer_year"]) else int(row["date_of_1st_offer_year"])}'
+        if not pd.isnull(row['date_of_1st_offer_month']) and not pd.isnull(row['date_of_1st_offer_year'])
+        else np.nan, axis=1
+    )
     return _process_year(2016, result)
 
 
 def ges2017(src: pd.DataFrame) -> pd.DataFrame:
     result = src.copy()
+    result.loc[:, 'q5'] = result.apply(
+        lambda row: row['q5_emp'] if not row['q5_emp'].startswith('Not applicable')
+        else row['q5_self'], axis=1
+    )
+    result.loc[:, 'q10_basic'] = result['q10_basic'].replace({'#NULL!': np.nan})
+    result.loc[:, 'q10_overtime'] = result['q10_overtime'].replace({'#NULL!': np.nan})
+    result.loc[:, 'q20_date'] = result['q20_date'].replace({'#NULL!': np.nan})
+    result.loc[:, 'q19_date'] = result['q19_date'].replace({'#NULL!': np.nan})
     return _process_year(2017, result)
 
 
@@ -1035,6 +1520,10 @@ def ges2018(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'noc'] = result['noc'].fillna('N')
     result.loc[:, 'hon'] = result['honours_descr'].apply(
         lambda x: 'Y' if 'Hon' in x else 'N'
+    )
+    result.loc[:, 'q5'] = result.apply(
+        lambda row: row['q5_employee'] if not row['q5_employee'].startswith('Not applicable')
+        else row['q5_self'], axis=1
     )
     return _process_year(2018, result)
 
@@ -1049,6 +1538,18 @@ def ges2019(src: pd.DataFrame) -> pd.DataFrame:
     )
     result.loc[:, 'class_of_hons'] = _combine_columns('honours_descr', 'honours_descr1', src)
     result.loc[:, 'residency'] = _combine_columns('residency', 'residencydescr', src)
+    result.loc[:, 'start_search'] = result.apply(
+        lambda row: np.nan if pd.isnull(row['q22_month']) and pd.isnull(row['q22_year']) else
+        f'{int(row["q22_year"]) if not pd.isnull(row["q22_year"]) else 2019}-'
+        f'{row["q22_month"] if not pd.isnull(row["q22_month"]) else "May"}-01',
+        axis=1
+    )
+    result.loc[:, 'offer_date'] = result.apply(
+        lambda row: np.nan if pd.isnull(row['q25_month']) and pd.isnull(row['q25_year']) else
+        f'{int(row["q25_year"]) if not pd.isnull(row["q25_year"]) else 2019}-'
+        f'{row["q25_month"] if not pd.isnull(row["q25_month"]) else "January"}-01',
+        axis=1
+    )
     return _process_year(2019, result)
 
 
@@ -1056,5 +1557,23 @@ def ges2020(src: pd.DataFrame) -> pd.DataFrame:
     result = src.copy()
     result.loc[:, 'hon'] = src['honoursplandescr'].apply(
         lambda x: 'Y' if x.strip() != '' else 'N'
+    )
+    result.loc[:, 'q10_basic'] = result['q10_basic'].replace({' ': np.nan})
+    result.loc[:, 'q10_overtime'] = result['q10_overtime'].replace({' ': np.nan})
+    result.loc[:, 'start_search'] = result.apply(
+        lambda row: row['q20_date'] if not pd.isnull(row['q20_date']) and str(row['q20_date']).strip() != ''
+        else np.nan if (pd.isnull(row['q20_month']) or str(row['q20_month']).strip() == '') and
+        (pd.isnull(row['q20_year']) or row['q20_year'].strip() == '') else
+        f'{int(row["q20_year"]) if not pd.isnull(row["q20_year"]) and str(row["q20_year"]).strip() != "" else 2020} '
+        f'{row["q20_month"] if not pd.isnull(row["q20_month"]) and str(row["q20_month"]).strip() != "" else "May"}',
+        axis=1
+    )
+    result.loc[:, 'offer_date'] = result.apply(
+        lambda row: row['q18_date'] if not pd.isnull(row['q18_date']) and str(row['q18_date']).strip() != ''
+        else np.nan if (pd.isnull(row['q18_month']) or str(row['q18_month']).strip() == '') and
+        (pd.isnull(row['q18_year']) or row['q18_year'].strip() == '') else
+        f'{int(row["q18_year"]) if not pd.isnull(row["q18_year"]) and str(row["q18_year"]).strip() != "" else 2020} '
+        f'{row["q18_month"] if not pd.isnull(row["q18_month"]) and str(row["q18_month"]).strip() != "" else "May"}',
+        axis=1
     )
     return _process_year(2020, result)
