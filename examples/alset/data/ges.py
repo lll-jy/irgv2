@@ -407,7 +407,424 @@ _GES_COLUMNS: Dict[str, Dict[int, str]] = {
         2017: 'dv10_code',
         2018: 'dv10_code',
         2019: 'dv10_code'
+    },
+    'main_channel': {
+        2010: 'ans_21',
+        2011: 'q16',
+        2012: 'q18',
+        2013: 'q21',
+        2014: 'nus_q21',
+        2015: 'nus_q21',
+        2016: 'ranked_1st'
+    },
+    'channel_nus_portal': {
+        2016: 'cfg_job_portal',
+        2017: 'q21_1',
+        2018: 'q23_1',
+        2019: 'q23_1',
+        2020: 'q44_1'
+    },
+    'channel_cfg_posting': {
+        2016: 'channel_services',
+        2017: 'q21_2',
+        2018: 'q23_2',
+        2019: 'q23_2',
+        2020: 'q44_2'
+    },
+    'channel_nus_events': {
+        2016: 'cfg_career_events',
+        2017: 'q21_3',
+        2018: 'q23_3',
+        2019: 'q23_3',
+        2020: 'q44_3'
+    },
+    'channel_ia': {
+        2016: 'channel_ia',
+        2017: 'q21_4',
+        2018: 'q23_4',
+        2019: 'q23_4',
+        2020: 'q44_4'
+    },
+    'channel_nus_ref': {
+        2017: 'q21_5',
+        2018: 'q23_5',
+        2019: 'q23_5',
+        2020: 'q44_5'
+    },
+    'channel_staff_ref': {
+        2016: 'faculty_or_staff_referral',
+        2017: 'q21_6',
+        2018: 'q23_6',
+        2019: 'q23_6',
+        2020: 'q44_6'
+    },
+    'channel_fr_ref': {
+        2016: 'referrals_by_family_or_friends',
+        2017: 'q21_7',
+        2018: 'q23_7',
+        2019: 'q23_7',
+        2020: 'q44_7'
+    },
+    'channel_other_web': {
+        2016: 'other_job_portals',
+        2017: 'q21_8',
+        2018: 'q23_8',
+        2019: 'q23_8',
+        2020: 'q44_8'
+    },
+    'channel_social_media': {
+        2016: 'social_media',
+        2017: 'q21_9',
+        2018: 'q23_9',
+        2019: 'q23_9',
+        2020: 'q44_9'
+    },
+    'channel_agency': {
+        2016: 'recruitment_agencies',
+        2017: 'q21_10',
+        2018: 'q23_10',
+        2019: 'q23_10',
+        2020: 'q44_10'
+    },
+    'channel_traditional': {
+        2016: 'printed_advertisements',
+        2017: 'q21_11',
+        2018: 'q23_11',
+        2019: 'q23_11',
+        2020: 'q44_11'
+    },
+    'channel_ext_cf': {
+        2016: 'other_career_fairs',
+        2017: 'q21_12',
+        2018: 'q23_12',
+        2019: 'q23_12',
+        2020: 'q44_12'
+    },
+    'channel_no_need': {
+        2018: 'q23_13',
+        2019: 'q23_13',
+        2020: 'q44_13'
+    },
+    'channel_other': {
+        2016: 'other_job_channels',
+        2017: 'q21_other',
+        2018: 'q23_14',
+        2019: 'q23_14',
+    },
+    'working_country': {
+        2010: 'ans_22',
+        2011: 'q20',
+        2012: 'q10',
+        2014: 'q7',
+        2017: 'q7',
+        2018: 'q7',
+        2019: 'q7',
+        2020: 'q7'
+    },
+    'is_overseas': {
+        2012: 'q10_recode',
+        2013: 'q7_recode',
+        2015: 'q7_recode',
+        2016: 'overseas_organisation'
+    },
+    'overseas_type': {
+        2010: 'ans_23',
+        2011: 'q21',
+        2012: 'q11',
+        2016: 'overseas_organisation',
+        2017: 'q8',
+        2018: 'q8',
+        2019: 'q8',
+        2020: 'q8'
+    },
+    'return_sg': {
+        2010: 'ans_24',
+        2011: 'q22',
+        2012: 'q12',
+        2016: 'intention_to_return_for_work',
+        2017: 'q9',
+        2018: 'q9',
+        2019: 'q9',
+        2020: 'q9',
+    },
+    'helped_by_course': {
+        2010: 'ans_25a',
+        2011: 'q17a',
+        2012: 'q19a',
+        2013: 'q13a',
+        2014: 'q13a',
+        2015: 'q13a',
+        2016: 'helpfulness_of_course',
+        2017: 'q13a',
+        2018: 'q15a',
+        2019: 'q15_a',
+        2020: 'q13_a'
+    },
+    'helped_by_nus_brand': {
+        2010: 'ans_25b',
+        2011: 'q17b',
+        2012: 'q19b',
+        2013: 'q13b',
+        2014: 'q13b',
+        2015: 'q13a',
+        2016: 'helpfulness_of_nus',
+        2017: 'q13b',
+        2018: 'q15b',
+        2019: 'q15_b',
+        2020: 'q13_b'
+    },
+    'course_related': {
+        2010: 'ans_26',
+        2011: 'q18',
+        2012: 'q20',
+        2013: 'q14',
+        2014: 'q14',
+        2015: 'q14',
+        2016: 'relevance_to_course_of_study',
+        2017: 'q14',
+        2018: 'q16',
+        2019: 'q16',
+        2020: 'q14'
+    },
+    'unrelated_reason': {
+        2010: 'ans_27',
+        2011: 'q19',
+        2012: 'q21',
+        2013: 'q15',
+        2014: 'q15',
+        2015: 'q15',
+        2016: 'main_reason_for_lack_of_relevance',
+        2017: 'q15',
+        2020: 'q15'
+    },
+    'unrelated_lack': {
+        2018: 'q17_1',
+        2019: 'q17_1'
+    },
+    'unrelated_failed': {
+        2018: 'q17_2',
+        2019: 'q17_2'
+    },
+    'unrelated_interest': {
+        2018: 'q17_3',
+        2019: 'q17_3'
+    },
+    'unrelated_strength': {
+        2018: 'q17_4',
+        2019: 'q17_4'
+    },
+    'unrelated_pay': {
+        2018: 'q17_5',
+        2019: 'q17_5'
+    },
+    'unrelated_opportunity': {
+        2018: 'q17_6',
+        2019: 'q17_6'
+    },
+    'unrelated_prospects': {
+        2018: 'q17_7',
+        2019: 'q17_7'
+    },
+    'unrelated_co_worker': {
+        2018: 'q17_8',
+        2019: 'q17_8'
+    },
+    'unrelated_balance': {
+        2018: 'q17_9',
+        2019: 'q17_9'
+    },
+    'unrelated_convenience': {
+        2018: 'q17_10',
+        2019: 'q17_10'
+    },
+    'unrelated_social_status': {
+        2018: 'q17_11',
+        2019: 'q17_11'
+    },
+    'unrelated_support': {
+        2018: 'q17_12',
+        2019: 'q17_12'
+    },
+    'unrelated_environment': {
+        2018: 'q17_13',
+        2019: 'q17_13'
+    },
+    'unrelated_others': {
+        2018: 'q17_14',
+        2019: 'q17_14'
+    },
+    'attend_career': {
+        2010: 'ans_30_1',
+        2011: 'q40a',
+        2012: 'q32_1',
+        2013: 'q27a_1'
+    },
+    'attend_faculty': {
+        2010: 'ans_30_2',
+        2011: 'q40b',
+        2012: 'q32_2',
+        2013: 'q27a_2'
+    },
+    'prepare_written_comm': {
+        2010: 'ans_32a',
+        2011: 'q41a',
+        2012: 'q33a',
+        2013: 'q33a',
+        2014: 'q34a',
+        2015: 'q34a',
+        2016: 'preparation_written_communication',
+        2017: 'q31_a',
+        2018: 'q37_a',
+        2019: 'q39_a',
+        2020: 'q51_a'
+    },
+    'prepare_oral_comm': {
+        2010: 'ans_32b',
+        2011: 'q41b',
+        2012: 'q33b',
+        2013: 'q33b',
+        2014: 'q34b',
+        2015: 'q34b',
+        2016: 'preparation_oral_communication_and_presentation',
+        2017: 'q31_b',
+        2018: 'q37_b',
+        2019: 'q39_b',
+        2020: 'q51_b'
+    },
+    'prepare_multidisciplinary': {
+        2010: 'ans_32c',
+        2011: 'q41c',
+        2012: 'q33c',
+        2013: 'q33c',
+        2014: 'q34c',
+        2015: 'q34c',
+        2016: 'preparation_multidisciplinary',
+        2017: 'q31_c',
+        2018: 'q37_c',
+        2019: 'q39_c',
+        2020: 'q51_c'
+    },
+    'prepare_international': {
+        2010: 'ans_32d',
+        2011: 'q41d',
+        2012: 'q33d',
+        2013: 'q33d',
+        2014: 'q34d',
+        2015: 'q34d',
+        2016: 'preparation_international',
+        2017: 'q31_d',
+        2018: 'q37_d',
+        2019: 'q39_d',
+        2020: 'q51_d'
+    },
+    'prepare_org': {
+        2010: 'ans_32e',
+        2011: 'q41e',
+        2012: 'q33e',
+        2013: 'q33e',
+        2014: 'q34e',
+        2015: 'q34e',
+        2016: 'preparation_planning_and_organising',
+        2017: 'q31_e',
+        2018: 'q37_e',
+        2019: 'q39_e',
+        2020: 'q51_e'
+    },
+    'prepare_critical': {
+        2010: 'ans_32f',
+        2011: 'q41f',
+        2012: 'q33f',
+        2013: 'q33f',
+        2014: 'q34f',
+        2015: 'q34f',
+        2016: 'preparation_critical_thinking_and_problem_solving',
+        2017: 'q31_f',
+        2018: 'q37_f',
+        2019: 'q39_f',
+        2020: 'q51_f'
+    },
+    'prepare_creative': {
+        2010: 'ans_32g',
+        2011: 'q41g',
+        2012: 'q33g',
+        2013: 'q33g',
+        2014: 'q34g',
+        2015: 'q34g',
+        2016: 'preparation_creativity_and_innovation',
+        2017: 'q31_g',
+        2018: 'q37_g',
+        2019: 'q39_g',
+        2020: 'q51_g'
+    },
+    'prepare_learn_ind': {
+        2010: 'ans_32h',
+        2011: 'q41h',
+        2012: 'q33h',
+        2013: 'q33h',
+        2014: 'q34h',
+        2015: 'q34h',
+        2016: 'preparation_independent_learning',
+        2017: 'q31_h',
+        2018: 'q37_h',
+        2019: 'q39_h',
+        2020: 'q51_h'
+    },
+    'prepare_interpersonal': {
+        2010: 'ans_32i',
+        2011: 'q41i',
+        2012: 'q33i',
+        2013: 'q33i',
+        2014: 'q34i',
+        2015: 'q34i',
+        2016: 'preparation_interpersonal_effectiveness',
+        2017: 'q31_i',
+        2018: 'q37_i',
+        2019: 'q39_i',
+        2020: 'q51_i'
+    },
+    'prepare_personal': {
+        2010: 'ans_32j',
+        2011: 'q41j',
+        2012: 'q33j',
+        2013: 'q33j',
+        2014: 'q34j',
+        2015: 'q34j',
+        2016: 'preparation_personal_effectiveness',
+        2017: 'q31_j',
+        2018: 'q37_j',
+        2019: 'q39_j',
+        2020: 'q51_j'
+    },
+    'prepare_cross_cultural': {
+        2013: 'q33k'
+    },
+    'prepare_change_env': {
+        2013: 'q33m'
+    },
+    'prepare_career': {
+        2014: 'q34k',
+        2015: 'q34k'
+    },
+    'prepare_domain': {
+        2016: 'preparation_domain_expertise',
+        2017: 'q31_k',
+        2018: 'q39_k',
+        2019: 'q51_k'
     }
+}
+_GENERAL_BINARY_EQUIV: Dict[str, Set[str]] = {
+    'Y': {'1', '1.0', 'Y', 'Yes'},
+    'N': {'2', '2.0', 'N', 'No'},
+    'Nil': {'.', 'Not', 'Not applicable based on skipping pattern', 'Non Applicable based on skip pattern'}
+}
+_GENERAL_INC_RATE_EQUIV: Dict[str, Set[str]] = {
+    '1': {'1', '1.0', 'Not at all'},
+    '2': {'2', '2.0', 'A Little'},
+    '3': {'3', '3.0', 'Fairly Well', 'To some extent'},
+    '4': {'4', '4.0', 'Well'},
+    '5': {'5', '5.0', 'Very Well', 'To a great extent'},
+    'Nil': {'No comment', '.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern',
+            'Not applicable ba'}
 }
 _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
     'academic_load': {
@@ -1177,7 +1594,213 @@ _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
                                     '3.0'},
         '6 months or more': {'6 months or more', 'Six months and more', 'Six months or more', '4', '4.0'},
         'Nil': {'.', '#NULL!'}
-    }
+    },
+    'main_channel': {
+        'Nil': {'.', 'Did not specify'},
+        'Internet/Website': {
+            'Internet/Website (e.g. job portals, social media networks et', '12.0', '6',
+            'Internet/Website (e.g. job portals, social media networks etc.)', 'Q21_8 Other job websites\\ portals'
+        },
+        'NUS Career Centre': {
+            'NUS Career Centre (e.g. NUS Career Fair, eCareer Fair, recru', '8', '3.0',
+            'NUS Career Centre (e.g. NUS Career Fair, NUS Jobs Connect, R',
+            'NUS Career Centre (e.g. NUS Career Fair, NUS Jobs Connect, Referral by staff from NUS Career Centre, '
+            'recruitment talks,', 'Centre for Future-ready Graduates (Previously known as NUS C',
+            'Q21_2 Centre for Future-ready Graduates Career Events'
+        },
+        'Traditional Channels': {
+            'Traditional channels (e.g. newspapers advertisements, recomm', '2', '6.0',
+            'Traditional channels (e.g. newspapers advertisements, recommendations by family members and friends, '
+            'etc.)', 'Q21_11 Newspaper\\ magazine advertisements'
+        },
+        'Others': {'Others', '9', '13.0', 'Chanced upon the job', 'Q21_14 Others, please specify'},
+        'Refused': {'Refused', 'Refused to comment', '10.0', 'No comments'},
+        'Industrial Attachment': {
+            'Faculty/School-level industrial attachment, professional att', '1.0', '3',
+            'Faculty/School-level industrial attachment, professional attachment or professional internship',
+            'Q21_6 Faculty\\ School-level industrial attachment, professional attachment, or professional internship'
+        },
+        'Career Services': {
+            'Faculty/School-level career services (e.g. Business School C', '2.0', '4',
+            'Faculty/School-level career services (e.g. Business School Career Services)',
+            'Q21_5 Faculty\\ School-level career services'
+        },
+        'Referral': {
+            'Referral or facilitation by an individual faculty or staff m', '5', '4.0',
+            'Referral or facilitation by an individual faculty or staff member of NUS',
+            'Q21_13 Referrals by family members and friends',
+            'Q21_7 Referral or facilitation by an individual faculty or staff member of NUS (excluding CFG staff)'
+        },
+        'Employment Agencies': {
+            'Employment agencies and services', '1', '5.0', 'Q21_10 Employment\\ recruitment agencies'
+        },
+        'NUS Career Centre (Online)': {
+            'NUS Career Centre (eJob Centre)', '7', '11.0',
+            'NUS Career Centre (NUS TalentConnect, previously known as eJ',
+            'NUS Career Centre (NUS TalentConnect, previously known as eJob Centre)',
+            'Q21_1 Centre for Future-ready Graduates Job Portal (NUS Talent Connect) & E News'
+        },
+        'Direct Application': {
+            'Direct application to company', '9.0', 'Direct application to the company', 'Applied direct to companies'
+        },
+        'Scholarship Bond': {
+            'Scholarship Bond / Award', '8.0', 'Scholarship bond / award', 'Scholarship bond', 'Scholarship bonds'
+        },
+        'Company Invitation': {
+            'Invited to apply by company', '7.0', 'Invited by company to apply', 'Approached directly by company',
+            'Invited to apply by company / headhunted'
+        },
+        'Academic Conference': {
+            'Academic Conference', 'Conferences', 'Through competition / conferences organised by company'
+        },
+        'Conversion': {
+            'Conversion to full time from internship / contract work / training',
+            'Previous workplace / from internship', 'Conversion from internship / part time jobs / training'
+        },
+        'External Career Fair': {
+            'Career Fair / Talks (Outside of University)', 'Career talks / fairs outside of university',
+            'Q21_9 Other career fairs'
+        },
+        'Self-employed': {'Sourced from NS time / self-employed'},
+        'Social Media': {'Q21_12 Social media networks'},
+        'CFG Internships': {'Q21_3 Centre for Future-ready Graduates Internships'},
+        'CFG Coaching': {'Q21_4 Centre for Future-ready Graduates Coaching and Advisory'}
+    },
+    'channel_nus_portal': _GENERAL_BINARY_EQUIV,
+    'channel_cfg_posting': _GENERAL_BINARY_EQUIV,
+    'channel_nus_events': _GENERAL_BINARY_EQUIV,
+    'channel_ia': _GENERAL_BINARY_EQUIV,
+    'channel_nus_ref': _GENERAL_BINARY_EQUIV,
+    'channel_staff_ref': _GENERAL_BINARY_EQUIV,
+    'channel_fr_ref': _GENERAL_BINARY_EQUIV,
+    'channel_other_web': _GENERAL_BINARY_EQUIV,
+    'channel_social_media': _GENERAL_BINARY_EQUIV,
+    'channel_agency': _GENERAL_BINARY_EQUIV,
+    'channel_traditional': _GENERAL_BINARY_EQUIV,
+    'channel_ext_cf': _GENERAL_BINARY_EQUIV,
+    'channel_no_need': _GENERAL_BINARY_EQUIV,
+    'channel_other': _GENERAL_BINARY_EQUIV,
+    'working_country': {
+        'Singapore': {'Singapore', '1', '1.0'},
+        'USA': {'USA', '2', '2.0'},
+        'Canada': {'Canada', '3', '3.0'},
+        'Malaysia': {'Malaysia', '5', '5.0'},
+        'Vietnam': {'Vietnam', '4', '4.0'},
+        'Japan': {'Japan', '6', '6.0'},
+        'Mainland China': {'Mainland China', '7', '7.0'},
+        'Hong Kong SAR': {'Hong Kong SAR', '8', '8.0'},
+        'Others': {'Others <i>(Please specify)</i>', '14', '13', '12', '11', '10', '9', '9.0', 'Others',
+                   'Others, please specify country'},
+        'Nil': {'.', 'Not applicable based on skipping pattern', 'Not applicable'}
+    } | {name: {name} for name in {'Indonesia', 'Australia', 'Taiwan', 'Germany', 'Thailand', 'Dubai',
+                                   'Switzerland', 'United Kingdom', 'South Korea', 'India'}},
+    'is_overseas': {
+        'Y': {'Overseas', 'Overseas affiliates of Singapore registered or incorporated company/ organisation',
+              'Others, please specify:'},
+        'N': {'Singapore', 'Local', 'Non Applicable based on skip pattern'},
+    },
+    'overseas_type': {
+        'Singapore registered': {
+            'Overseas affiliates of Singapore registered or incorporated', '1', '1.0',
+            'Overseas affiliates of Singapore registered or incorporated company/ organisation',
+            'Overseas affiliates of Singapore registered or incorporated company \\ organisation',
+            'Overseas affiliates of Singapore registered or incorporated company\\ organisation'
+        },
+        'Others': {'99', '2.0', '2', '3', '4', '5', '6', 'Others', 'Others, please specify:', 'Others, please specify'},
+        'Nil': {'.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern'}
+    },
+    'return_sg': _GENERAL_BINARY_EQUIV,
+    'helped_by_course': _GENERAL_INC_RATE_EQUIV,
+    'helped_by_nus_brand': _GENERAL_INC_RATE_EQUIV,
+    'course_related': {
+        'Related': {'1', '1.0', 'Yes, I am employed in a job related to my course of study'},
+        'Partial': {'2', '2.0', 'Yes, I am employed in a job partially related to my course o',
+                    'Yes, I am employed in a job partially related to my course of study'},
+        'No': {'3', '3.0', 'No, I am employed in a job not related to my course of study'},
+        'Nil': {'.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern'}
+    },
+    'unrelated_reason': {
+        'Not offered': {
+            '1', '1.0', 'Applied for training-related job, but did not get an offer',
+            'Applied for job related to course of study, but did not get an offer'
+        },
+        'Stronger interest': {'2', '2.0', 'Stronger interest in current job'},
+        'Better prospects': {'3', '3.0', 'Better career prospects in current job'},
+        'Better pay': {'4', '4.0', 'Better pay in current job', 'Financial reasons'},
+        'Influenced by media': {
+            '5', '5.0', 'Influenced by media', 'Media portrayal of job', 'Media portrayal of current job'
+        },
+        'Influenced by people': {
+            '6', '6.0', 'Influenced by parents, relatives and/or friends', 'Advice from family and friends'
+        },
+        'Others': {'Others', '7', '7.0', 'Others, please specify'},
+        'Temporary measure': {
+            'Temporarily measure while looking for a full time job', 'Temporarily measure while deciding what to do',
+            'Temporarily measure while waiting for full time job to commence', 'Temporary / Part time job',
+            'Waiting for new job / further studies', 'Temporary measure while looking for FTP',
+            'Preparing for futher studies'
+        },
+        'Try new': {'To try out something new', 'Try something new / explore new areas'},
+        'Few openings': {
+            'Few job openings in related areas', 'Limitied choices / opportunities in field of study',
+            'Few job openings in related area'
+        },
+        'First offer': {
+            'Accepted the first job offer that came along', 'Accepted the first job that came along',
+            'Offered a job so just took it / Limited jobs in the job mark', 'Current job is good / convenient'
+        },
+        'Prior experience': {
+            'Worked in this area previously', 'Already got the job before studying', 'Worked on this area previously',
+            'Did internship at the company previously'
+        },
+        'Related to other degree': {'Related to Diploma / Second degree',  'Related to diploma / second degree'},
+        'Placed position': {
+            'Placed on the job which was different from what was applied for',
+            'Thought was related but turned out otherwise'
+        },
+        'Serving bond': {
+            'Serving scholarship bond', 'Scholarship / Serving bond', 'As part of programme',
+            'Serving scholarshop bond', 'Bonded/ Scholarship'
+        },
+        'Gain experience': {'To gain some work experience first', 'Gain more experience / skills'},
+        'Family/own business': {
+            'Helping out in family business', 'Family business / Self-employed', 'Working in own company'
+        },
+        'Refused': {'Refused to disclose'},
+        'Personal choice': {'Personal choice', 'No reasons', 'Personal Choice'},
+        'Course too general': {'Course is too general'},
+        'Nil': {'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern', '.'}
+    },
+    'unrelated_lack': _GENERAL_BINARY_EQUIV,
+    'unrelated_failed': _GENERAL_BINARY_EQUIV,
+    'unrelated_interest': _GENERAL_BINARY_EQUIV,
+    'unrelated_strength': _GENERAL_BINARY_EQUIV,
+    'unrelated_pay': _GENERAL_BINARY_EQUIV,
+    'unrelated_opportunity': _GENERAL_BINARY_EQUIV,
+    'unrelated_prospects': _GENERAL_BINARY_EQUIV,
+    'unrelated_co_worker': _GENERAL_BINARY_EQUIV,
+    'unrelated_balance': _GENERAL_BINARY_EQUIV,
+    'unrelated_convenience': _GENERAL_BINARY_EQUIV,
+    'unrelated_social_status': _GENERAL_BINARY_EQUIV,
+    'unrelated_support': _GENERAL_BINARY_EQUIV,
+    'unrelated_environment': _GENERAL_BINARY_EQUIV,
+    'unrelated_others': _GENERAL_BINARY_EQUIV,
+    'attend_career': _GENERAL_BINARY_EQUIV,
+    'attend_faculty': _GENERAL_BINARY_EQUIV,
+    'prepare_written_comm': _GENERAL_INC_RATE_EQUIV,
+    'prepare_oral_comm': _GENERAL_INC_RATE_EQUIV,
+    'prepare_multidisciplinary': _GENERAL_INC_RATE_EQUIV,
+    'prepare_international': _GENERAL_INC_RATE_EQUIV,
+    'prepare_org': _GENERAL_INC_RATE_EQUIV,
+    'prepare_critical': _GENERAL_INC_RATE_EQUIV,
+    'prepare_creative': _GENERAL_INC_RATE_EQUIV,
+    'prepare_learn_ind': _GENERAL_INC_RATE_EQUIV,
+    'prepare_interpersonal': _GENERAL_INC_RATE_EQUIV,
+    'prepare_personal': _GENERAL_INC_RATE_EQUIV,
+    'prepare_cross_cultural': _GENERAL_INC_RATE_EQUIV,
+    'prepare_change_env': _GENERAL_INC_RATE_EQUIV,
+    'prepare_career': _GENERAL_INC_RATE_EQUIV,
+    'prepare_domain': _GENERAL_INC_RATE_EQUIV
 }
 _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
     'student_token': str,
@@ -1219,7 +1842,60 @@ _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
     'gap_grad_search': 'string',
     'offer_date': 'datetime64[ns]',
     'offer_count': 'string',
-    'offer_wait': 'string'
+    'offer_wait': 'string',
+    'main_channel': 'string',
+    'channel_nus_portal': 'string',
+    'channel_cfg_posting': 'string',
+    'channel_nus_events': 'string',
+    'channel_ia': 'string',
+    'channel_nus_ref': 'string',
+    'channel_staff_ref': 'string',
+    'channel_fr_ref': 'string',
+    'channel_other_web': 'string',
+    'channel_social_media': 'string',
+    'channel_agency': 'string',
+    'channel_traditional': 'string',
+    'channel_ext_cf': 'string',
+    'channel_no_need': 'string',
+    'channel_other': 'string',
+    'working_country': 'string',
+    'is_overseas': 'string',
+    'overseas_type': 'string',
+    'return_sg': 'string',
+    'helped_by_course': 'string',
+    'helped_by_nus_brand': 'string',
+    'course_related': 'string',
+    'unrelated_reason': 'string',
+    'unrelated_lack': 'string',
+    'unrelated_failed': 'string',
+    'unrelated_interest': 'string',
+    'unrelated_strength': 'string',
+    'unrelated_pay': 'string',
+    'unrelated_opportunity': 'string',
+    'unrelated_prospects': 'string',
+    'unrelated_co_worker': 'string',
+    'unrelated_balance': 'string',
+    'unrelated_convenience': 'string',
+    'unrelated_social_status': 'string',
+    'unrelated_support': 'string',
+    'unrelated_environment': 'string',
+    'unrelated_others': 'string',
+    'attend_career': 'string',
+    'attend_faculty': 'string',
+    'prepare_written_comm': 'string',
+    'prepare_oral_comm': 'string',
+    'prepare_multidisciplinary': 'string',
+    'prepare_international': 'string',
+    'prepare_org': 'string',
+    'prepare_critical': 'string',
+    'prepare_creative': 'string',
+    'prepare_learn_ind': 'string',
+    'prepare_interpersonal': 'string',
+    'prepare_personal': 'string',
+    'prepare_cross_cultural': 'string',
+    'prepare_change_env': 'string',
+    'prepare_career': 'string',
+    'prepare_domain': 'string'
 }
 
 _degree2major_map: Dict[str, str] = {
@@ -1329,12 +2005,35 @@ def _process_year(year: int, df: pd.DataFrame) -> pd.DataFrame:
         result.loc[:, 'is_first_choice'] = result.apply(
             lambda row: 'Y' if row['first_choice'] == row['major'] else 'N', axis=1
         )
-    for col in ['not_ft_perm_reason', 'employment_status', 'company_type', 'industry', 'offer_count']:
+    for col in ['not_ft_perm_reason', 'employment_status', 'company_type', 'industry', 'offer_count', 'main_channel',
+                'channel_nus_portal', 'channel_cfg_posting', 'channel_nus_events', 'channel_ia', 'channel_nus_ref',
+                'channel_staff_ref', 'channel_fr_ref', 'channel_other_web', 'channel_social_media', 'channel_agency',
+                'channel_traditional', 'channel_ext_cf', 'channel_no_need', 'channel_other', 'working_country',
+                'is_overseas', 'overseas_type', 'return_sg', 'helped_by_course', 'helped_by_nus_brand',
+                'course_related', 'unrelated_reason', 'unrelated_lack', 'unrelated_failed', 'unrelated_interest',
+                'unrelated_strength', 'unrelated_pay', 'unrelated_opportunity', 'unrelated_prospects',
+                'unrelated_co_worker', 'unrelated_balance', 'unrelated_convenience', 'unrelated_social_status',
+                'unrelated_support', 'unrelated_environment', 'unrelated_others', 'attend_career', 'attend_faculty',
+                'prepare_written_comm', 'prepare_oral_comm', 'prepare_multidisciplinary', 'prepare_international',
+                'prepare_org', 'prepare_critical', 'prepare_creative', 'prepare_learn_ind', 'prepare_interpersonal',
+                'prepare_personal', 'prepare_cross_cultural', 'prepare_change_env', 'prepare_career', 'prepare_domain']:
         result.loc[:, col] = result[col].replace({'Nil': np.nan})
+    result = result.astype({
+        col: 'Int32' for col in [
+            'helped_by_course', 'helped_by_nus_brand', 'prepare_written_comm', 'prepare_oral_comm',
+            'prepare_multidisciplinary', 'prepare_international', 'prepare_org', 'prepare_critical', 'prepare_creative',
+            'prepare_learn_ind', 'prepare_interpersonal', 'prepare_personal', 'prepare_cross_cultural',
+            'prepare_change_env', 'prepare_career', 'prepare_domain'
+        ]
+    })
     if 'ot_salary' in all_columns and 'gross_salary' not in all_columns:
         result.loc[:, 'gross_salary'] = result['basic_salary'] + result['ot_salary']
     if 'ot_salary' not in all_columns and 'gross_salary' in all_columns:
         result.loc[:, 'ot_salary'] = result['gross_salary'] - result['basic_salary']
+    if 'working_country' in all_columns and 'is_overseas' not in all_columns:
+        result.loc[:, 'is_overseas'] = result['working_country'].apply(
+            lambda x: np.nan if pd.isnull(x) else 'N' if x == 'Singapore' else 'Y'
+        )
     return result
 
 
@@ -1388,6 +2087,8 @@ def ges2011(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'q12a'] = result['q12a'].replace({'.': np.nan})
     result.loc[:, 'q12b'] = result['q12b'].replace({'.': np.nan})
     result.loc[:, 'offer_count'] = _combine_columns('q14', 'q27', result)
+    result.loc[:, 'q17a'] = result['q17a'].replace({'.': np.nan})
+    result.loc[:, 'q17b'] = result['q17b'].replace({'.': np.nan})
     return _process_year(2011, result)
 
 
@@ -1430,6 +2131,10 @@ def ges2013(src: pd.DataFrame) -> pd.DataFrame:
         '3 to less than 6 months' if 3 <= x < 6 else
         '1 to less than 3 months' if 1 <= x < 3 else
         'Less than 1 month'
+    )
+    result.loc[:, 'q21'] = result.apply(
+        lambda row: row['q21'] if row['q21'] != 'Others'
+        else row['q21_other'], axis=1
     )
     return _process_year(2013, result)
 
@@ -1499,6 +2204,18 @@ def ges2016(src: pd.DataFrame) -> pd.DataFrame:
         if not pd.isnull(row['date_of_1st_offer_month']) and not pd.isnull(row['date_of_1st_offer_year'])
         else np.nan, axis=1
     )
+    result.loc[:, 'channel_services'] = result.apply(
+        lambda row: 'Yes' if row['cfg_career_advisory'] == 'Yes' or row['faculty_career_services'] == 'Yes'
+        else 'No' if not pd.isnull(row['cfg_career_advisory']) and not pd.isnull(row['faculty_career_services'])
+        and not (len(row['cfg_career_advisory']) > 5 or len(row['faculty_career_services']) > 5)
+        else 'Non Applicable based on skip pattern', axis=1
+    )
+    result.loc[:, 'channel_ia'] = result.apply(
+        lambda row: 'Yes' if row['cfg_internships'] == 'Yes' or row['faculty_internships'] == 'Yes'
+        else 'No' if not pd.isnull(row['cfg_internships']) and not pd.isnull(row['faculty_internships'])
+        and not (len(row['cfg_internships']) > 5 or len(row['faculty_internships']) > 5)
+        else 'Non Applicable based on skip pattern', axis=1
+    )
     return _process_year(2016, result)
 
 
@@ -1512,6 +2229,11 @@ def ges2017(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'q10_overtime'] = result['q10_overtime'].replace({'#NULL!': np.nan})
     result.loc[:, 'q20_date'] = result['q20_date'].replace({'#NULL!': np.nan})
     result.loc[:, 'q19_date'] = result['q19_date'].replace({'#NULL!': np.nan})
+    result.loc[:, 'q21_other'] = result.apply(
+        lambda row: 'Yes' if any(row[f'q21_{i}'] == 'Yes' for i in range(13, 22))
+        else 'No' if all(not pd.isnull(row[f'q21_{i}']) and len(row[f'q21_{i}']) <= 5 for i in range(13, 22))
+        else 'Not', axis=1
+    )
     return _process_year(2017, result)
 
 
@@ -1549,6 +2271,16 @@ def ges2019(src: pd.DataFrame) -> pd.DataFrame:
         f'{int(row["q25_year"]) if not pd.isnull(row["q25_year"]) else 2019}-'
         f'{row["q25_month"] if not pd.isnull(row["q25_month"]) else "January"}-01',
         axis=1
+    )
+    result.loc[:, 'q23_14'] = result.apply(
+        lambda row: 'Yes' if row['q23_14'] == 'Yes' or row['q23_15'] == 'Yes'
+        else 'No' if not pd.isnull(row['q23_14']) and not pd.isnull(row['q23_15'])
+        and not (len(row['q23_14']) > 5 and len(row['q23_15']) > 5) else 'Not', axis=1
+    )
+    result.loc[:, 'q17_14'] = result.apply(
+        lambda row: 'Yes' if any(row[f'q17_{i}'] == 'Yes' for i in range(14, 17))
+        else 'No' if all(not pd.isnull(row[f'q17_{i}']) and len(row[f'q17_{i}']) <= 5 for i in range(14, 17))
+        else 'Not', axis=1
     )
     return _process_year(2019, result)
 
