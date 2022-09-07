@@ -24,6 +24,13 @@ Ignored:
     2019: 'q12',
     2020: 'q12'
 }
+'subject_area': {
+    2010: 'ans_45',
+    2012: 'q29',
+    2014: 'q25',
+    2015: 'q25_code1',
+    2020: 'q45'
+}
 """
 
 _GES_COLUMNS: Dict[str, Dict[int, str]] = {
@@ -810,11 +817,209 @@ _GES_COLUMNS: Dict[str, Dict[int, str]] = {
         2017: 'q31_k',
         2018: 'q39_k',
         2019: 'q51_k'
+    },
+    'min_expectation': {
+        2010: 'ans_36',
+        2011: 'q26',
+        2012: 'q22a',
+        2013: 'q16a',
+        2014: 'nus_q16a',
+        2015: 'nus_q16a'
+    },
+    'work_during_may_oct': {
+        2010: 'ans_39',
+        2011: 'q29',
+        2012: 'q25a',
+        2013: 'q16b',
+        2014: 'nus_q16b',
+        2015: 'nus_q16b'
+    },
+    'challenge_get_interview': {
+        2010: 'ans_41_1'
+    },
+    'challenge_not_interview': {
+        2010: 'ans_41_2'
+    },
+    'challenge_low_salary': {
+        2010: 'ans_41_3'
+    },
+    'challenge_offer_bad': {
+        2010: 'ans_41_4'
+    },
+    'challenge_other': {
+        2010: 'ans_41_5'
+    },
+    'challenge': {
+        2011: 'q30',
+        2012: 'q25b',
+        2013: 'q16c',
+        2014: 'q22',
+        2015: 'q22',
+        2016: 'main_job_search_challenge',
+        2017: 'q22',
+        2018: 'q27',
+        2019: 'q28',
+        2020: 'q23'
+    },
+    'pursuing': {
+        2010: 'ans_43',
+        2011: 'q32',
+        2012: 'q27',
+        2013: 'q22',
+        2014: 'q23',
+        2015: 'q23',
+        2016: 'status_of_higher_education',
+        2017: 'q23',
+        2018: 'q30',
+        2019: 'q31',
+        2020: 'q43'
+    },
+    'higher_degree': {
+        2012: 'q28',
+        2013: 'q23',
+        2014: 'q24',
+        2015: 'q24',
+        2016: 'higher_education_type',
+        2017: 'q24',
+        2018: 'q31'
+    },
+    'higher_deg_mba': {
+        2010: 'ans_44_1',
+        2011: 'q331'
+    },
+    'higher_deg_master_coursework': {
+        2010: 'ans_44_2',
+        2011: 'q332'
+    },
+    'higher_deg_master_research': {
+        2010: 'ans_44_3',
+        2011: 'q333'
+    },
+    'higher_deg_phd': {
+        2010: 'ans_44_4',
+        2011: 'q334'
+    },
+    'higher_deg_cfa': {
+        2010: 'ans_44_5',
+        2011: 'q335'
+    },
+    'higher_deg_cfp': {
+        2010: 'ans_44_6',
+        2011: 'q336'
+    },
+    'higher_deg_graduate_diploma': {
+        2010: 'ans_44_7',
+        2011: 'q337'
+    },
+    'higher_deg_second_undergraduate': {
+        2010: 'ans_44_8',
+        2011: 'q338'
+    },
+    'higher_deg_undecided': {
+        2010: 'ans_44_9',
+        2011: 'q339'
+    },
+    'connect_magazine': {
+        2010: 'ans_47a'
+    },
+    'connect_e_news': {
+        2010: 'ans_47b'
+    },
+    'connect_alumnet': {
+        2010: 'ans_47c'
+    },
+    'connect_card': {
+        2010: 'ans_47d'
+    },
+    'connect_programme': {
+        2010: 'ans_47e'
+    },
+    'connect_web2': {
+        2010: 'ans_47f'
+    },
+    'connect_reunion': {
+        2010: 'ans_47g'
+    },
+    'connect_events': {
+        2010: 'ans_47h'
+    },
+    'connect_others': {
+        2010: 'ans_47i'
+    },
+    'alum_story_office_events': {
+        2010: 'ans_48_1'
+    },
+    'alum_story_fellow_activity': {
+        2010: 'ans_48_2'
+    },
+    'alum_story_campus_dev': {
+        2010: 'ans_48_3'
+    },
+    'alum_story_personal': {
+        2010: 'ans_48_4'
+    },
+    'alum_story_student_life': {
+        2010: 'ans_48_5'
+    },
+    'alum_story_campus_sports': {
+        2010: 'ans_48_6'
+    },
+    'alum_story_career': {
+        2010: 'ans_48_7'
+    },
+    'alum_story_lifelong_learning': {
+        2010: 'ans_48_8'
+    },
+    'alum_story_notes': {
+        2010: 'ans_48_9'
+    },
+    'alum_story_others': {
+        2010: 'ans_48_10'
+    },
+    'alum_story_none': {
+        2010: 'ans_48_11'
+    },
+    'alum_will_participate': {
+        2010: 'ans_49a'
+    },
+    'feel_connected': {
+        2010: 'ans_50',
+        2011: 'q42b',
+        2012: 'q39',
+        2013: 'q39',
+        2014: 'nus_q40',
+        2015: 'nus_q40'
+    },
+    'donate_leading_global': {
+        2010: 'ans_51_1'
+    },
+    'donate_proud': {
+        2010: 'ans_51_2'
+    },
+    'donate_scholarship': {
+        2010: 'ans_51_3'
+    },
+    'donate_for_current': {
+        2010: 'ans_51_4'
+    },
+    'donate_need': {
+        2010: 'ans_51_5'
+    },
+    'donate_no': {
+        2010: 'ans_51_6'
+    },
+    'prepare_entrepreneur': {
+        2010: 'ans_56',
+        2011: 'q42a',
+        2012: 'q38',
+        2013: 'q38',
+        2014: 'nus_q39',
+        2015: 'nus_q39'
     }
 }
 _GENERAL_BINARY_EQUIV: Dict[str, Set[str]] = {
     'Y': {'1', '1.0', 'Y', 'Yes'},
-    'N': {'2', '2.0', 'N', 'No'},
+    'N': {'2', '2.0', 'N', 'No', '0'},
     'Nil': {'.', 'Not', 'Not applicable based on skipping pattern', 'Non Applicable based on skip pattern'}
 }
 _GENERAL_INC_RATE_EQUIV: Dict[str, Set[str]] = {
@@ -824,7 +1029,8 @@ _GENERAL_INC_RATE_EQUIV: Dict[str, Set[str]] = {
     '4': {'4', '4.0', 'Well'},
     '5': {'5', '5.0', 'Very Well', 'To a great extent'},
     'Nil': {'No comment', '.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern',
-            'Not applicable ba'}
+            'Not applicable ba', '0'},
+    'Refused': {'99.0', '99'}
 }
 _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
     'academic_load': {
@@ -1800,7 +2006,135 @@ _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
     'prepare_cross_cultural': _GENERAL_INC_RATE_EQUIV,
     'prepare_change_env': _GENERAL_INC_RATE_EQUIV,
     'prepare_career': _GENERAL_INC_RATE_EQUIV,
-    'prepare_domain': _GENERAL_INC_RATE_EQUIV
+    'prepare_domain': _GENERAL_INC_RATE_EQUIV,
+    'work_during_may_oct': {
+        'No': {'2.0', 'No, not at all', '3'},
+        'Yes, part-time': {'1.0', 'Yes, work part-time (less than 35 work hours a week)', '2'},
+        'Yes, full-time': {'Yes, work full-time (35 work hours or more a week)', '1'},
+        'Nil': {'.'}
+    },
+    'challenge_get_interview': _GENERAL_BINARY_EQUIV,
+    'challenge_not_interview': _GENERAL_BINARY_EQUIV,
+    'challenge_low_salary': _GENERAL_BINARY_EQUIV,
+    'challenge_offer_bad': _GENERAL_BINARY_EQUIV,
+    'challenge_other': _GENERAL_BINARY_EQUIV,
+    'challenge': {
+        'Getting interviews': {'1', 'Getting interviews', 'Getting an interview'},
+        'Not selected after interview': {'2', 'Not being selected after interviews',
+                                         'Getting offers after the interview'},
+        'Salary not up to expectation': {'3', 'Salary offer(s) not up to expectations',
+                                         'Not satisfied with salary offer'},
+        'Job not up to expectation': {'4', 'Job offer(s) not up to expectations', 'Results not good enough',
+                                      'Not satisfied with other parts of offer, other than salary',
+                                      'Finding suitable job expectation',
+                                      'Not satisfied with other parts of offer, other than salary.Others include '
+                                      'advancement prospects, working hours etc'},
+        'Location': {'Location of available jobs were too far', 'Location of available job were too far'},
+        'Others': {'5', 'Others', 'Others, please specify:', 'All of the options', 'Others, please specify'},
+        'Nil': {'.', 'Did not face any difficulties', 'Not applicable / on bond', 'Not applicable / own business',
+                'Not applicable / going overseas', 'Did not encounter any difficulties', 'No challenge faced',
+                'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern', 'No difficulty'},
+        'Refused': {'Refused', 'Refused/NA'},
+        'Related interest': {'Finding jobs to apply to that is related to my career interest',
+                             'Finding jobs to apply to that is related to my career intere',
+                             'Finding jobs to apply to, that is related to my career interest'},
+        'Writing CV': {'Writing CV/resume', 'Writing CV/ resume', 'Writing CV\\resume', 'Writing CV\\ resume'},
+        'E Pass': {'Foreigner status / E pass issue', 'Foreigner status/ Employment pass issue',
+                   'Unable to get an offer due to nationality', 'Being a foreigner'},
+        'Insufficient skill': {'Insufficient skill set and lack of relevant experience',
+                               'Insufficient skillset / experience'},
+        'Long waiting time': {'Waiting time for reply is too long', 'Waiting time to reply is too long'},
+        'Handling interview process': {'Handling the interview process'},
+        'Deciding which offer': {'Deciding which offer to accept', 'Deciding which job offer to take'},
+        'Uncertain prospects': {'Uncertain prospects of the job / employer', 'Unsure of desired career path',
+                                'Work place culture'},
+        'Job scope': {'Difficult to understand job scope', 'Lack of detailed information on jobs'},
+        'Unsure relevance': {'Unsure if job is relevant to study'},
+        'Personal': {'Personal\\ medical reason'},
+        'Degree not recognized': {'Degree was not recognised by the company'},
+        'Not enough openings': {'Not enough job openings', 'Not enough jobs in the market'},
+        'Not fit': {'Did not fit job requirements'},
+        'Lack network': {'Lack of professional networks'},
+    },
+    'pursuing': {
+        'Current': {'1', '1.0', 'Yes, currently pursuing'},
+        'Current full-time': {'Yes, currently pursuing full-time studies',
+                              'Yes, currently pursuing a full-time studies'},
+        'Current part-time': {'Yes, currently pursuing part-time studies',
+                              'Yes, currently pursuing a part-time studies'},
+        'Within 5 yrs': {'2', '2.0', 'Yes, intend to pursue in the near future (within the next 5',
+                         'Yes, intend to pursue in the near future (within the next 5 years)'},
+        'Not within 5 yrs': {'3', '3.0', 'Yes, intend to pursue in the future (not within the next 5 y',
+                             'Yes, intend to pursue in the future (not within the next 5 years)'},
+        'No': {'4', '4.0', 'No, do not intend to pursue at all'},
+        'Nil': {'.', 'Not applicable based on skipping pattern', 'Non Applicable based on skip pattern'}
+    },
+    'higher_degree': {
+        'Master by coursework': {'Master’s Degree by coursework', 'Master`s Degree by coursework',
+                                 'Master’s Degree by coursework (Please specify university)'},
+        'Master by research': {'Master’s Degree by research', 'Master`s Degree by research',
+                               'Master’s Degree by research (Please specify university)'},
+        'MBA': {'MBA', 'MBA (Please specify university )'},
+        'PhD': {'PhD', 'PhD (Please specify university)'},
+        'Graduate': {'Graduate Diploma'},
+        'CFA': {'Professional Qualification – CFA equivalent', 'Professional Qualification - CFA equivalent'},
+        'CFP': {'Professional Qualification – CFP equivalent', 'Professional Qualification - CFP equivalent'},
+        'Unsure': {'Unsure', 'Not sure / Have not decided yet'},
+        'Others': {'Others', 'Others, please specify'},
+        'Second Undergraduate': {'Second Undergraduate Degree'},
+        'Reading': {'Reading for Higher Degree', 'Reading for Higher Degree. Please specify university:'},
+        'Refused': {'Refused to disclose'},
+        'PGDE': {'Graduate Diploma in Education (PGDE) without signing on',
+                 'Post Graduate Diploma in Education (PGDE) without service bond from MOE'},
+        'Nil': {'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern', 'Not specified'},
+        'Modular Courses': {'Skills-Based Modular Courses offered by Universities and Polytechnics',
+                            'Modular Courses offered by Universities and Polytechnics'},
+        'Specialist Diploma': {'Advanced/ Specialist Diploma offered by Polytechnics',
+                               'Advanced\\Specialist Diploma offered by Polytechnics',
+                               'Advanced\\ Specialist Diploma offered by Polytechnics'},
+        'WSQ': {'Singapore Workforce Skills Qualification (WSQ) qualification'},
+        'WSQ no qualification': {'Singapore Workforce Skills Qualification (WSQ) courses not leading to a',
+                                 'Singapore Workforce Skills Qualification (WSQ) courses not leading to a WSQ '
+                                 'qualification'}
+    },
+    'higher_deg_mba': _GENERAL_BINARY_EQUIV,
+    'higher_deg_master_coursework': _GENERAL_BINARY_EQUIV,
+    'higher_deg_master_research': _GENERAL_BINARY_EQUIV,
+    'higher_deg_phd': _GENERAL_BINARY_EQUIV,
+    'higher_deg_cfa': _GENERAL_BINARY_EQUIV,
+    'higher_deg_cfp': _GENERAL_BINARY_EQUIV,
+    'higher_deg_graduate_diploma': _GENERAL_BINARY_EQUIV,
+    'higher_deg_second_undergraduate': _GENERAL_BINARY_EQUIV,
+    'higher_deg_undecided': _GENERAL_BINARY_EQUIV,
+    'connect_magazine': _GENERAL_INC_RATE_EQUIV,
+    'connect_e_news': _GENERAL_INC_RATE_EQUIV,
+    'connect_alumnet': _GENERAL_INC_RATE_EQUIV,
+    'connect_card': _GENERAL_INC_RATE_EQUIV,
+    'connect_programme': _GENERAL_INC_RATE_EQUIV,
+    'connect_web2': _GENERAL_INC_RATE_EQUIV,
+    'connect_reunion': _GENERAL_INC_RATE_EQUIV,
+    'connect_events': _GENERAL_INC_RATE_EQUIV,
+    'connect_others': _GENERAL_INC_RATE_EQUIV,
+    'alum_story_office_events': _GENERAL_BINARY_EQUIV,
+    'alum_story_fellow_activity': _GENERAL_BINARY_EQUIV,
+    'alum_story_campus_dev': _GENERAL_BINARY_EQUIV,
+    'alum_story_personal': _GENERAL_BINARY_EQUIV,
+    'alum_story_student_life': _GENERAL_BINARY_EQUIV,
+    'alum_story_campus_sports': _GENERAL_BINARY_EQUIV,
+    'alum_story_career': _GENERAL_BINARY_EQUIV,
+    'alum_story_lifelong_learning': _GENERAL_BINARY_EQUIV,
+    'alum_story_notes': _GENERAL_BINARY_EQUIV,
+    'alum_story_others': _GENERAL_BINARY_EQUIV,
+    'alum_story_none': _GENERAL_BINARY_EQUIV,
+    'alum_will_participate': _GENERAL_BINARY_EQUIV,
+    'feel_connected': _GENERAL_INC_RATE_EQUIV,
+    'donate_leading_global': _GENERAL_BINARY_EQUIV,
+    'donate_proud': _GENERAL_BINARY_EQUIV,
+    'donate_scholarship': _GENERAL_BINARY_EQUIV,
+    'donate_for_current': _GENERAL_BINARY_EQUIV,
+    'donate_need': _GENERAL_BINARY_EQUIV,
+    'donate_no': _GENERAL_BINARY_EQUIV,
+    'prepare_entrepreneur': _GENERAL_INC_RATE_EQUIV
 }
 _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
     'student_token': str,
@@ -1895,7 +2229,55 @@ _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
     'prepare_cross_cultural': 'string',
     'prepare_change_env': 'string',
     'prepare_career': 'string',
-    'prepare_domain': 'string'
+    'prepare_domain': 'string',
+    'min_expectation': 'float32',
+    'work_during_may_oct': 'string',
+    'challenge_get_interview': 'string',
+    'challenge_not_interview': 'string',
+    'challenge_low_salary': 'string',
+    'challenge_offer_bad': 'string',
+    'challenge_other': 'string',
+    'challenge': 'string',
+    'pursuing': 'string',
+    'higher_degree': 'string',
+    'higher_deg_mba': 'string',
+    'higher_deg_master_coursework': 'string',
+    'higher_deg_master_research': 'string',
+    'higher_deg_phd': 'string',
+    'higher_deg_cfa': 'string',
+    'higher_deg_cfp': 'string',
+    'higher_deg_graduate_diploma': 'string',
+    'higher_deg_second_undergraduate': 'string',
+    'higher_deg_undecided': 'string',
+    'connect_magazine': 'string',
+    'connect_e_news': 'string',
+    'connect_alumnet': 'string',
+    'connect_card': 'string',
+    'connect_programme': 'string',
+    'connect_web2': 'string',
+    'connect_reunion': 'string',
+    'connect_events': 'string',
+    'connect_others': 'string',
+    'alum_story_office_events': 'string',
+    'alum_story_fellow_activity': 'string',
+    'alum_story_campus_dev': 'string',
+    'alum_story_personal': 'string',
+    'alum_story_student_life': 'string',
+    'alum_story_campus_sports': 'string',
+    'alum_story_career': 'string',
+    'alum_story_lifelong_learning': 'string',
+    'alum_story_notes': 'string',
+    'alum_story_others': 'string',
+    'alum_story_none': 'string',
+    'alum_will_participate': 'string',
+    'feel_connected': 'string',
+    'donate_leading_global': 'string',
+    'donate_proud': 'string',
+    'donate_scholarship': 'string',
+    'donate_for_current': 'string',
+    'donate_need': 'string',
+    'donate_no': 'string',
+    'prepare_entrepreneur': 'string'
 }
 
 _degree2major_map: Dict[str, str] = {
@@ -2016,14 +2398,23 @@ def _process_year(year: int, df: pd.DataFrame) -> pd.DataFrame:
                 'unrelated_support', 'unrelated_environment', 'unrelated_others', 'attend_career', 'attend_faculty',
                 'prepare_written_comm', 'prepare_oral_comm', 'prepare_multidisciplinary', 'prepare_international',
                 'prepare_org', 'prepare_critical', 'prepare_creative', 'prepare_learn_ind', 'prepare_interpersonal',
-                'prepare_personal', 'prepare_cross_cultural', 'prepare_change_env', 'prepare_career', 'prepare_domain']:
+                'prepare_personal', 'prepare_cross_cultural', 'prepare_change_env', 'prepare_career', 'prepare_domain',
+                'work_during_may_oct', 'challenge', 'pursuing', 'higher_degree', 'higher_deg_mba',
+                'higher_deg_master_coursework', 'higher_deg_master_research', 'higher_deg_phd', 'higher_deg_cfa',
+                'higher_deg_cfp', 'higher_deg_graduate_diploma', 'higher_deg_second_undergraduate',
+                'higher_deg_undecided', 'connect_magazine', 'connect_e_news', 'connect_alumnet', 'connect_card',
+                'connect_programme', 'connect_web2', 'connect_reunion', 'connect_events', 'connect_others',
+                'feel_connected', 'donate_leading_global', 'donate_proud', 'donate_scholarship', 'donate_for_current',
+                'donate_need', 'donate_no', 'prepare_entrepreneur']:
         result.loc[:, col] = result[col].replace({'Nil': np.nan})
     result = result.astype({
         col: 'Int32' for col in [
             'helped_by_course', 'helped_by_nus_brand', 'prepare_written_comm', 'prepare_oral_comm',
             'prepare_multidisciplinary', 'prepare_international', 'prepare_org', 'prepare_critical', 'prepare_creative',
             'prepare_learn_ind', 'prepare_interpersonal', 'prepare_personal', 'prepare_cross_cultural',
-            'prepare_change_env', 'prepare_career', 'prepare_domain'
+            'prepare_change_env', 'prepare_career', 'prepare_domain', 'connect_magazine', 'connect_e_news',
+            'connect_alumnet', 'connect_card', 'connect_programme', 'connect_web2', 'connect_reunion', 'connect_events',
+            'connect_others', 'feel_connected', 'prepare_entrepreneur'
         ]
     })
     if 'ot_salary' in all_columns and 'gross_salary' not in all_columns:
@@ -2059,7 +2450,25 @@ def ges2010(src: pd.DataFrame) -> pd.DataFrame:
             2: 'Working Full-Time in a Temporary job',
             3: 'Working Part-Time in a Permanent job',
             4: 'Working Part-Time in a Temporary job'
-        }[row['ans_07']] if row['ans_06'] == 1 else row['ans_06'], axis=1
+        }[row['ans_07']] if row['ans_06'] == 1 else {
+            1: 'Law graduate doing practical law course (PLC) / Pupilage',
+            2: 'Medical graduate serving housemanship',
+            3: 'Pharmacy graduate serving pupilage',
+            4: 'Professional Qualification – CFA equivalent',
+            5: 'Professional Qualification – CFP equivalent',
+            6: 'B.Arch graduate undergoing year-out practical training',
+            7: 'Currently undergoing practical training related to the course of study'
+        }[row['ans_33']] if row['ans_06'] == 2 else {
+            1: 'Not working but actively looking and available for work',
+            2: 'Accepted job offer and will start later',
+            3: 'Working on a Freelance basis',
+            4: 'Currently undergoing practical training related to the course',
+            5: 'Not working and not looking for a job'
+        }[row['ans_42']] if row['ans_06'] == 3 else {
+            1: 'Master’s Degree by research',
+            2: 'Master’s Degree by coursework',
+            3: 'PhD'
+        }[row['ans_46']] if row['ans_06'] == 4 else row['ans_06'], axis=1
     )
     result.loc[:, 'offer_count'] = _combine_columns('ans_19', 'ans_37', result)
     return _process_year(2010, result)
@@ -2089,6 +2498,7 @@ def ges2011(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'offer_count'] = _combine_columns('q14', 'q27', result)
     result.loc[:, 'q17a'] = result['q17a'].replace({'.': np.nan})
     result.loc[:, 'q17b'] = result['q17b'].replace({'.': np.nan})
+    result.loc[:, 'q26'] = result['q26'].replace({'.': np.nan})
     return _process_year(2011, result)
 
 
@@ -2146,6 +2556,10 @@ def ges2014(src: pd.DataFrame) -> pd.DataFrame:
     )
     result.loc[:, 'offer_date'] = result.apply(
         lambda row: f'{int(row["q19_year"])}-{int(row["q19_month"])}-01', axis=1
+    )
+    result.loc[:, 'q22'] = result.apply(
+        lambda row: row['q22'] if not pd.isnull(row['q22']) and str(row['q22']).strip() not in {'Others', '99'}
+        else row['q22_others_recode1'], axis=1
     )
     return _process_year(2014, result)
 
