@@ -9,9 +9,90 @@ import pandas as pd
 
 def personal_data(src: pd.DataFrame) -> pd.DataFrame:
     """
-    **Processed table**: TODO: personal data
+    **Processed table**:
+
+    SIS personal data, including gender, citizenship, residency, MYOB.
     """
-    pass
+    return src.astype({'month_year_of_birth': 'datetime64[ns]'})
+
+
+def sis_academic_career(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS academic careers, including program type and form of study.
+    """
+    return src[['student_token', 'academic_career', 'form_of_study', 'form_of_study_descr', 'program_type']]\
+        .drop_duplicates().reset_index(drop=True)
+
+
+def sis_academic_program_offer(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS program offer including career, program, and faculty.
+    """
+    result = src[['academic_program', 'academic_program_descr', 'faculty_descr']].drop_duplicates()\
+        .reset_index(drop=True)
+    dual_result = src[['dual_academic_program_descr', 'dual_academic_program']].replace({' ': np.nan}).drop_duplicates()
+    for _, row in dual_result.iterrows():
+        if row['dual_academic_program'] in result['academic_program']:
+            continue
+        curr_idx = len(result)
+        result.loc[curr_idx, 'academic_program'] = row['dual_academic_program']
+        result.loc[curr_idx, 'academic_program_descr'] = row['dual_academic_program_descr']
+    return result
+
+
+def sis_academic_program(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS program enrolment regarding programs.
+    """
+    return src[[
+        'student_token', 'academic_career', 'academic_load_descr', 'academic_program', 'dual_academic_program',
+        'program_category', 'program_type'
+    ]].drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+
+def sis_plan_offer(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS academic plan offer.
+    """
+    return src[['academic_plan', 'academic_plan_descr', 'academic_plan_type', 'academic_plan_type_descr']]\
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+
+def sis_academic_plan(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS academic plans enrolment.
+    """
+    return src[['student_token', 'academic_career', 'academic_program', 'academic_plan', 'degree', 'degree_descr']]\
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+
+def sis_enrolment(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS program enrolment per student per admit term.
+    """
+    result = src[[
+        'student_token', 'academic_career', 'academic_program', 'academic_plan', 'admit_term', 'admit_term_descr',
+        'career_nbr', 'completion_term', 'department', 'department_descr', 'expected_graduation_term',
+        'primary_program', 'program_action', 'program_reason', 'program_status', 'program_status_descr',
+        'requirement_term', 'requirement_term_descr'
+    ]].replace({' ': np.nan})
+    result = _process_term(result, 'admit_')
+    result = _process_term(result, 'completion_')
+    result = _process_term(result, 'expected_graduation_')
+    result = _process_term(result, 'requirement_')
+    return result
 
 
 _code2descr = {
