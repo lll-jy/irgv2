@@ -93,7 +93,7 @@ class DatabaseProcessor:
         raise NotImplementedError()
 
     @abstractmethod
-    def postprocess(self, output_dir: Optional[str] = None):
+    def postprocess(self, output_dir: Optional[str] = None, sample: Optional[int] = None):
         """
         Post-process taking the entire database's data into consideration.
         For example, remove records of students whose information is incomplete.
@@ -103,6 +103,7 @@ class DatabaseProcessor:
 
         - `output_dir` (`Optional[str]`): Output path of the post-processing step.
           If not provided, it will override the data_dir data.
+        - `sample` (`Optional[int]`): If not None, sample this number of basic form (e.g. students for ALSET) of data.
         """
         raise NotImplementedError()
 

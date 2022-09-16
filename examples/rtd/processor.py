@@ -92,6 +92,6 @@ class RTDProcessor(DatabaseProcessor):
     def _table_metadata_constructors(self) -> Dict[str, FunctionType]:
         return RTD_META_CONSTRUCTORS
 
-    def postprocess(self, output_dir: Optional[str] = None):
+    def postprocess(self, output_dir: Optional[str] = None, sample: Optional[int] = None):
         if output_dir is not None:
             shutil.copytree(self._data_dir, output_dir, dirs_exist_ok=True)
