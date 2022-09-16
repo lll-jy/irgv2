@@ -17,7 +17,7 @@ python3.9 process.py database alset \
     --sample 50
 
 ## Train
-python3.9 -W ignore main.py --log_level WARN train_gen \
+python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp.nosync train_gen \
   --db_config_path examples/data.nosync/alset/db_config.json \
   --data_dir examples/data.nosync/alset/samples \
   --db_dir_path examples/model.nosync/alset/small/real_db \
