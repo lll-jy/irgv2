@@ -8,3 +8,4 @@ build/
 **.temp
 **/out/
 hpc/
+scripts.sh
