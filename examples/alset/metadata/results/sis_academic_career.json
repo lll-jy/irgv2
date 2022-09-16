@@ -1,0 +1,45 @@
+{
+  "id_cols": [
+    "student_token"
+  ],
+  "attributes": {
+    "student_token": {
+      "name": "student_token",
+      "type": "id"
+    },
+    "academic_career": {
+      "name": "academic_career",
+      "type": "categorical"
+    },
+    "form_of_study": {
+      "name": "form_of_study",
+      "type": "categorical"
+    },
+    "form_of_study_descr": {
+      "name": "form_of_study_descr",
+      "type": "categorical"
+    },
+    "program_type": {
+      "name": "program_type",
+      "type": "categorical"
+    }
+  },
+  "determinants": [
+    [
+      "form_of_study",
+      "form_of_study_descr"
+    ]
+  ],
+  "primary_keys": [
+    "student_token",
+    "academic_career"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "student_token"
+      ],
+      "parent": "personal_data"
+    }
+  ]
+}

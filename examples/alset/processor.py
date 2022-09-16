@@ -70,6 +70,10 @@ class ALSETProcessor(DatabaseProcessor):
     def _table_metadata_constructors(self) -> Dict[str, FunctionType]:
         return ALSET_META_CONSTRUCTORS
 
+    @property
+    def _source_encoding(self) -> Optional[str]:
+        return None
+
     def postprocess(self, output_dir: Optional[str] = None, sample: Optional[int] = None):
         if sample is not None:
             if 'personal_data' not in self._tables:

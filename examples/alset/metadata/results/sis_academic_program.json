@@ -1,0 +1,71 @@
+{
+  "id_cols": [
+    "student_token",
+    "academic_program",
+    "dual_academic_program"
+  ],
+  "attributes": {
+    "index": {
+      "name": "index",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "student_token": {
+      "name": "student_token",
+      "type": "id"
+    },
+    "academic_career": {
+      "name": "academic_career",
+      "type": "categorical"
+    },
+    "academic_load_descr": {
+      "name": "academic_load_descr",
+      "type": "categorical"
+    },
+    "academic_program": {
+      "name": "academic_program",
+      "type": "id"
+    },
+    "dual_academic_program": {
+      "name": "dual_academic_program",
+      "type": "id"
+    },
+    "program_category": {
+      "name": "program_category",
+      "type": "categorical"
+    },
+    "program_type": {
+      "name": "program_type",
+      "type": "categorical"
+    }
+  },
+  "primary_keys": [
+    "student_token",
+    "academic_career",
+    "academic_program"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "student_token",
+        "academic_career"
+      ],
+      "parent": "sis_academic_career"
+    },
+    {
+      "columns": [
+        "academic_program"
+      ],
+      "parent": "sis_academic_program_offer"
+    },
+    {
+      "columns": [
+        "dual_academic_program"
+      ],
+      "parent": "sis_academic_program_offer",
+      "parent_columns": [
+        "academic_program"
+      ]
+    }
+  ]
+}

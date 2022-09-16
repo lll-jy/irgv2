@@ -11,6 +11,7 @@ from typing import Dict
 from types import FunctionType
 
 from .processor import DatabaseProcessor
+from .alset import ALSETProcessor
 from .rtd import RTDProcessor
 
 __all__ = (
@@ -20,7 +21,7 @@ __all__ = (
     'DATABASE_PROCESSORS'
 )
 
-from .alset import ALSET_PROCESSORS
+from .alset import ALSET_PROCESSORS, ALSET_META_CONSTRUCTORS, ALSET_PROCESS_NAME_MAP
 from .rtd import RTD_PROCESSORS, RTD_META_CONSTRUCTORS, RTD_PROCESS_NAME_MAP
 
 
@@ -31,18 +32,19 @@ PROCESSORS: Dict[str, Dict[str, FunctionType]] = {
 """All table data processorss."""
 
 META_CONSTRUCTORS: Dict[str, Dict[str, FunctionType]] = {
-    'alset': None,
+    'alset': ALSET_META_CONSTRUCTORS,
     'rtd': RTD_META_CONSTRUCTORS
 }
 """All constructors for metadata of tables."""
 
 PROCESS_NAME_MAP: Dict[str, Dict[str, str]] = {
-    'alset': None,
+    'alset': ALSET_PROCESS_NAME_MAP,
     'rtd': RTD_PROCESS_NAME_MAP
 }
 """All source data file names (without extension) for all tables."""
 
 DATABASE_PROCESSORS: Dict[str, DatabaseProcessor.__class__] = {
+    'alset': ALSETProcessor,
     'rtd': RTDProcessor
 }
 """Database processors for all pre-defined databases."""

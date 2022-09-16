@@ -129,6 +129,9 @@ _early_terms = {
 
 
 def _term_code2descr(code: int) -> str:
+    if pd.isnull(code):
+        return np.nan
+    code = int(code)
     year = code // 100 + 2000
     if code < 10:
         return _early_terms[code]
@@ -144,10 +147,11 @@ def _process_term(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
         term = df[[f'{prefix}term']]
         term[f'{prefix}term_descr'] = term[f'{prefix}term'].apply(_term_code2descr)
         df = df.drop(columns=[f'{prefix}term'])
-    year = term[f'{prefix}term_descr'].apply(lambda x: datetime(year=int(x[:4]), month=1, day=1))\
+    year = term[f'{prefix}term_descr']\
+        .apply(lambda x: datetime(year=int(x[:4]), month=1, day=1) if not pd.isnull(x) else x)\
         .astype('datetime64[ns]')
-    sem = term.apply(lambda row:
-                     _code2descr[str(row[f'{prefix}term'] % 100).zfill(2)] if row[f'{prefix}term'] > 100
+    sem = term.apply(lambda row: row[f'{prefix}term'] if pd.isnull(row[f'{prefix}term']) else
+                     _code2descr[str(int(row[f'{prefix}term']) % 100).zfill(2)] if int(row[f'{prefix}term']) > 100
                      else re.split(r'(?<=^\d{4}/\d{4}) (?=.*$)', row[f'{prefix}term_descr'] + ' ')[1], axis=1)
     df[f'{prefix}tyear'] = year
     df[f'{prefix}tsem'] = sem

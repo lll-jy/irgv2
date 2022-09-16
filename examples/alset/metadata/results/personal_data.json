@@ -1,0 +1,40 @@
+{
+  "id_cols": [
+    "student_token"
+  ],
+  "attributes": {
+    "Unnamed: 0": {
+      "name": "Unnamed: 0",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "student_token": {
+      "name": "student_token",
+      "type": "id"
+    },
+    "gender": {
+      "name": "gender",
+      "type": "categorical"
+    },
+    "country_of_citizenship": {
+      "name": "country_of_citizenship",
+      "type": "categorical"
+    },
+    "residency": {
+      "name": "residency",
+      "type": "categorical"
+    },
+    "returning_national_serviceman": {
+      "name": "returning_national_serviceman",
+      "type": "categorical"
+    },
+    "month_year_of_birth": {
+      "name": "month_year_of_birth",
+      "type": "datetime",
+      "date_format": "%Y-%m"
+    }
+  },
+  "primary_keys": [
+    "student_token"
+  ]
+}

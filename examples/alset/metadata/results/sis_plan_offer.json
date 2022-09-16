@@ -1,0 +1,42 @@
+{
+  "id_cols": [
+    "academic_plan"
+  ],
+  "attributes": {
+    "index": {
+      "name": "index",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "academic_plan": {
+      "name": "academic_plan",
+      "type": "id"
+    },
+    "academic_plan_descr": {
+      "name": "academic_plan_descr",
+      "type": "categorical"
+    },
+    "academic_plan_type": {
+      "name": "academic_plan_type",
+      "type": "categorical"
+    },
+    "academic_plan_type_descr": {
+      "name": "academic_plan_type_descr",
+      "type": "categorical"
+    }
+  },
+  "ttype": "base",
+  "determinants": [
+    [
+      "academic_plan",
+      "academic_plan_descr"
+    ],
+    [
+      "academic_plan_type",
+      "academic_plan_type_descr"
+    ]
+  ],
+  "primary_keys": [
+    "academic_plan"
+  ]
+}

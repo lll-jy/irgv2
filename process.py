@@ -5,6 +5,7 @@ Run this script with `python3 PATH/TO/THIS/FILE -h` for CLI argument helpers.
 """
 
 from argparse import ArgumentParser, Namespace
+import os
 
 from examples import DATABASE_PROCESSORS, DatabaseProcessor
 
@@ -35,6 +36,7 @@ def _parse_args() -> Namespace:
                            help='Whether to reprocess metadata if file already exists.')
     db_parser.add_argument('--redo_data', default=False, action='store_true',
                            help='Whether to reprocess table data if file already exists.')
+    db_parser.add_argument('--sample', default=None, type=int, help='Generate a smaller version of the database.')
     return parser.parse_args()
 
 
@@ -51,6 +53,8 @@ def main():
         processor: DatabaseProcessor = DATABASE_PROCESSORS[args.database_name](args.src_data_dir, args.data_dir,
                                                                                args.meta_dir, args.out, args.tables)
         processor.process_database(args.redo_meta, args.redo_data)
+        if args.sample is not None:
+            processor.postprocess(os.path.join(os.path.basename(args.out), 'samples'), args.sample)
 
 
 if __name__ == '__main__':

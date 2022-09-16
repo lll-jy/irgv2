@@ -72,24 +72,24 @@ class DatabaseProcessor:
         with open(out, 'w') as f:
             json.dump(constructed, f, indent=2)
 
-    @abstractmethod
     @property
+    @abstractmethod
     def _table_metadata_constructors(self) -> Dict[str, FunctionType]:
         raise NotImplementedError()
 
-    @abstractmethod
     @property
+    @abstractmethod
     def _table_src_name_map(self) -> Dict[str, str]:
         raise NotImplementedError()
 
-    @abstractmethod
     @property
+    @abstractmethod
     def _table_data_processors(self) -> Dict[str, FunctionType]:
         raise NotImplementedError()
 
-    @abstractmethod
     @property
-    def _source_encoding(self) -> str:
+    @abstractmethod
+    def _source_encoding(self) -> Optional[str]:
         raise NotImplementedError()
 
     @abstractmethod
