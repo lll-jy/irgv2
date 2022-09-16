@@ -1015,22 +1015,263 @@ _GES_COLUMNS: Dict[str, Dict[int, str]] = {
         2013: 'q38',
         2014: 'nus_q39',
         2015: 'nus_q39'
+    },
+    'go_overseas': {
+        2011: 'q36',
+        2012: 'q34',
+        2013: 'q34',
+        2014: 'nus_q35',
+        2015: 'nus_q35'
+    },
+    'overseas_sep': {
+        2011: 'q371',
+        2012: 'q35_1',
+        2013: 'q35_1',
+        2014: 'nus_q36a',
+        2015: 'nus_q36a'
+    },
+    'overseas_noc': {
+        2011: 'q372',
+        2012: 'q35_2',
+        2013: 'q35_2',
+        2014: 'nus_q36b',
+        2015: 'nus_q36b'
+    },
+    'overseas_jdp': {
+        2011: 'q373',
+        2012: 'q35_3',
+        2013: 'q35_3',
+        2014: 'nus_q36c',
+        2015: 'nus_q36c'
+    },
+    'overseas_intern': {
+        2011: 'q374',
+        2012: 'q35_4',
+        2013: 'q35_4',
+        2014: 'nus_q36d',
+        2015: 'nus_q36d'
+    },
+    'overseas_sp': {
+        2011: 'q375',
+        2012: 'q35_5',
+        2013: 'q35_5',
+        2014: 'nus_q36e',
+        2015: 'nus_q36e'
+    },
+    'overseas_rap': {
+        2011: 'q376',
+        2012: 'q35_6',
+        2013: 'q35_6',
+        2014: 'nus_q36f',
+        2015: 'nus_q36f'
+    },
+    'overseas_other': {
+        2011: 'q377',
+        2012: 'q35_7',
+        2013: 'q35_7',
+        2014: 'nus_q36g',
+        2015: 'nus_q36g'
+    },
+    'overseas_prepare': {
+        2011: 'q38',
+        2012: 'q36',
+        2013: 'q36',
+        2014: 'nus_q37',
+        2015: 'nus_q37',
+        2016: 'preparation_nus_overseas_programme',
+        2017: 'q32_a'
+    },
+    'os_prep_written_comm': {
+        2011: 'q39a',
+        2012: 'q37_1a',
+        2013: 'q37a_1',
+        2014: 'nus_q38a01',
+        2015: 'nus_q38a'
+    },
+    'os_prep_oral_comm': {
+        2011: 'q39b',
+        2012: 'q37_1b',
+        2013: 'q37a_2',
+        2014: 'nus_q38a02',
+        2015: 'nus_q38b'
+    },
+    'os_prep_multidisciplinary': {
+        2011: 'q39c',
+        2012: 'q37_1c',
+        2013: 'q37a_3',
+        2014: 'nus_q38a03',
+        2015: 'nus_q38c'
+    },
+    'os_prep_international': {
+        2011: 'q39d',
+        2012: 'q37_1d',
+        2013: 'q37a_4',
+        2014: 'nus_q38a04',
+        2015: 'nus_q38d'
+    },
+    'os_prep_org': {
+        2011: 'q39e',
+        2012: 'q37_1e',
+        2013: 'q37a_5',
+        2014: 'nus_q38a05',
+        2015: 'nus_q38e'
+    },
+    'os_prep_critical': {
+        2011: 'q39f',
+        2012: 'q37_1f',
+        2013: 'q37a_6',
+        2014: 'nus_q38a06',
+        2015: 'nus_q38f'
+    },
+    'os_prep_creative': {
+        2011: 'q39g',
+        2012: 'q37_1g',
+        2013: 'q37a_7',
+        2014: 'nus_q38a07',
+        2015: 'nus_q38g'
+    },
+    'os_prep_learn_ind': {
+        2011: 'q39h',
+        2012: 'q37_1h',
+        2013: 'q37a_8',
+        2014: 'nus_q38a08',
+        2015: 'nus_q38h'
+    },
+    'os_prep_interpersonal': {
+        2011: 'q39i',
+        2012: 'q37_1i',
+        2013: 'q37a_9',
+        2014: 'nus_q38a09',
+        2015: 'nus_q38i'
+    },
+    'os_prep_personal': {
+        2011: 'q39j',
+        2012: 'q37_1j',
+        2013: 'q37a_10',
+        2014: 'nus_q38a10',
+        2015: 'nus_q38j'
+    },
+    'os_prep_cross_cultural': {
+        2013: 'q37a_11',
+    },
+    'os_prep_career': {
+        2014: 'nus_q38a11',
+        2015: 'nus_q38k'
+    },
+    'rank1_os_skill': {
+        2011: 'q39_r1',
+        2012: 'q37_2a',
+        2013: 'q37b_1',
+        2014: 'nus_q38b01',
+        2015: 'nus_q38b_rank1'
+    },
+    'rank2_os_skill': {
+        2011: 'q39_r2',
+        2012: 'q37_2b',
+        2013: 'q37b_2',
+        2014: 'nus_q38b02',
+        2015: 'nus_q38b_rank2'
+    },
+    'rank3_os_skill': {
+        2011: 'q39_r3',
+        2012: 'q37_2c',
+        2013: 'q37b_3',
+        2014: 'nus_q38b03',
+        2015: 'nus_q38b_rank3'
+    },
+    'prefer_diff_course': {
+        2011: 'q44',
+        2012: 'q30',
+        2013: 'q25',
+        2014: 'q26',
+        2015: 'q26',
+        2016: 'different_course_of_study',
+        2017: 'q26',
+        2018: 'q33',
+        2019: 'q34',
+        2020: 'q46'
+    },
+    'diff_course_reason': {
+        2011: 'q45r',
+        2012: 'q31',
+        2013: 'q26',
+        2014: 'q27',
+        2015: 'q27',
+        2016: 'main_reason_for_different_course_of_study',
+        2017: 'q27',
+        2018: 'q34',
+        2019: 'q35',
+        2020: 'q47'
+    },
+    'econ_act': {
+        2012: 'economic_status',
+        2013: 'q1_economicactivity',
+        2014: 'q1_economic',
+        2015: 'q1_economic'
+    },
+    'reason_not_work': {
+        2012: 'q2',
+        2014: 'q2',
+        2015: 'q2',
+        2016: 'main_reason_for_not_working_and_not_looking_for_a_job',
+        2017: 'q2',
+        2018: 'q2',
+        2019: 'q2',
+        2020: 'q2'
+    },
+    'accept_date': {
+        2012: 'accept_date',
+        2013: 'accept_date',
+        2014: 'accept_date',
+        2015: 'q17',
+        2016: 'accept_date',
+        2017: 'q17_date',
+        2018: 'q26_date',
+        2019: 'accept_date',
+        2020: 'accept_date'
     }
 }
 _GENERAL_BINARY_EQUIV: Dict[str, Set[str]] = {
     'Y': {'1', '1.0', 'Y', 'Yes'},
-    'N': {'2', '2.0', 'N', 'No', '0'},
-    'Nil': {'.', 'Not', 'Not applicable based on skipping pattern', 'Non Applicable based on skip pattern'}
+    'N': {'2', '2.0', 'N', 'No', '0', 'No, not at all'},
+    'Nil': {'.', 'Not', 'Not applicable based on skipping pattern', 'Non Applicable based on skip pattern', '99'}
 }
 _GENERAL_INC_RATE_EQUIV: Dict[str, Set[str]] = {
     '1': {'1', '1.0', 'Not at all'},
-    '2': {'2', '2.0', 'A Little'},
-    '3': {'3', '3.0', 'Fairly Well', 'To some extent'},
+    '2': {'2', '2.0', 'A Little', 'A little'},
+    '3': {'3', '3.0', 'Fairly Well', 'To some extent', 'Fairly well'},
     '4': {'4', '4.0', 'Well'},
-    '5': {'5', '5.0', 'Very Well', 'To a great extent'},
+    '5': {'5', '5.0', 'Very Well', 'To a great extent', 'Very well'},
     'Nil': {'No comment', '.', 'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern',
-            'Not applicable ba', '0'},
+            'Not applicable ba', '0', 'Not applicable'},
     'Refused': {'99.0', '99'}
+}
+_SKILL_EQUIV: Dict[str, Set[str]] = {
+    'Written Communication': {'1', 'Written Communication', 'Written communication'},
+    'Oral Communication': {'2', 'Oral Communication', 'Oral communication',
+                           'Oral Communication and Presentation Skills'},
+    'Multidisciplinary': {'3', 'Possess Multidisciplinary Knowledge and Skills',
+                          'Possess multidisciplinary knowledge and skills', 'Multidisciplinary Knowledge and Skills'},
+    'International Outlook': {'4', 'Possess an International Outlook', 'Possess an international outlook',
+                              'International Outlook and Global Adaptability (e.g. ability',
+                              'International Outlook and Global Adaptability (e.g. ability to understand and work)'},
+    'Planning and Organization': {'5', 'Planning and Organization', 'Planning and organisation',
+                                  'Planning and Organisation'},
+    'Critical Thinking and Problem Solving': {'6', 'Critical Thinking and Problem Solving',
+                                              'Critical thinking and problem solving'},
+    'Creativeness & Innovation': {'7', 'Creativeness & Innovation', 'Creativeness and innovation',
+                                  'Creativity and Innovation'},
+    'Learn Independently': {'8', 'Ability to Learn Independently', 'Ability to learn independently'},
+    'Interpersonal Effectiveness': {'9', 'Interpersonal Effectiveness', 'Interpersonal effectiveness',
+                                    'Interpersonal Effectiveness  (e.g. teamwork, networking)'},
+    'Personal Effectiveness': {'10', 'Personal Effectiveness', 'Personal effectiveness',
+                               'Personal Effectiveness (e.g. personal qualities that will he',
+                               'Personal Effectiveness (e.g. personal qualities that will help me succeed in my career)'
+                               },
+    'Cross Cultural': {'Ability to perform successfully in cross cultural situations'},
+    'Adapt Environment': {'Adapt successfully to changing situations and environment'},
+    'Career and Employability': {'Career and Employability'},
+    'Nil': {'.', '0'}
 }
 _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
     'academic_load': {
@@ -2134,7 +2375,112 @@ _GES_COLUMN_VALUE_EQUIV: Dict[str, Dict[Any, Set]] = {
     'donate_for_current': _GENERAL_BINARY_EQUIV,
     'donate_need': _GENERAL_BINARY_EQUIV,
     'donate_no': _GENERAL_BINARY_EQUIV,
-    'prepare_entrepreneur': _GENERAL_INC_RATE_EQUIV
+    'prepare_entrepreneur': _GENERAL_INC_RATE_EQUIV,
+    'go_overseas': _GENERAL_BINARY_EQUIV,
+    'overseas_sep': _GENERAL_BINARY_EQUIV,
+    'overseas_noc': _GENERAL_BINARY_EQUIV,
+    'overseas_jdp': _GENERAL_BINARY_EQUIV,
+    'overseas_intern': _GENERAL_BINARY_EQUIV,
+    'overseas_sp': _GENERAL_BINARY_EQUIV,
+    'overseas_rap': _GENERAL_BINARY_EQUIV,
+    'overseas_other': _GENERAL_BINARY_EQUIV,
+    'os_prep_written_comm': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_oral_comm': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_multidisciplinary': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_international': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_org': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_critical': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_creative': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_learn_ind': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_interpersonal': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_personal': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_cross_cultural': _GENERAL_INC_RATE_EQUIV,
+    'os_prep_career': _GENERAL_INC_RATE_EQUIV,
+    'rank1_os_skill': _SKILL_EQUIV,
+    'rank2_os_skill': _SKILL_EQUIV,
+    'rank3_os_skill': _SKILL_EQUIV,
+    'prefer_diff_course': {
+        'No': {'No', '2'},
+        'Neutral': {'Neutral', '3'},
+        'Yes': {'Yes', '1'}
+    },
+    'diff_course_reason': {
+        'Interest changed': {
+            'My interest has changed since completing my course of study',
+            'My interest has changed since completing my undergraduate st',
+            'My interest has changed since completing my undergraduate studies'
+        },
+        'Difficult': {
+            'I found my course of study difficult and was not able to perform up to expectations',
+            'I found my course of study difficult and was not able to per'
+        },
+        'Not interested': {
+            'I was not interested in my course of study', 'This is not my interest / wanted to do another course',
+            'I was not interested in my course of study.  Right at the st',
+            'I was not interested in my course of study.  Right at the start this course was not my first choice',
+            'I was not interested in my course of study. Right at the start this course was not my first choice',
+            'This is not my interest / wanted to do another course'
+        },
+        'Lost interest': {
+            'I was not interested in my course of study. I lost interest',
+            'I was not interested in my course of study. I lost interest during the course itself',
+            'I was not interested in my course of study. I lost interest due to my internship experience'
+        },
+        'Low wage': {
+            'The career prospects and/or wages associated with my course of study are below expectations',
+            'The career prospects and/or wages associated with my course',
+            'The career prospects and/ or wages associated with my course of study are below expectations',
+            'The career prospects and\\or wages associated with my course of study are below expectations',
+            'There is limited career prospects for this job', 'There is limited career prospect for this job',
+            'The career prospects and\\ or wages associated with my course of study are below expectations'
+        },
+        'Not useful': {
+            'The skills I picked up in my course of study are not that useful for my present job',
+            'The skills I picked up in my course of study are not that us',
+            'The course I enrolled into did not help me get my preferred job',
+            'The course of study is not related to my current work'
+        },
+        'Others': {'Others', 'Others, please specify'},
+        'Explore more': {'I want to explore other areas', 'I want to explore new areas'},
+        'Personal choice': {'No reason / NA / Personal Choice'},
+        'Untook courses': {
+            'Unable to take the preferred course due to results / timing',
+            'Poor module / curriculum planning / Does not like the system'
+        },
+        'Course content': {
+            'Course is too general / not relevant / unsure what I want', 'I can gain more knowledge from other courses',
+            'The course is too broad / general', 'The course content is too broad / general / long'
+        },
+        'Double degree': {
+            'Want to do double degree', 'Do not want to do double degree', 'Wanted to do a double degree'
+        },
+        'Not balance': {
+            'The jobs associated with my course of study does not provide a good work life balance',
+            'The jobs associated with my course of study does not provide good work life balance'
+        },
+        'Professional network': {'Gain new professional network'},
+        'Not offered': {'The course i am interested in was not offered by the university'},
+        'Prefer overseas': {'Preferred to study a degree overseas'},
+        'Refused': {
+            'No comment', 'No comments', 'No comments / No specific reasons', 'No comments / No specify reasons'
+        },
+        'Nil': {'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern'}
+    },
+    'reason_not_work': {
+        'Take break': {'Taking a break\'', 'Taking a break'},
+        'NS': {'Serving full-time National Service\\ awaiting NS enlistment\'',
+               'Serving full-time National Service / Awaiting National Service enlistment',
+               'Serving full-time National Service\\ Awaiting'},
+        'No suitable': {'Believe no suitable work available\'', 'Believe no suitable work available'},
+        'Further studies': {'Pursuing / planning to pursue further studies',
+                            'Pursuing/ planning to pursue further studies',
+                            'Pursuing \\ planning to pursue further studies',
+                            'Pursuing\\ planning to pursue further studies',
+                            'Pursuing\\ planning to pursue further stu'},
+        'Others': {'Others\\ Please specify\'', 'Others', 'Others, please specify'},
+        'Refused': {'Refused to disclose'},
+        'Nil': {'Non Applicable based on skip pattern', 'Not applicable based on skipping pattern'}
+    }
 }
 _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
     'student_token': str,
@@ -2277,7 +2623,35 @@ _GES_COLUMN_DTYPES: Dict[str, Union[Type, str]] = {
     'donate_for_current': 'string',
     'donate_need': 'string',
     'donate_no': 'string',
-    'prepare_entrepreneur': 'string'
+    'prepare_entrepreneur': 'string',
+    'go_overseas': 'string',
+    'overseas_sep': 'string',
+    'overseas_noc': 'string',
+    'overseas_jdp': 'string',
+    'overseas_intern': 'string',
+    'overseas_sp': 'string',
+    'overseas_rap': 'string',
+    'overseas_other': 'string',
+    'os_prep_written_comm': 'string',
+    'os_prep_oral_comm': 'string',
+    'os_prep_multidisciplinary': 'string',
+    'os_prep_international': 'string',
+    'os_prep_org': 'string',
+    'os_prep_critical': 'string',
+    'os_prep_creative': 'string',
+    'os_prep_learn_ind': 'string',
+    'os_prep_interpersonal': 'string',
+    'os_prep_personal': 'string',
+    'os_prep_cross_cultural': 'string',
+    'os_prep_career': 'string',
+    'rank1_os_skill': 'string',
+    'rank2_os_skill': 'string',
+    'rank3_os_skill': 'string',
+    'prefer_diff_course': 'string',
+    'diff_course_reason': 'string',
+    'econ_act': 'string',
+    'reason_not_work': 'string',
+    'accept_date': 'datetime64[ns]'
 }
 
 _degree2major_map: Dict[str, str] = {
@@ -2405,7 +2779,12 @@ def _process_year(year: int, df: pd.DataFrame) -> pd.DataFrame:
                 'higher_deg_undecided', 'connect_magazine', 'connect_e_news', 'connect_alumnet', 'connect_card',
                 'connect_programme', 'connect_web2', 'connect_reunion', 'connect_events', 'connect_others',
                 'feel_connected', 'donate_leading_global', 'donate_proud', 'donate_scholarship', 'donate_for_current',
-                'donate_need', 'donate_no', 'prepare_entrepreneur']:
+                'donate_need', 'donate_no', 'prepare_entrepreneur', 'overseas_sep', 'overseas_noc', 'overseas_jdp',
+                'overseas_intern', 'overseas_sp', 'overseas_rap', 'overseas_other', 'os_prep_written_comm',
+                'os_prep_oral_comm', 'os_prep_multidisciplinary', 'os_prep_international', 'os_prep_org',
+                'os_prep_critical', 'os_prep_creative', 'os_prep_learn_ind', 'os_prep_interpersonal',
+                'os_prep_personal', 'os_prep_cross_cultural', 'os_prep_career', 'rank1_os_skill', 'rank2_os_skill',
+                'rank3_os_skill', 'diff_course_reason']:
         result.loc[:, col] = result[col].replace({'Nil': np.nan})
     result = result.astype({
         col: 'Int32' for col in [
@@ -2414,7 +2793,10 @@ def _process_year(year: int, df: pd.DataFrame) -> pd.DataFrame:
             'prepare_learn_ind', 'prepare_interpersonal', 'prepare_personal', 'prepare_cross_cultural',
             'prepare_change_env', 'prepare_career', 'prepare_domain', 'connect_magazine', 'connect_e_news',
             'connect_alumnet', 'connect_card', 'connect_programme', 'connect_web2', 'connect_reunion', 'connect_events',
-            'connect_others', 'feel_connected', 'prepare_entrepreneur'
+            'connect_others', 'feel_connected', 'prepare_entrepreneur', 'os_prep_written_comm', 'os_prep_oral_comm',
+            'os_prep_multidisciplinary', 'os_prep_international', 'os_prep_org', 'os_prep_critical', 'os_prep_creative',
+            'os_prep_learn_ind', 'os_prep_interpersonal', 'os_prep_personal', 'os_prep_cross_cultural',
+            'os_prep_career', 'diff_course_reason'
         ]
     })
     if 'ot_salary' in all_columns and 'gross_salary' not in all_columns:
@@ -2488,7 +2870,31 @@ def ges2011(src: pd.DataFrame) -> pd.DataFrame:
             2: 'Working Full-Time in a Temporary job',
             3: 'Working Part-Time in a Permanent job',
             4: 'Working Part-Time in a Temporary job'
-        }[row['q5']] if row['q4'] == 1 else row['q4'], axis=1
+        }[row['q5']] if row['q4'] == 1 else {
+            1: 'Master’s Degree by research',
+            2: 'Master’s Degree by coursework',
+            3: 'PhD',
+            4: 'MBA',
+            5: 'Graduate Diploma',
+            6: 'Professional Qualification – CFA equivalent',
+            7: 'Professional Qualification – CFP equivalent',
+            8: 'Second Undergraduate Degree',
+            9: 'Currently pursuing / preparing to commence further studies,'
+        }[row['q23']] if row['q4'] == 2 else {
+            1: 'Not working but actively looking and available for work',
+            2: 'Accepted job offer and will start later',
+            3: 'Working on a Freelance basis',
+            4: 'Currently undergoing practical training related to the course',
+            5: 'Not working and not looking for a job'
+        }[row['q31']] if row['q4'] == 3 else {
+            1: 'Law graduate doing practical law course (PLC) / Pupilage',
+            2: 'Medical graduate serving housemanship',
+            3: 'Pharmacy graduate serving pupilage',
+            4: 'Professional Qualification – CFA equivalent',
+            5: 'Professional Qualification – CFP equivalent',
+            6: 'B.Arch graduate undergoing year-out practical training',
+            7: 'Currently undergoing practical training related to the course of study'
+        }[row['q35']] if row['q4'] == 4 else row['q4'], axis=1
     )
     result.loc[:, 'q16'] = result['q16'].apply(
         lambda x: x if x.strip() == '.' else str(x).zfill(5)
@@ -2499,6 +2905,16 @@ def ges2011(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'q17a'] = result['q17a'].replace({'.': np.nan})
     result.loc[:, 'q17b'] = result['q17b'].replace({'.': np.nan})
     result.loc[:, 'q26'] = result['q26'].replace({'.': np.nan})
+    result.loc[:, 'q45r'] = result.apply(
+        lambda row: 'I found my course of study difficult and was not able to perform up to expectations'
+        if str(row['q45ar']).strip() == '1' else 'I was not interested in my course of study'
+        if str(row['q45br']).strip() == '1' else 'My interest has changed since completing my course of study'
+        if str(row['q45cr']).strip() == '1' else
+        'The career prospects and/or wages associated with my course of study are below expectations'
+        if str(row['q45dr']).strip() == '1' else
+        'The skills I picked up in my course of study are not that useful for my present job'
+        if str(row['q45er']).strip() == '1' else np.nan, axis=1
+    )
     return _process_year(2011, result)
 
 
@@ -2531,6 +2947,11 @@ def ges2012(src: pd.DataFrame) -> pd.DataFrame:
         '1 to less than 3 months' if 1 <= row['mth_q25_q24'] < 3 else
         'Less than 1 month', axis=1
     )
+    result.loc[:, 'q18'] = _combine_columns('q18', 'q22', result)
+    result.loc[:, 'accept_date'] = result.apply(
+        lambda row: f'{row["r_q9"]} {int(row["q9_2"])}' if not pd.isnull(row['r_q9'])
+        else np.nan, axis=1
+    )
     return _process_year(2012, result)
 
 
@@ -2546,6 +2967,10 @@ def ges2013(src: pd.DataFrame) -> pd.DataFrame:
         lambda row: row['q21'] if row['q21'] != 'Others'
         else row['q21_other'], axis=1
     )
+    result.loc[:, 'accept_date'] = result.apply(
+        lambda row: f'{row["q17_month"]} {int(row["q17_year"])}' if not pd.isnull(row['q17_year'])
+        else np.nan, axis=1
+    )
     return _process_year(2013, result)
 
 
@@ -2560,6 +2985,10 @@ def ges2014(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'q22'] = result.apply(
         lambda row: row['q22'] if not pd.isnull(row['q22']) and str(row['q22']).strip() not in {'Others', '99'}
         else row['q22_others_recode1'], axis=1
+    )
+    result.loc[:, 'accept_date'] = result.apply(
+        lambda row: datetime(year=row['q17_year'], month=row['q17_month'], day=1).strftime('%Y-%m-%d')
+        if not pd.isnull(row['q17_year']) else np.nan, axis=1
     )
     return _process_year(2014, result)
 
@@ -2630,6 +3059,12 @@ def ges2016(src: pd.DataFrame) -> pd.DataFrame:
         and not (len(row['cfg_internships']) > 5 or len(row['faculty_internships']) > 5)
         else 'Non Applicable based on skip pattern', axis=1
     )
+    result.loc[:, 'accept_date'] = result.apply(
+        lambda row: f'{"January" if pd.isnull(row["acceptance_of_1st_ftp_month"]) else row["acceptance_of_1st_ftp_month"]} '
+                    f'{2016 if pd.isnull(row["acceptance_of_1st_ftp_year"]) else int(row["acceptance_of_1st_ftp_year"])}'
+        if not pd.isnull(row['acceptance_of_1st_ftp_month']) and not pd.isnull(row['acceptance_of_1st_ftp_year'])
+        else np.nan, axis=1
+    )
     return _process_year(2016, result)
 
 
@@ -2696,6 +3131,12 @@ def ges2019(src: pd.DataFrame) -> pd.DataFrame:
         else 'No' if all(not pd.isnull(row[f'q17_{i}']) and len(row[f'q17_{i}']) <= 5 for i in range(14, 17))
         else 'Not', axis=1
     )
+    result.loc[:, 'accept_date'] = result.apply(
+        lambda row: np.nan if pd.isnull(row['q26_month']) and pd.isnull(row['q26_year']) else
+        f'{int(row["q26_year"]) if not pd.isnull(row["q26_year"]) else 2019}-'
+        f'{row["q26_month"] if not pd.isnull(row["q26_month"]) else "January"}-01',
+        axis=1
+    )
     return _process_year(2019, result)
 
 
@@ -2707,6 +3148,14 @@ def ges2020(src: pd.DataFrame) -> pd.DataFrame:
     result.loc[:, 'q10_basic'] = result['q10_basic'].replace({' ': np.nan})
     result.loc[:, 'q10_overtime'] = result['q10_overtime'].replace({' ': np.nan})
     result.loc[:, 'start_search'] = result.apply(
+        lambda row: row['q21_date'] if not pd.isnull(row['q21_date']) and str(row['q21_date']).strip() != ''
+        else np.nan if (pd.isnull(row['q21_month']) or str(row['q21_month']).strip() == '') and
+        (pd.isnull(row['q21_year']) or row['q21_year'].strip() == '') else
+        f'{int(row["q21_year"]) if not pd.isnull(row["q21_year"]) and str(row["q21_year"]).strip() != "" else 2020} '
+        f'{row["q21_month"] if not pd.isnull(row["q21_month"]) and str(row["q21_month"]).strip() != "" else "May"}',
+        axis=1
+    )
+    result.loc[:, 'offer_date'] = result.apply(
         lambda row: row['q20_date'] if not pd.isnull(row['q20_date']) and str(row['q20_date']).strip() != ''
         else np.nan if (pd.isnull(row['q20_month']) or str(row['q20_month']).strip() == '') and
         (pd.isnull(row['q20_year']) or row['q20_year'].strip() == '') else
@@ -2714,8 +3163,8 @@ def ges2020(src: pd.DataFrame) -> pd.DataFrame:
         f'{row["q20_month"] if not pd.isnull(row["q20_month"]) and str(row["q20_month"]).strip() != "" else "May"}',
         axis=1
     )
-    result.loc[:, 'offer_date'] = result.apply(
-        lambda row: row['q18_date'] if not pd.isnull(row['q18_date']) and str(row['q18_date']).strip() != ''
+    result.loc[:, 'accept_date'] = result.apply(
+        lambda row: row['q18_date'] if not pd.isnull(row['q18_date']) and str(row['q218_date']).strip() != ''
         else np.nan if (pd.isnull(row['q18_month']) or str(row['q18_month']).strip() == '') and
         (pd.isnull(row['q18_year']) or row['q18_year'].strip() == '') else
         f'{int(row["q18_year"]) if not pd.isnull(row["q18_year"]) and str(row["q18_year"]).strip() != "" else 2020} '
