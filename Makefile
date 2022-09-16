@@ -66,7 +66,7 @@ train_gpu:
 
 train_cpu:
 	mkdir -p ${MODEL_OUTPUT_DIR}
-	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
+	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} --num_processes 10 train_gen \
 		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
 		--data_dir ${DATA_OUTPUT_DIR}/data \
 		--mtype ${MTYPE} \
@@ -107,7 +107,7 @@ generate_gpu:
 
 generate_cpu:
 	mkdir -p ${GENERATE_OUTPUT_DIR}
-	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} train_gen \
+	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} --num_processes 10 train_gen \
 		--distrubted \
 		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
 		--data_dir ${DATA_OUTPUT_DIR}/data \
