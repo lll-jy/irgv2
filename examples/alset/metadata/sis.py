@@ -111,7 +111,6 @@ def sis_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
         'id_cols': id_cols,
         'attributes': attributes,
         'determinants': [
-            ['degree', 'degree_descr'],
             ['department', 'department_descr'],
             ['program_status', 'program_status_descr']
         ],

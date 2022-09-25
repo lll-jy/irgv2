@@ -92,10 +92,6 @@
   },
   "determinants": [
     [
-      "degree",
-      "degree_descr"
-    ],
-    [
       "department",
       "department_descr"
     ],

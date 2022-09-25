@@ -57,10 +57,10 @@ class CategoricalTransformer(BaseTransformer):
     def _calc_fill_nan(self, original: pd.Series) -> str:
         original = original.astype(str)
         original.to_pickle(self._data_path)
-        if self._label2id is None or not self._label2id:
-            categories = set(pd_mp.unique(original).dropna().reset_index(drop=True))
-            cat_cnt = 0
-            for cat in categories:
+        cat_cnt = len(self._label2id)
+        categories = set(pd_mp.unique(original).dropna().reset_index(drop=True))
+        for cat in categories:
+            if cat not in self._label2id:
                 self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
                 cat_cnt += 1
         idx = 0
@@ -79,6 +79,7 @@ class CategoricalTransformer(BaseTransformer):
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         transformed = pd.DataFrame(columns=['is_nan'] + [f'cat_{i}' for i in self._id2label])
         transformed['is_nan'] = nan_info['is_nan']
+        print('before map', [*self._label2id])
         fast_map_dict(
             func=self._transform_row,
             dictionary=nan_info.to_dict(orient='index'),
@@ -94,6 +95,8 @@ class CategoricalTransformer(BaseTransformer):
                 transformed.loc[i, f'cat_{cat_id}'] = 1
             else:
                 if True:#str(value) != '0':
+                    data = pd.read_pickle(self._data_path)
+                    print('???', value, [*self._label2id], data.unique())
                     _LOGGER.warning(f'Categorical value {value} is OOV.')
                     raise ValueError()
 
