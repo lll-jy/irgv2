@@ -14,7 +14,7 @@ PandasData = Union[pd.Series, pd.DataFrame]
 
 def _wrapper(func: FunctionType, data: PandasData, chunk_size: int = 100, **kwargs) -> PandasData:
     if not pool_initialized():
-        return func(data, **kwargs)
+        return data.__class__(func(data, **kwargs))
     split = np.array_split(data, math.ceil(len(data) / chunk_size))
     fragments = fast_map(
         func=func,

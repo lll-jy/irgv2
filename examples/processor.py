@@ -22,7 +22,7 @@ class DatabaseProcessor:
         - `tables` (`List[str]`): List of tables to process.
         - `out` (`str`): File path of the database config file.
         """
-        self._name, self._src_data_dir, self._data_dir, self._meta_dir = name, src_data_dir, meta_dir, data_dir
+        self._name, self._src_data_dir, self._data_dir, self._meta_dir = name, src_data_dir, data_dir, meta_dir
         self._tables, self._out = tables, out
 
         os.makedirs(self._data_dir, exist_ok=True)

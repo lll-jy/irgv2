@@ -2,7 +2,7 @@
 from datetime import timedelta
 from functools import partial
 from types import FunctionType
-from typing import Optional, Iterable, Any, Dict, List, Tuple
+from typing import Optional, Iterable, Any, Dict, List
 
 import torch
 import torch.distributed as dist
@@ -129,13 +129,13 @@ def fast_map(func: FunctionType, iterable: Iterable[Any], total_len: int, verbos
         iterable = fast_filter(filter_input, iterable, total_len, **input_kwargs)
     result = [None] * total_len
 
-    if _pool is not None:
+    if pool_initialized():
         iterable = _pool.imap(func, iterable)
     if verbose_descr is not None:
         iterable = tqdm(iterable, total=total_len)
         iterable.set_description(verbose_descr)
 
-    if _pool is None:
+    if not pool_initialized():
         for i, ele in enumerate(iterable):
             result[i] = func(ele)
     else:

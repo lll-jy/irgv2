@@ -3,7 +3,7 @@
 import logging
 import os
 import pickle
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, Collection
 
 import pandas as pd
 
@@ -57,11 +57,13 @@ class CategoricalTransformer(BaseTransformer):
     def _calc_fill_nan(self, original: pd.Series) -> str:
         original = original.astype(str)
         original.to_pickle(self._data_path)
-        categories = set(pd_mp.unique(original).dropna().reset_index(drop=True))
-        cat_cnt = 0
-        for cat in categories:
-            self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
-            cat_cnt += 1
+        print('cal fit none', self._label2id)
+        if self._label2id is None:
+            categories = set(pd_mp.unique(original).dropna().reset_index(drop=True))
+            cat_cnt = 0
+            for cat in categories:
+                self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
+                cat_cnt += 1
         idx = 0
         while True:
             if f'nan_{idx}' not in self._label2id:
@@ -70,9 +72,11 @@ class CategoricalTransformer(BaseTransformer):
             idx += 1
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        print('before fit', self._label2id)
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
         pd_to_pickle(transformed, self._transformed_path)
+        print('after fit', self._label2id)
         self._cat_cnt = len(self._label2id)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
@@ -97,6 +101,19 @@ class CategoricalTransformer(BaseTransformer):
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         cat_ids = data.idxmax(axis=1)
         return cat_ids.apply(lambda x: self._id2label[x])
+
+    def set_categories(self, labels: Collection):
+        """
+        **Args**:
+
+        - `labels` (`Collection`): All categories of the categorical attribute to assign.
+          It is the user's responsibility to check that the set is valid.
+        """
+        labels = [*labels]
+        self._label2id = {l: i for i, l in enumerate(labels)}
+        self._id2label = {i: l for i, l in enumerate(labels)}
+        self._cat_cnt = len(labels)
+        self._save_additional_info()
 
 
 class CategoricalAttribute(BaseAttribute):

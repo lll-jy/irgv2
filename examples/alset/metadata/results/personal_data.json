@@ -3,11 +3,6 @@
     "student_token"
   ],
   "attributes": {
-    "Unnamed: 0": {
-      "name": "Unnamed: 0",
-      "type": "numerical",
-      "rounding": 0
-    },
     "student_token": {
       "name": "student_token",
       "type": "id"

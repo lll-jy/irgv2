@@ -103,7 +103,9 @@ class Table:
 
         _LOGGER.debug(f'Loaded required information for Table {name}.')
         if need_fit and data is not None:
+            print('start fitting')
             self.fit(data, **kwargs)
+            print('done fitting')
 
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
         self._augmented_attributes: Dict[TwoLevelName, BaseAttribute] = {}
@@ -142,11 +144,12 @@ class Table:
 
     def _create_attribute(self, attr_name: str, meta: Dict[str, Any],
                           need_fit: bool = True, data: Optional[pd.DataFrame] = None) -> BaseAttribute:
-        return create_attribute(
+        res = create_attribute(
             meta=meta,
             values=data[attr_name] if need_fit and data is not None else None,
             temp_cache=self._attribute_cache_path(attr_name)
         )
+        return res
 
     def update_temp_cache(self, new_path: str):
         """
@@ -419,12 +422,14 @@ class Table:
         self._length = len(data)
         data = data[[*self._attributes.keys()]]
         data.to_pickle(self._data_path())
+        print('start fitting attr')
         fast_map_dict(
             func=self._fit_attribute,
             dictionary=self._attributes,
             verbose_descr=f'Fit attributes for {self._name}',
             func_kwargs=dict(data=data, force_redo=force_redo)
         )
+        print('fitted attributes')
 
         _LOGGER.debug(f'Fitted attributes for Table {self._name}.')
 
