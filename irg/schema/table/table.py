@@ -451,6 +451,8 @@ class Table:
 
     def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs) -> int:
         for col in det:
+            if col not in self._attributes or col == 'degree':
+                print('!!', col, self._name, [*self._attributes])
             if self._attributes[col].atype not in {'categorical', 'id'}:
                 raise TypeError('Determinant should have all columns categorical (or rarely, ID).')
         leader, children = det[0], det[1:]

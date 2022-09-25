@@ -47,7 +47,7 @@ class NumericalTransformer(BaseTransformer):
 
         self._bgm_transformer: Optional[BayesianGaussianMixture] = None
         self._valid_component_indicator = None
-        self._component_indicator_transformer = CategoricalTransformer()
+        self._component_indicator_transformer = CategoricalTransformer(os.path.join(temp_cache, 'cat'))
 
     def _load_additional_info(self):
         if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):

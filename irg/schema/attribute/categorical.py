@@ -38,7 +38,6 @@ class CategoricalTransformer(BaseTransformer):
 
     def _load_additional_info(self):
         if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
-            print('load', self._temp_cache)
             with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
                 loaded = pickle.load(f)
             self._label2id, self._id2label = loaded['label2id'], loaded['id2label']
