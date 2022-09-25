@@ -1,7 +1,7 @@
 {
   "id_cols": [
     "student_token",
-    "acadademic_program",
+    "academic_program",
     "academic_plan"
   ],
   "attributes": {
@@ -20,7 +20,7 @@
     },
     "academic_program": {
       "name": "academic_program",
-      "type": "categorical"
+      "type": "id"
     },
     "academic_plan": {
       "name": "academic_plan",

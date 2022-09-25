@@ -106,7 +106,7 @@
   ],
   "primary_keys": [
     "student_token",
-    "acadademic_program",
+    "academic_program",
     "academic_plan",
     "admit_tyear",
     "admit_tsem"

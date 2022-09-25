@@ -13,6 +13,7 @@ import torch
 from torch import Tensor
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 from DataSynthesizer.DataDescriber import DataDescriber
 from DataSynthesizer.DataGenerator import DataGenerator
 
@@ -103,9 +104,7 @@ class Table:
 
         _LOGGER.debug(f'Loaded required information for Table {name}.')
         if need_fit and data is not None:
-            print('start fitting')
             self.fit(data, **kwargs)
-            print('done fitting')
 
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
         self._augmented_attributes: Dict[TwoLevelName, BaseAttribute] = {}
@@ -422,25 +421,21 @@ class Table:
         self._length = len(data)
         data = data[[*self._attributes.keys()]]
         data.to_pickle(self._data_path())
-        print('start fitting attr')
         fast_map_dict(
             func=self._fit_attribute,
             dictionary=self._attributes,
             verbose_descr=f'Fit attributes for {self._name}',
             func_kwargs=dict(data=data, force_redo=force_redo)
         )
-        print('fitted attributes')
 
         _LOGGER.debug(f'Fitted attributes for Table {self._name}.')
 
         if self._ttype != 'base':
             with HiddenPrints():
-                fast_map_dict(
-                    func=self._fit_determinant_helper,
-                    dictionary=dict(zip(range(len(self._determinants)), self._determinants)),
-                    verbose_descr=f'Fit determinants for Table {self._name}',
-                    func_kwargs=dict(data=data, **kwargs)
-                )
+                map_dict_base = tqdm(dict(zip(range(len(self._determinants)), self._determinants)).items(),
+                                     desc=f'Fit determinants for {self._name}')
+                for k, v in map_dict_base:
+                    self._fit_determinant_helper(k, v, data=data, **kwargs)
             _LOGGER.debug(f'Fitted determinants for Table {self._name}.')
 
         self._fitted = True
@@ -448,7 +443,7 @@ class Table:
 
     def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool) -> int:
         if attr.atype == 'id':
-            pd_to_pickle(data[[name]], self._normalized_path(name))
+            pd_to_pickle(data[[name]], self._normalized_path(name), sparse=False)
         else:
             attr.fit(data[name], force_redo=force_redo)
             pd_to_pickle(attr.get_original_transformed(), self._normalized_path(name))

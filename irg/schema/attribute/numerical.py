@@ -124,14 +124,15 @@ class NumericalTransformer(BaseTransformer):
             selected_component = self._component_indicator_transformer.transform(selected_component).iloc[:, 1:]
         else:
             self._clusters = self._valid_component_indicator.sum()
-            categories = [
-                f'{int(x)+1}' for x, i in enumerate(self._valid_component_indicator) if i
-            ]
+            # categories = [
+            #     f'{int(x)}' for x, i in enumerate(self._valid_component_indicator) if i
+            # ]
+            # print('selected', selected_component.unique(), categories)
+            categories = [str(x) for x in range(self._clusters)]
             self._component_indicator_transformer.set_categories(categories)
             self._component_indicator_transformer.fit(selected_component)
             selected_component = self._component_indicator_transformer.get_original_transformed().iloc[:, 1:]
 
-        print('---done')
         rows = [normalized.reshape(len(normalized), 1), selected_component.to_numpy()]
         col_names = ['value'] + [f'cluster_{i}' for i in range(self._clusters)]
         result = pd.DataFrame(np.hstack(rows), columns=col_names)

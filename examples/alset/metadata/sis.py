@@ -85,7 +85,7 @@ def sis_plan_offer(src: pd.DataFrame) -> Dict[str, Any]:
 
 
 def sis_academic_plan(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['student_token', 'acadademic_program', 'academic_plan']
+    id_cols = ['student_token', 'academic_program', 'academic_plan']
     attributes = Table.learn_meta(src, id_cols)
     return {
         'id_cols': id_cols,
@@ -115,7 +115,7 @@ def sis_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
             ['department', 'department_descr'],
             ['program_status', 'program_status_descr']
         ],
-        'primary_keys': ['student_token', 'acadademic_program', 'academic_plan', 'admit_tyear', 'admit_tsem'],
+        'primary_keys': ['student_token', 'academic_program', 'academic_plan', 'admit_tyear', 'admit_tsem'],
         'foreign_keys': [{
             'columns': ['student_token', 'academic_career', 'academic_program', 'academic_plan'],
             'parent': 'sis_academic_plan'

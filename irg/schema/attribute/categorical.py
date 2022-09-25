@@ -38,6 +38,7 @@ class CategoricalTransformer(BaseTransformer):
 
     def _load_additional_info(self):
         if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
+            print('load', self._temp_cache)
             with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
                 loaded = pickle.load(f)
             self._label2id, self._id2label = loaded['label2id'], loaded['id2label']
@@ -57,8 +58,7 @@ class CategoricalTransformer(BaseTransformer):
     def _calc_fill_nan(self, original: pd.Series) -> str:
         original = original.astype(str)
         original.to_pickle(self._data_path)
-        print('cal fit none', self._label2id)
-        if self._label2id is None:
+        if self._label2id is None or not self._label2id:
             categories = set(pd_mp.unique(original).dropna().reset_index(drop=True))
             cat_cnt = 0
             for cat in categories:
@@ -72,11 +72,9 @@ class CategoricalTransformer(BaseTransformer):
             idx += 1
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
-        print('before fit', self._label2id)
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
         pd_to_pickle(transformed, self._transformed_path)
-        print('after fit', self._label2id)
         self._cat_cnt = len(self._label2id)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
@@ -96,7 +94,9 @@ class CategoricalTransformer(BaseTransformer):
                 cat_id = self._label2id[value]
                 transformed.loc[i, f'cat_{cat_id}'] = 1
             else:
-                _LOGGER.warning(f'Categorical value {value} is OOV.')
+                if True:#str(value) != '0':
+                    _LOGGER.warning(f'Categorical value {value} is OOV.')
+                    raise ValueError()
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         cat_ids = data.idxmax(axis=1)

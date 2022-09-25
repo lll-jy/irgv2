@@ -154,6 +154,7 @@ class Database:
         os.makedirs(os.path.join(self._temp_cache, 'tables'), exist_ok=True)
 
         for name, meta in schema.items():
+            print('handle', name, os.getpid())
             validate(meta, self._TABLE_CONF)
             meta = defaultdict(lambda: None, meta)
             ttype = meta['ttype'] if 'ttype' in meta else 'normal'
@@ -190,7 +191,7 @@ class Database:
                 parent_columns = foreign_key['parent_columns'] if 'parent_columns' in foreign_key else this_columns
                 parent_name = foreign_key['parent']
                 if parent_name not in self._table_paths:
-                    raise TableNotFoundError(name)
+                    raise TableNotFoundError(parent_name)
                 for col in this_columns:
                     if col not in columns:
                         raise ColumnNotFoundError(name, col)
