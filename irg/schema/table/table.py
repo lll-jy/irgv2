@@ -581,7 +581,13 @@ class Table:
     def _attr2catdim(attributes: Dict[str, BaseAttribute]) -> List[Tuple[int, int]]:
         base, res = 0, []
         for name, attr in attributes.items():
-            res += attr.categorical_dimensions(base)
+            try:
+                res += attr.categorical_dimensions(base)
+            except Exception as e:
+                print(attr.name, attr.atype)
+                if attr.atype == 'categorical':
+                    print(attr._transformer.label2id)
+                raise e
             base += len(attr.transformed_columns)
         return res
 

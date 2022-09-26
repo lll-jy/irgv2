@@ -16,7 +16,7 @@ prepare_small:
         --sample 50
 
 train_small:
-	python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp.nosync train_gen \
+	-python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp.nosync train_gen \
         --db_config_path examples/data.nosync/alset/db_config.json \
         --data_dir examples/data.nosync/alset/samples \
         --db_dir_path examples/model.nosync/alset/small/real_db \
@@ -27,10 +27,12 @@ train_small:
         --default_deg_trainer_ckpt_dir examples/model.nosync/alset/small/ckpt/deg \
         --skip_generate > log.txt
 	du -sh .temp.nosync
+	du -sh examples/model.nosync/alset/small
 
 clear:
 	-pkill -9 -f main.py
 	-pkill -9 -f torch.multiprocessing.spawn
 	-pkill -9 -f torch.multiprocessing.fork
-	rm -r .temp
-	rm -r .temp.nosync
+	-rm -r .temp
+	-rm -r .temp.nosync
+	-rm -r examples/model.nosync/alset/small/

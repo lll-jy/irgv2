@@ -18,15 +18,17 @@ __all__ = (
     'AffectingDatabase',
     'create',
     'create_from_dict',
-    'create_from_file'
+    'create_from_file',
+    'DB_TYPE_BY_NAME'
 )
 
-_DB_TYPE_BY_NAME: Dict[str, Database.__class__] = {
+DB_TYPE_BY_NAME: Dict[str, Database.__class__] = {
     'unrelated': UnrelatedDatabase,
     'parent-child': ParentChildDatabase,
     'ancestor-descendant': AncestorDescendantDatabase,
     'affecting': AffectingDatabase
 }
+"""Database Type by name. Currently support 'unrelated', 'parent-child', 'ancestor-descendant', and 'affecting'."""
 
 
 def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,
@@ -62,7 +64,7 @@ def create_from_dict(schema: OrderedDict, data_dir: str = '.', temp_cache: str =
 
     **Return**: Constructed database from the given information.
     """
-    return _DB_TYPE_BY_NAME[mtype](schema, data_dir, temp_cache)
+    return DB_TYPE_BY_NAME[mtype](schema, data_dir, temp_cache)
 
 
 def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str = '.', temp_cache: str = '.temp',
@@ -79,4 +81,4 @@ def create_from_file(file_path: str, engine: Optional[str] = None, data_dir: str
 
     **Return**: Constructed database from the given information.
     """
-    return _DB_TYPE_BY_NAME[mtype].load_from(file_path, engine, data_dir, temp_cache)
+    return DB_TYPE_BY_NAME[mtype].load_from(file_path, engine, data_dir, temp_cache)

@@ -398,6 +398,7 @@ class Database:
         database._primary_keys = content['primary_keys']
         database._foreign_keys = {n: [ForeignKey(**fk) for fk in v] for n, v in content['foreign_keys'].items()}
         database._data_dir, order = content['data_dir'], content['order']
+        print('config content', [*content])
         cls._update_cls(database)
 
         for table_name in order:
