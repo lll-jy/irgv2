@@ -241,7 +241,11 @@ class Table:
 
     def _replace_data_by_attr(self, n: Union[str, TwoLevelName], attr: BaseAttribute, new_data: pd.DataFrame,
                               variant: Variant = 'original') -> int:
-        transformed = attr.transform(new_data[n])
+        if attr.atype == 'id':
+            assert isinstance(attr, SerialIDAttribute)
+            transformed = attr.generate(len(new_data))
+        else:
+            transformed = attr.transform(new_data[n])
         path_by_variant = {
             'original': self._normalized_path,
             'augmented': self._augmented_normalized_path,
@@ -403,6 +407,7 @@ class Table:
             dictionary=self._degree_attributes,
             func_kwargs=dict(new_data=degree, variant='degree')
         )
+        print(self.name, 'augment size', augmented.shape, degree.shape)
         self._augment_fitted = True
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
@@ -451,8 +456,6 @@ class Table:
 
     def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs) -> int:
         for col in det:
-            if col not in self._attributes or col == 'degree':
-                print('!!', col, self._name, [*self._attributes])
             if self._attributes[col].atype not in {'categorical', 'id'}:
                 raise TypeError('Determinant should have all columns categorical (or rarely, ID).')
         leader, children = det[0], det[1:]
@@ -478,6 +481,7 @@ class Table:
                 data[col] = data[col].fillna(self._attributes[col].fill_nan_val)
             data[':dummy'] = 'dummy'
             tempfile_name = os.path.join(self._temp_cache, 'temp_det', f'{self._name}__{leader}__{grp_name}')
+            data = data.applymap(lambda x: f'c{x}', na_action='ignore')
             data.to_csv(f'{tempfile_name}.csv', index=False)
             describer.describe_dataset_in_correlated_attribute_mode(
                 f'{tempfile_name}.csv', k=len(children)+2, epsilon=0,
@@ -775,7 +779,7 @@ class SyntheticTable(Table):
                     f.close()
                 generator.generate_dataset_in_correlated_attribute_mode(len(data), f'{tempfile_name}.json')
                 generated: pd.DataFrame = generator.synthetic_dataset.drop(columns=[':dummy'])\
-                    .set_axis(list(data.index))
+                    .set_axis(list(data.index)).applymap(lambda x: x[1:], na_action='ignore')
                 for col in data.columns:
                     nan_val = self._attributes[col].fill_nan_val
                     data.loc[data[col] == nan_val, col] = np.nan

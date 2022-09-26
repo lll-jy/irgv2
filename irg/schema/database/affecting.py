@@ -98,10 +98,11 @@ class AffectingDatabase(Database):
             - q5, q10, q20, q25, q30, q40, q50, q60, q70, q75, q80, q90, q95: quantile values.
         - `kwargs`: Arguments for [`Database`](./base#irg.schema.database.base.Database).
         """
-        super().__init__(**kwargs)
+        print('?create database ???', 'descendants is here')
         self._descendants: DefaultDict[str, List[ForeignKey]] = defaultdict(list)
         self._agg_func = agg_func if agg_func is not None else ['mean', 'std', 'min', 'max', 'q25', 'q50', 'q75']
         self._agg_func = [_quantile_func[f] if f in _quantile_func else f for f in self._agg_func]
+        super().__init__(**kwargs)
 
     @property
     def mtype(self) -> str:

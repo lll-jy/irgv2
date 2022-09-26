@@ -273,7 +273,6 @@ class BaseAttribute(ABC):
         - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
         - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         """
-        print('create attr', name)
         self._name, self._attr_type, self._temp_cache = name, attr_type, temp_cache
 
         self._transformer: Optional[BaseTransformer] = None

@@ -143,6 +143,7 @@ class Database:
         - [`ValidationError`](https://python-jsonschema.readthedocs.io/en/stable/errors/) if the provided schema is of
           invalid format.
         """
+        print('!!~ create database but base')
         self._table_paths: OrderedDictT[str, str] = OrderedDict({})
         self._table_columns: Dict[str, List[str]] = {}
         self._primary_keys: Dict[str, List[str]] = {}
@@ -173,6 +174,7 @@ class Database:
                 determinants=determinants, formulas=formulas,
                 temp_cache=os.path.join(self._temp_cache, 'tables', name)
             )
+            print('table size', name, len(data))
             table.save(os.path.join(temp_cache, f'{name}.pkl'))
             self._table_paths[name] = os.path.join(temp_cache, f'{name}.pkl')
             self._table_columns[name] = table.columns
@@ -248,6 +250,7 @@ class Database:
         schema = load_from(file_path, engine)
         result = Database(OrderedDict(schema), data_dir, temp_cache)
         cls._update_cls(result)
+        print('--- update type', type(result))
         _LOGGER.debug(f'Loaded database using config file {file_path} and data directory {data_dir}.')
         return result
 
@@ -395,6 +398,7 @@ class Database:
         database._primary_keys = content['primary_keys']
         database._foreign_keys = {n: [ForeignKey(**fk) for fk in v] for n, v in content['foreign_keys'].items()}
         database._data_dir, order = content['data_dir'], content['order']
+        cls._update_cls(database)
 
         for table_name in order:
             database._table_paths[table_name] = os.path.join(path, f'{table_name}.pkl')

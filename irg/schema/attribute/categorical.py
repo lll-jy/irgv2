@@ -79,7 +79,6 @@ class CategoricalTransformer(BaseTransformer):
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         transformed = pd.DataFrame(columns=['is_nan'] + [f'cat_{i}' for i in self._id2label])
         transformed['is_nan'] = nan_info['is_nan']
-        print('before map', [*self._label2id])
         fast_map_dict(
             func=self._transform_row,
             dictionary=nan_info.to_dict(orient='index'),

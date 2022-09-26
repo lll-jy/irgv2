@@ -67,7 +67,7 @@ def init_process_group(distributed: bool = True, num_processes: int = 200):
     global _pool
     if torch.cuda.is_available() and distributed:
         dist.init_process_group(backend='nccl', init_method='env://', timeout=timedelta(days=1))
-    _pool = mp.Pool(processes=num_processes)
+    # _pool = mp.Pool(processes=num_processes)
 
 
 def fast_filter(func: FunctionType, iterable: Iterable[Any], total_len: int, **kwargs) -> List[Any]:

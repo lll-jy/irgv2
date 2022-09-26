@@ -105,7 +105,7 @@ def sis_academic_plan(src: pd.DataFrame) -> Dict[str, Any]:
 
 
 def sis_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['student_token', 'acadademic_program', 'academic_plan']
+    id_cols = ['student_token', 'academic_program', 'academic_plan']
     attributes = Table.learn_meta(src, id_cols, ['career_nbr'])
     return {
         'id_cols': id_cols,
