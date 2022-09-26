@@ -59,6 +59,9 @@ class SerialIDAttribute(BaseAttribute):
         self._create_transformer()
         self._generator = generator
 
+    def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
+        return []
+
     def __copy__(self) -> "SerialIDAttribute":
         new_attr = super().__copy__()
         new_attr.__class__ = SerialIDAttribute
@@ -95,6 +98,9 @@ class RawTransformer(IdentityTransformer):
 
     def _calc_fill_nan(self, original: pd.Series) -> float:
         return 0
+
+    def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
+        return []
 
 
 class RawAttribute(BaseAttribute):

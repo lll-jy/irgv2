@@ -408,6 +408,9 @@ class Table:
             func_kwargs=dict(new_data=degree, variant='degree')
         )
         print(self.name, 'augment size', augmented.shape, degree.shape)
+        print('augmented columns', augmented.columns)
+        _LOGGER.debug(f'Augmented {self._name} has columns {augmented.columns.values}. '
+                      f'The augmented table has {len(augmented)} rows, and degree table has {len(degree)} rows.')
         self._augment_fitted = True
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
@@ -584,7 +587,7 @@ class Table:
             try:
                 res += attr.categorical_dimensions(base)
             except Exception as e:
-                print(attr.name, attr.atype)
+                print('exception', attr.name, attr.atype)
                 if attr.atype == 'categorical':
                     print(attr._transformer.label2id)
                 raise e
