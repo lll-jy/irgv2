@@ -123,7 +123,7 @@ class Trainer(ABC):
                                 collate_fn=self._collate_fn)
         return dataloader
 
-    def train(self, known: Tensor, unknown: Tensor, epochs: int, batch_size: int, shuffle: bool = True,
+    def train(self, known: Tensor, unknown: Tensor, epochs: int = 100, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True):
         """
         Train the model given data.
@@ -132,8 +132,8 @@ class Trainer(ABC):
 
         - `known` (`torch.Tensor`): Known part of data as tensor.
         - `unknown` (`torch.Tensor`): Unknown part of data as tensor.
-        - `epochs` (`int`): Number of epochs to train.
-        - `batch_size` (`int`): Batch size per GPU/CPU.
+        - `epochs` (`int`): Number of epochs to train. Default is 100.
+        - `batch_size` (`int`): Batch size per GPU/CPU. Default is 100.
         - `shuffle` (`bool`): Whether to shuffle the data. Default is True.
         - `save_freq` (`int`): Save checkpoint frequency (every how many steps). Default is 100.
         - `resume` (`bool`): Whether to resume from trained result (from ckpt_dir).

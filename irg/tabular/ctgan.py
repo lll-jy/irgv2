@@ -132,7 +132,10 @@ class CTGANTrainer(TabularTrainer):
                     real_cat, fake_cat, self._device, self._pac
                 )
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                self._grad_scaler_d.scale(pen).backward(retain_graph=True)
+                if self._grad_scaler_d is None:
+                    pen.backward(retain_graph=True)
+                else:
+                    self._grad_scaler_d.scale(pen).backward(retain_graph=True)
             self._take_step(loss_d, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d)
             # TODO: for param in model.parameters(): param.grad = None
 

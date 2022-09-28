@@ -29,10 +29,19 @@ train_small:
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/alset/small
 
-clear:
+
+kill:
 	-pkill -9 -f main.py
 	-pkill -9 -f torch.multiprocessing.spawn
 	-pkill -9 -f torch.multiprocessing.fork
+
+
+clear: kill
 	-rm -r .temp
 	-rm -r .temp.nosync
 	-rm -r examples/model.nosync/alset/small/
+
+
+clear_ckpt: kill
+	-rm -r examples/model.nosync/alset/small/ckpt
+	-rm -r examples/model.nosync/alset/small/tf
