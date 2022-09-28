@@ -66,3 +66,7 @@ clear: kill
 clear_ckpt: kill
 	-rm -r examples/model.nosync/alset/small/ckpt
 	-rm -r examples/model.nosync/alset/small/tf
+
+
+clear_gen: kill
+	-rm -r examples/generated.nosync/alset/small

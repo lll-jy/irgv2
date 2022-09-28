@@ -208,6 +208,7 @@ class CTGANTrainer(TabularTrainer):
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
                 fake_cat = self._construct_fake(mean, std, known_batch)
                 y_fake = self._discriminator(fake_cat)
+                y_fake = y_fake.repeat(self._pac, 1).permute(1, 0).flatten()[:fake_cat.shape[0]]
                 fakes.append(fake_cat)
                 y_fakes.append(y_fake)
         self._generator.train()
