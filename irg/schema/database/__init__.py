@@ -3,10 +3,10 @@
 from typing import OrderedDict, Dict, Optional
 
 from .base import Database, SyntheticDatabase
-from .unrelated import UnrelatedDatabase
-from .parent import ParentChildDatabase
-from .ancestor import AncestorDescendantDatabase
-from .affecting import AffectingDatabase
+from .unrelated import UnrelatedDatabase, SyntheticUnrelatedDatabase
+from .parent import ParentChildDatabase, SyntheticParentChildDatabase
+from .ancestor import AncestorDescendantDatabase, SyntheticAncestorDescendantDatabase
+from .affecting import AffectingDatabase, SyntheticAffectingDatabase
 
 
 __all__ = (
@@ -19,7 +19,8 @@ __all__ = (
     'create',
     'create_from_dict',
     'create_from_file',
-    'DB_TYPE_BY_NAME'
+    'DB_TYPE_BY_NAME',
+    'SYN_DB_TYPE_BY_NAME'
 )
 
 DB_TYPE_BY_NAME: Dict[str, Database.__class__] = {
@@ -29,6 +30,14 @@ DB_TYPE_BY_NAME: Dict[str, Database.__class__] = {
     'affecting': AffectingDatabase
 }
 """Database Type by name. Currently support 'unrelated', 'parent-child', 'ancestor-descendant', and 'affecting'."""
+
+SYN_DB_TYPE_BY_NAME: Dict[str, SyntheticDatabase.__class__] = {
+    'unrelated': SyntheticUnrelatedDatabase,
+    'parent-child': SyntheticParentChildDatabase,
+    'ancestor-descendant': SyntheticAncestorDescendantDatabase,
+    'affecting': SyntheticAffectingDatabase
+}
+"""Synthetic database Type by name. Currently support 'unrelated', 'parent-child', 'ancestor-descendant', and 'affecting'."""
 
 
 def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,

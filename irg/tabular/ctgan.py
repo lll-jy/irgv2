@@ -158,7 +158,7 @@ class CTGANTrainer(TabularTrainer):
         }, fake_cat
 
     def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor) -> Tensor:
-        fakez = torch.normal(mean=mean, std=std)
+        fakez = torch.normal(mean=mean, std=std)[:known_tensor.shape[0]]
         fakez = torch.cat([fakez, known_tensor], dim=1)
         fake = self._generator(fakez)
         fakeact = self._apply_activate(fake)
@@ -213,4 +213,4 @@ class CTGANTrainer(TabularTrainer):
         self._generator.train()
         self._discriminator.train()
 
-        return CTGANOutput(torch.stack(fakes), torch.stack(y_fakes))
+        return CTGANOutput(torch.cat(fakes), torch.cat(y_fakes))

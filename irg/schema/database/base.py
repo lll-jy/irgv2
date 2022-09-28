@@ -218,6 +218,7 @@ class Database:
             _LOGGER.debug(f'Finished loading table {name} to database.')
 
     def __getitem__(self, item: str) -> Table:
+        print('get item', item)
         return Table.load(self._table_paths[item])
 
     def path_of_table(self, table_name: str) -> str:
@@ -438,7 +439,7 @@ class SyntheticDatabase(Database, ABC):
         """
         temp_cache = os.path.join(real_db._temp_cache, 'synthetic_db')
         os.makedirs(temp_cache, exist_ok=True)
-        syn_db = SyntheticDatabase(real_db, schema=OrderedDict({}), temp_cache=temp_cache)
+        syn_db = cls(real=real_db, schema=OrderedDict({}), temp_cache=temp_cache)
         syn_db._primary_keys, syn_db._foreign_keys = real_db._primary_keys, real_db._foreign_keys
         syn_db._data_dir = save_to
         os.makedirs(save_to, exist_ok=True)

@@ -8,6 +8,7 @@ import torch
 
 from ..tabular import TabularTrainer
 from ..schema import Table, SyntheticTable, Database, SyntheticDatabase
+from ..schema.database import SYN_DB_TYPE_BY_NAME
 
 
 def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_models: Dict[str, TabularTrainer],
@@ -34,7 +35,7 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
     """
     os.makedirs(temp_cache, exist_ok=True)
     temp_cache = os.path.join(temp_cache, 'generated')
-    syn_db = SyntheticDatabase.from_real(real_db, save_to)
+    syn_db = SYN_DB_TYPE_BY_NAME[real_db.mtype].from_real(real_db, save_to)
     scaling = _optional_default_dict(scaling, 1.)
     tab_batch_sizes = _optional_default_dict(tab_batch_sizes, 32)
     deg_batch_sizes = _optional_default_dict(deg_batch_sizes, 32)
