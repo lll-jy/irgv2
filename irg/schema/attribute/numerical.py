@@ -143,11 +143,11 @@ class NumericalTransformer(BaseTransformer):
         return [(0, 1), (2, self._clusters+2)]
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
-        normalized = data[:, 0]
+        normalized = data.iloc[:, 0]
         means = self._bgm_transformer.means_.reshape([-1])
         stds = np.sqrt(self._bgm_transformer.covariances_).reshape([-1])
 
-        selected_component = data[:, 1:]
+        selected_component = data.iloc[:, 1:]
         col_names = [f'cat{i}' for i in range(self._clusters)]
         selected_component = pd.DataFrame(selected_component, columns=col_names)
         selected_component = self._component_indicator_transformer \
