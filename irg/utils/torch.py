@@ -1,7 +1,10 @@
+import math
 from typing import Tuple, Optional
 
+import torch
 import torch.nn as nn
 from torch import Tensor
+from ctgan.synthesizers.ctgan import Discriminator as CTGANDiscriminator
 
 
 class _Layer(nn.Module):
@@ -49,3 +52,13 @@ class MLP(nn.Module):
         for layer in self.hidden:
             x = layer(x)
         return x
+
+
+class Discriminator(CTGANDiscriminator):
+    def forward(self, input_: torch.Tensor):
+        x, y = input_.size()
+        size = math.ceil(x / self.pac) * self.pac
+        placeholder = torch.zeros(size, y).to(input_.device)
+        placeholder[:x, :] = input_
+        res = super().forward(placeholder)
+        return res[:x]
