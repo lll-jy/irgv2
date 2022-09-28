@@ -93,8 +93,14 @@ class CTGANTrainer(TabularTrainer):
         self._optimizer_d.load_state_dict(loaded['discriminator']['optimizer'])
         self._lr_schd_g.load_state_dict(loaded['generator']['lr_scheduler'])
         self._lr_schd_d.load_state_dict(loaded['discriminator']['lr_scheduler'])
-        self._grad_scaler_g.load_state_dict(loaded['generator']['grad_scaler'])
-        self._grad_scaler_d.load_state_dict(loaded['discriminator']['grad_scaler'])
+        if 'grad_scaler' in loaded['generator']:
+            self._grad_scaler_g.load_state_dict(loaded['generator']['grad_scaler'])
+        else:
+            self._grad_scaler_g = None
+        if 'grad_scaler' in loaded['discriminator']:
+            self._grad_scaler_d.load_state_dict(loaded['discrminator']['grad_scaler'])
+        else:
+            self._grad_scaler_d = None
         torch.manual_seed(loaded['seed'])
 
     def _save_checkpoint(self, idx: int, by: str):
@@ -104,16 +110,14 @@ class CTGANTrainer(TabularTrainer):
                     'model': (self._generator.module if hasattr(self._generator, 'module')
                               else self._generator).state_dict(),
                     'optimizer': self._optimizer_g.state_dict(),
-                    'lr_scheduler': self._lr_schd_g.state_dict(),
-                    'grad_scaler': self._grad_scaler_g.state_dict()
-                },
+                    'lr_scheduler': self._lr_schd_g.state_dict()
+                } | ({'grad_scaler': self._grad_scaler_g.state_dict()} if self._grad_scaler_g is not None else {}),
                 'discriminator': {
                     'model': (self._discriminator.module if hasattr(self._discriminator, 'module')
                               else self._discriminator).state_dict(),
                     'optimizer': self._optimizer_d.state_dict(),
-                    'lr_scheduler': self._lr_schd_d.state_dict(),
-                    'grad_scaler': self._grad_scaler_d.state_dict()
-                },
+                    'lr_scheduler': self._lr_schd_d.state_dict()
+                } | ({'grad_scaler': self._grad_scaler_d.state_dict()} if self._grad_scaler_d is not None else {}),
                 'seed': torch.initial_seed()
             },
             os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
@@ -142,6 +146,7 @@ class CTGANTrainer(TabularTrainer):
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             fake_cat = self._construct_fake(mean, std, known)
             real_cat = torch.cat([known, unknown], dim=1)
+            print('before discriminator', self._ckpt_dir, self._descr, fake_cat.size(), self._discriminator.pac)
             y_fake = self._discriminator(fake_cat)
             distance = F.mse_loss(fake_cat, real_cat, reduction='mean')
             loss_g = -torch.mean(y_fake) + distance

@@ -60,7 +60,7 @@ class SerialIDAttribute(BaseAttribute):
         self._generator = generator
 
     def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
-        return [(0, 1)]
+        return [(base, base+1)]
 
     def __copy__(self) -> "SerialIDAttribute":
         new_attr = super().__copy__()
@@ -104,7 +104,7 @@ class RawTransformer(IdentityTransformer):
         return 0
 
     def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
-        return [(0, 1)]
+        return [(base, base+1)]
 
     @property
     def transformed_columns(self) -> Collection[str]:

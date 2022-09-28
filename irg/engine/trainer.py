@@ -49,6 +49,8 @@ def train(database: Database, do_train: bool,
     tabular_models, deg_models = {}, {}
     for name, table in database.tables:
         table = Table.load(table)
+        if table.ttype == 'base':
+            continue
         tabular_known, tabular_unknown, cat_dims = table.ptg_data
         tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
                                             tab_trainer_args[name], tab_train_args[name], name)
