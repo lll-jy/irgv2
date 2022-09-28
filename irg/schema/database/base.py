@@ -143,7 +143,6 @@ class Database:
         - [`ValidationError`](https://python-jsonschema.readthedocs.io/en/stable/errors/) if the provided schema is of
           invalid format.
         """
-        print('!!~ create database but base')
         self._table_paths: OrderedDictT[str, str] = OrderedDict({})
         self._table_columns: Dict[str, List[str]] = {}
         self._primary_keys: Dict[str, List[str]] = {}
@@ -398,7 +397,6 @@ class Database:
         database._primary_keys = content['primary_keys']
         database._foreign_keys = {n: [ForeignKey(**fk) for fk in v] for n, v in content['foreign_keys'].items()}
         database._data_dir, order = content['data_dir'], content['order']
-        print('config content', [*content])
         cls._update_cls(database)
 
         for table_name in order:

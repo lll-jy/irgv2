@@ -1,5 +1,5 @@
 """Handler for ID attributes."""
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Collection
 
 import numpy as np
 import pandas as pd
@@ -60,7 +60,7 @@ class SerialIDAttribute(BaseAttribute):
         self._generator = generator
 
     def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
-        return []
+        return [(0, 1)]
 
     def __copy__(self) -> "SerialIDAttribute":
         new_attr = super().__copy__()
@@ -73,6 +73,10 @@ class SerialIDAttribute(BaseAttribute):
 
     def fit(self, values: pd.Series, force_redo: bool = False):
         raise TypeError('ID column cannot be fitted.')
+
+    @property
+    def transformed_columns(self) -> Collection[str]:
+        return ['id']
 
     def generate(self, n: int) -> pd.Series:
         """
@@ -100,7 +104,11 @@ class RawTransformer(IdentityTransformer):
         return 0
 
     def categorical_dimensions(self, base: int = 0) -> List[Tuple[int, int]]:
-        return []
+        return [(0, 1)]
+
+    @property
+    def transformed_columns(self) -> Collection[str]:
+        return ['data']
 
 
 class RawAttribute(BaseAttribute):

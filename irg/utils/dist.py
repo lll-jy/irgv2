@@ -42,7 +42,7 @@ def get_device() -> torch.device:
     rank = get_rank()
     if rank >= 0:
         return torch.device('cuda', rank)
-    if dist.is_available():
+    if torch.cuda.is_available():
         return torch.device('cuda')
     return torch.device('cpu')
 

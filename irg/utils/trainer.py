@@ -3,14 +3,14 @@
 from abc import ABC, abstractmethod
 from itertools import chain
 import os
-from typing import Tuple, Union, Dict, Optional, List
+from typing import Tuple, Union, Dict, Optional, List, Any
 
 import torch
 from torch import Tensor
 import torch.nn as nn
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import Adam, AdamW, SGD, Optimizer
-from torch.optim.lr_scheduler import StepLR, ConstantLR, _LRScheduler as LRScheduler
+from torch.optim.lr_scheduler import StepLR, ConstantLR, MultiStepLR, ExponentialLR, LinearLR, _LRScheduler as LRScheduler
 from torch.utils.data import TensorDataset, DistributedSampler, RandomSampler, SequentialSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import GradScaler
@@ -68,11 +68,21 @@ class Trainer(ABC):
 
         schedulers: Dict[str, LRScheduler] = {
             'StepLR': StepLR,
-            'ConstantLR': ConstantLR
+            'ConstantLR': ConstantLR,
+            'MultiStepLR': MultiStepLR,
+            'ExponentialLR': ExponentialLR,
+            'LinearLR': LinearLR
+        }
+        default_scheduler_args: Dict[str, Dict[str, Any]] = {
+            'StepLR': {'step_size': 100},
+            'ConstantLR': {},
+            'MultiStepLR': {'milestones': [100, 300]},
+            'ExponentialLR': {'gamma': 0.99},
+            'LinearLR': {}
         }
         lr_scheduler = schedulers[scheduler](
             optimizer,
-            **{n[6:]: v for n, v in kwargs.items() if n.startswith('sched_')}
+            **(default_scheduler_args[scheduler] | {n[6:]: v for n, v in kwargs.items() if n.startswith('sched_')})
         )
 
         scaler = None

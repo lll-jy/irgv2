@@ -586,12 +586,12 @@ class Table:
         for name, attr in attributes.items():
             try:
                 res += attr.categorical_dimensions(base)
+                base += len(attr.transformed_columns)
             except Exception as e:
                 print('exception', attr.name, attr.atype)
                 if attr.atype == 'categorical':
                     print(attr._transformer.label2id)
                 raise e
-            base += len(attr.transformed_columns)
         return res
 
     @property
