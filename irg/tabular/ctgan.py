@@ -132,9 +132,7 @@ class CTGANTrainer(TabularTrainer):
             with torch.cuda.amp.autocast(enabled=enable_autocast):
                 fake_cat = self._construct_fake(mean, std, known)
                 real_cat = torch.cat([known, unknown], dim=1)
-                print('before 3', self._ckpt_dir, self._descr, fake_cat.size(), real_cat.size())
                 y_fake, y_real = self._discriminator(fake_cat), self._discriminator(real_cat)
-                print('done 3')
                 pen = self._discriminator.calc_gradient_penalty(
                     real_cat, fake_cat, self._device, self._pac
                 )
@@ -149,9 +147,7 @@ class CTGANTrainer(TabularTrainer):
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             fake_cat = self._construct_fake(mean, std, known)
             real_cat = torch.cat([known, unknown], dim=1)
-            print('before discriminator', self._ckpt_dir, self._descr, fake_cat.size(), self._discriminator.pac)
             y_fake = self._discriminator(fake_cat)
-            print('end discriminator')
             distance = F.mse_loss(fake_cat, real_cat, reduction='mean')
             loss_g = -torch.mean(y_fake) + distance
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
@@ -211,9 +207,7 @@ class CTGANTrainer(TabularTrainer):
         for step, (known_batch, _) in enumerate(dataloader):
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
                 fake_cat = self._construct_fake(mean, std, known_batch)
-                print('before 2', self._ckpt_dir, self._descr, fake_cat.size())
                 y_fake = self._discriminator(fake_cat)
-                print('done 2')
                 fakes.append(fake_cat)
                 y_fakes.append(y_fake)
         self._generator.train()

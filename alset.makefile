@@ -30,6 +30,24 @@ train_small:
 	du -sh examples/model.nosync/alset/small
 
 
+generate_small:
+	-mkdir -p examples/generated.nosync/alset/small
+	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 train_gen \
+        --db_config_path examples/data.nosync/alset/db_config.json \
+        --data_dir examples/data.nosync/alset/samples \
+        --db_dir_path examples/model.nosync/alset/small/real_db \
+        --aug_resume \
+        --skip_train \
+        --default_tab_train_resume \
+        --default_deg_train_resume \
+        --default_tab_trainer_log_dir examples/model.nosync/alset/small/tf/tab \
+        --default_deg_trainer_log_dir examples/model.nosync/alset/small/tf/deg \
+        --default_tab_trainer_ckpt_dir examples/model.nosync/alset/small/ckpt/tab \
+        --default_deg_trainer_ckpt_dir examples/model.nosync/alset/small/ckpt/deg \
+        --save_generated_to examples/generated.nosync/alset/small/result \
+        --save_synth_db examples/generated.nosync/alset/small/fake_db > log.txt
+
+
 kill:
 	-pkill -9 -f main.py
 	-pkill -9 -f torch.multiprocessing.spawn

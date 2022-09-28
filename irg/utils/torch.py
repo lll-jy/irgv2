@@ -63,7 +63,8 @@ class Discriminator(CTGANDiscriminator):
         res = super().forward(placeholder)
         return res[:x]
 
-    def _reshape(self, tensor, pac):
+    @staticmethod
+    def _reshape(tensor, pac):
         x, y = tensor.size()[0], tensor.size()[1:]
         size = math.ceil(x / pac) * pac
         placeholder = torch.zeros(size, *y).to(tensor.device)
@@ -72,4 +73,4 @@ class Discriminator(CTGANDiscriminator):
 
     def calc_gradient_penalty(self, real_data, fake_data, device='cpu', pac=10, lambda_=10):
         real_data, fake_data = self._reshape(real_data, pac), self._reshape(fake_data, pac)
-        return super().calc_gradient_penalty(placeholder, fake_data, device, pac, lambda_)
+        return super().calc_gradient_penalty(real_data, fake_data, device, pac, lambda_)
