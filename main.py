@@ -234,7 +234,7 @@ def _train_gen(args: Namespace):
             scaling=_narg2nbdict(args.default_scaling, args.scaling, float),
             tab_batch_sizes=_narg2nbdict(args.default_gen_tab_bs, args.gen_tab_bs, int),
             deg_batch_sizes=_narg2nbdict(args.default_gen_deg_bs, args.gen_deg_bs, int),
-            save_db_to=args.save_synth_db
+            save_db_to=args.save_synth_db, temp_cache=args.temp_cache
         )
 
 

@@ -1,8 +1,10 @@
 """Handler for datetime-related data."""
 from datetime import datetime, timedelta
+import numbers
 from typing import Optional
 import os
 
+import numpy as np
 import pandas as pd
 
 from .base import BaseAttribute
@@ -41,12 +43,19 @@ class DatetimeTransformer(NumericalTransformer):
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         original.to_pickle(self._as_date_path)
-        original.apply(lambda x: x if pd.isnull(x) else x.toordinal()).to_pickle(self._data_path)
+        original = original.apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
+        original.to_pickle(self._data_path)
+        print(original.shape, nan_info.shape, nan_info.columns, original.isna().sum())
+        nan_info.loc[:, 'original'] = nan_info['original'].apply(lambda x: x.toordinal()).astype('float32')
+        nan_info = nan_info.astype({'original': 'float32'})
         super()._fit(original, nan_info)
+        print('fit scaler', self._minmax_scaler.min_, self._minmax_scaler.data_max_)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info = nan_info.copy()
-        nan_info['original'] = nan_info['original'].apply(lambda x: x.toordinal())
+        nan_info['original'] = nan_info['original'].apply(
+            lambda x: x if pd.isnull(x) or isinstance(x, numbers.Number) else x.toordinal()
+        ).astype('float32')
         return super()._transform(nan_info)
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
@@ -113,12 +122,17 @@ class TimedeltaTransformer(NumericalTransformer):
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         original.to_pickle(self._as_delta_path)
-        original.apply(lambda x: x if pd.isnull(x) else x.total_seconds()).to_pickle(self._data_path)
+        original = original.apply(lambda x: np.nan if pd.isnull(x) else x.total_seconds()).astype('float32')
+        original.to_pickle(self._data_path)
+        nan_info.iloc[:, 'original'] = original
         super()._fit(original, nan_info)
+        print('fit scaler', self._minmax_scaler.min_, self._minmax_scaler.data_max_)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info = nan_info.copy()
-        nan_info['original'] = nan_info['original'].apply(lambda x: x.total_seconds())
+        nan_info['original'] = nan_info['original'].apply(
+            lambda x: x if pd.isnull(x) or isinstance(x, numbers.Number) else x.total_seconds()
+        ).astype('float32')
         return super()._transform(nan_info)
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:

@@ -100,8 +100,8 @@ class CategoricalTransformer(BaseTransformer):
                     raise ValueError()
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
-        cat_ids = data.iloc[:, 1:].idxmax(axis=1)
-        return cat_ids.apply(lambda x: self._id2label[int(x[4:])])
+        cat_ids = data.iloc[:, 1:].copy().set_axis([*range(data.shape[1]-1)], axis=1).idxmax(axis=1)
+        return cat_ids.apply(lambda x: self._id2label[x])
 
     def set_categories(self, labels: Collection):
         """

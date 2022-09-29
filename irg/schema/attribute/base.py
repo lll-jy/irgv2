@@ -223,7 +223,7 @@ class BaseTransformer:
             raise NotFittedError('Transformer', 'inversely transforming other data')
         self._load_additional_info()
         data = inverse_convert_data(data, self._transformed_columns)
-        core_data = data.drop(columns=['is_nan']) if self._has_nan else data
+        core_data = data.drop(columns=['is_nan'])
         recovered_no_nan = self._inverse_transform(core_data)
         if nan_thres is not None:
             threshold = nan_thres

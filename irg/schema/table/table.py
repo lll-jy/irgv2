@@ -736,6 +736,7 @@ class SyntheticTable(Table):
                                    temp_cache=temp_cache if temp_cache is not None else table._temp_cache)
         synthetic._fitted = table._fitted
         synthetic._attributes = table._attributes
+        print('create syn tecmp cache', synthetic._temp_cache)
         return synthetic
 
     def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
@@ -773,6 +774,7 @@ class SyntheticTable(Table):
             recovered_df[col] = recovered
 
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
+        print('temp cache', self._temp_cache)
         complete_data = pd.read_pickle(self._data_path())
         for i, det in enumerate(self._determinants):
             leader = det[0]

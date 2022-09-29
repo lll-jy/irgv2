@@ -71,6 +71,7 @@ def _optional_default_dict(original: Optional[Dict], default_val: Any) -> Defaul
 
 def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: float, batch_size: int, temp_cache: str) \
         -> Table:
+    print('temp cache')
     syn_table = SyntheticTable.from_real(table, temp_cache)
     need_rows = round(len(table) * scale)
     output = trainer.inference(torch.zeros(need_rows, 0), batch_size).output
@@ -79,7 +80,8 @@ def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: fl
 
 
 def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularTrainer, table: Table, scale: float,
-                              tab_batch_size: int, deg_batch_size: int, syn_db: SyntheticDatabase, temp_cache: str) -> SyntheticTable:
+                              tab_batch_size: int, deg_batch_size: int, syn_db: SyntheticDatabase, temp_cache: str) \
+        -> SyntheticTable:
     syn_table = SyntheticTable.from_real(table, temp_cache)
     known = syn_db.degree_known_for(table.name)
     deg_tensor = deg_trainer.inference(known, deg_batch_size).output

@@ -123,7 +123,7 @@ class Trainer(ABC):
                                 collate_fn=self._collate_fn)
         return dataloader
 
-    def train(self, known: Tensor, unknown: Tensor, epochs: int = 100, batch_size: int = 100, shuffle: bool = True,
+    def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True):
         """
         Train the model given data.

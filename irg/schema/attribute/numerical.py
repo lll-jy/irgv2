@@ -124,10 +124,6 @@ class NumericalTransformer(BaseTransformer):
             selected_component = self._component_indicator_transformer.transform(selected_component).iloc[:, 1:]
         else:
             self._clusters = self._valid_component_indicator.sum()
-            # categories = [
-            #     f'{int(x)}' for x, i in enumerate(self._valid_component_indicator) if i
-            # ]
-            # print('selected', selected_component.unique(), categories)
             categories = [str(x) for x in range(self._clusters)]
             self._component_indicator_transformer.set_categories(categories)
             self._component_indicator_transformer.fit(selected_component)
@@ -147,9 +143,10 @@ class NumericalTransformer(BaseTransformer):
         means = self._bgm_transformer.means_.reshape([-1])
         stds = np.sqrt(self._bgm_transformer.covariances_).reshape([-1])
 
-        selected_component = data.iloc[:, 1:]
-        col_names = [f'cat{i}' for i in range(self._clusters)]
-        selected_component = pd.DataFrame(selected_component, columns=col_names)
+        selected_component = data.copy()
+        col_names = ['is_nan'] + [f'cat{i}' for i in range(self._clusters)]
+        selected_component = pd.DataFrame(selected_component.values, columns=col_names)
+        selected_component.loc[:, 'is_nan'] = 0
         selected_component = self._component_indicator_transformer \
             .inverse_transform(selected_component).astype(int)
 
@@ -158,7 +155,7 @@ class NumericalTransformer(BaseTransformer):
         reversed_data = normalized * self._std_multiplier * std_t + mean_t
 
         reversed_data = self._minmax_scaler \
-            .inverse_transform(reversed_data.reshape(len(reversed_data), 1))
+            .inverse_transform(pd.DataFrame(reversed_data.values.reshape(len(reversed_data), 1)))
         reversed_data = pd.Series(reversed_data[:, 0])
         return reversed_data.apply(self._round_minmax)
 
