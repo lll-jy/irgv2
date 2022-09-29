@@ -326,9 +326,9 @@ class Table:
         joined = left_data.merge(right_data, how=how, left_on=left_on, right_on=right_on)
 
         os.makedirs(os.path.join(self._temp_cache, 'pair_joined'), exist_ok=True)
-        print('temp cache', self._temp_cache)
+        descr = descr if descr is not None else f'{self._name}_{how}_join_{right._name}'
         result = Table(
-            name=descr if descr is not None else f'{self._name}_{how}_join_{right._name}',
+            name=descr,
             need_fit=False, id_cols=id_cols, data=joined,
             temp_cache=os.path.join(self._temp_cache, 'pair_joined', descr)
         )
@@ -348,6 +348,7 @@ class Table:
 
         result._attributes = {}
         for n, v in self._attributes.items():
+            print('v type', type(v))
             result._attributes[f'{self._name}/{n}'] = v.rename(f'{self._name}/{v.name}', inplace=False)
         for n, v in right._attributes.items():
             result._attributes[f'{right._name}/{n}'] = v.rename(f'{right._name}/{v.name}', inplace=False)
@@ -357,6 +358,8 @@ class Table:
             dictionary=result._attributes,
             func_kwargs=dict(new_data=joined)
         )
+
+        _LOGGER.debug(f'Joined {self._name} with {right._name}.')
 
         return result
 

@@ -299,7 +299,7 @@ class BaseAttribute(ABC):
             return new_attr
 
     def __copy__(self) -> "BaseAttribute":
-        new_attr = BaseAttribute(self._name, self._attr_type)
+        new_attr = self.__class__(name=self._name)
         new_attr._transformer = self._transformer
         return new_attr
 
