@@ -154,7 +154,6 @@ class Database:
         os.makedirs(os.path.join(self._temp_cache, 'tables'), exist_ok=True)
 
         for name, meta in schema.items():
-            print('handle', name, os.getpid())
             validate(meta, self._TABLE_CONF)
             meta = defaultdict(lambda: None, meta)
             ttype = meta['ttype'] if 'ttype' in meta else 'normal'
@@ -173,7 +172,6 @@ class Database:
                 determinants=determinants, formulas=formulas,
                 temp_cache=os.path.join(self._temp_cache, 'tables', name)
             )
-            print('table size', name, len(data))
             table.save(os.path.join(temp_cache, f'{name}.pkl'))
             self._table_paths[name] = os.path.join(temp_cache, f'{name}.pkl')
             self._table_columns[name] = table.columns
@@ -218,7 +216,6 @@ class Database:
             _LOGGER.debug(f'Finished loading table {name} to database.')
 
     def __getitem__(self, item: str) -> Table:
-        print('get item', item)
         return Table.load(self._table_paths[item])
 
     def path_of_table(self, table_name: str) -> str:
@@ -250,7 +247,6 @@ class Database:
         schema = load_from(file_path, engine)
         result = Database(OrderedDict(schema), data_dir, temp_cache)
         cls._update_cls(result)
-        print('--- update type', type(result))
         _LOGGER.debug(f'Loaded database using config file {file_path} and data directory {data_dir}.')
         return result
 

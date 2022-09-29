@@ -407,8 +407,6 @@ class Table:
             dictionary=self._degree_attributes,
             func_kwargs=dict(new_data=degree, variant='degree')
         )
-        print(self.name, 'augment size', augmented.shape, degree.shape)
-        print('augmented columns', augmented.columns)
         _LOGGER.debug(f'Augmented {self._name} has columns {augmented.columns.values}. '
                       f'The augmented table has {len(augmented)} rows, and degree table has {len(degree)} rows.')
         self._augment_fitted = True
@@ -584,14 +582,8 @@ class Table:
     def _attr2catdim(attributes: Dict[str, BaseAttribute]) -> List[Tuple[int, int]]:
         base, res = 0, []
         for name, attr in attributes.items():
-            try:
-                res += attr.categorical_dimensions(base)
-                base += len(attr.transformed_columns)
-            except Exception as e:
-                print('exception', attr.name, attr.atype)
-                if attr.atype == 'categorical':
-                    print(attr._transformer.label2id)
-                raise e
+            res += attr.categorical_dimensions(base)
+            base += len(attr.transformed_columns)
         return res
 
     @property
@@ -745,7 +737,6 @@ class SyntheticTable(Table):
         synthetic._fitted = table._fitted
         synthetic._attributes = table._attributes
         synthetic._describer_cache = table._temp_cache
-        print('create syn tecmp cache', synthetic._temp_cache)
         return synthetic
 
     def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
@@ -781,17 +772,12 @@ class SyntheticTable(Table):
             else:
                 recovered = attribute.inverse_transform(normalized_core[col])
             recovered_df[col] = recovered
-        print('here receovered', recovered_df.columns)
 
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
-        print('temp cache', self._temp_cache)
-        print('so this is core', recovered_df.head())
-        # complete_data = pd.read_pickle(self._data_path())
         for i, det in enumerate(self._determinants):
             leader = det[0]
             with open(self._describer_path(i), 'r') as f:
                 describer = json.load(f)
-            # for grp_name, data in complete_data.groupby(by=[leader], sort=False, dropna=False):
             for grp_name, data in recovered_df.groupby(by=[leader], sort=False, dropna=False):
                 if pd.isnull(grp_name):
                     grp_name = self._attributes[leader].fill_nan_val

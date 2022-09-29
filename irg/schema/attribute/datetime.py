@@ -45,11 +45,9 @@ class DatetimeTransformer(NumericalTransformer):
         original.to_pickle(self._as_date_path)
         original = original.apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
         original.to_pickle(self._data_path)
-        print(original.shape, nan_info.shape, nan_info.columns, original.isna().sum())
         nan_info.loc[:, 'original'] = nan_info['original'].apply(lambda x: x.toordinal()).astype('float32')
         nan_info = nan_info.astype({'original': 'float32'})
         super()._fit(original, nan_info)
-        print('fit scaler', self._minmax_scaler.min_, self._minmax_scaler.data_max_)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info = nan_info.copy()
@@ -126,7 +124,6 @@ class TimedeltaTransformer(NumericalTransformer):
         original.to_pickle(self._data_path)
         nan_info.iloc[:, 'original'] = original
         super()._fit(original, nan_info)
-        print('fit scaler', self._minmax_scaler.min_, self._minmax_scaler.data_max_)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info = nan_info.copy()

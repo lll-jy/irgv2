@@ -26,7 +26,6 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
 
     **Return**: Augmented database.
     """
-    print('save db to', save_db_to)
     if save_db_to is not None and resume and os.path.exists(save_db_to):
         database = DB_TYPE_BY_NAME[mtype].load_from_dir(save_db_to)
         _LOGGER.info(f'Loaded database from {save_db_to}.')
