@@ -331,7 +331,8 @@ class Database:
                 'primary_keys': self._primary_keys,
                 'foreign_keys': {n: [fk.dict for fk in v] for n, v in self._foreign_keys.items()},
                 'data_dir': self._data_dir,
-                'order': list(self._table_paths.keys())
+                'order': list(self._table_paths.keys()),
+                'mtype': self.mtype
             }, f, indent=2)
             _LOGGER.debug(f'Saved config file to {os.path.join(path, "config.json")}.')
 
@@ -340,6 +341,23 @@ class Database:
             _LOGGER.debug(f'Saved generated table {name} to {os.path.join(path, f"{name}.pkl")}.')
 
         _LOGGER.debug(f'Saved {self.__class__} to {path}.')
+
+    @classmethod
+    def get_mtype_from_dir(cls, path) -> str:
+        """
+        Get mechanism type from saved directory.
+
+        **Args**:
+
+        - `path` (`str`): The path the database is saved at.
+
+        **Return**: The mechanism type of the database
+        """
+        with open(os.path.join(path, 'config.json'), 'r') as f:
+            content = json.load(f)
+        if 'mtype' not in content:
+            return 'affecting'
+        return content['mtype']
 
     @property
     def all_joined(self) -> Table:

@@ -326,6 +326,7 @@ class Table:
         joined = left_data.merge(right_data, how=how, left_on=left_on, right_on=right_on)
 
         os.makedirs(os.path.join(self._temp_cache, 'pair_joined'), exist_ok=True)
+        print('temp cache', self._temp_cache)
         result = Table(
             name=descr if descr is not None else f'{self._name}_{how}_join_{right._name}',
             need_fit=False, id_cols=id_cols, data=joined,

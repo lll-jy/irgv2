@@ -55,6 +55,25 @@ generate:
 	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
 
 
+evaluate:
+	-mkdir -p examples/evaluate.nosync
+	-mkdir -p examples/evaluate.nosync/${DB_NAME}
+	-mkdir -p examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}
+	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 evaluate \
+		--real_db_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
+		--fake_db_dir examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db \
+		--save_eval_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/trivial \
+		--save_complete_result_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/complete \
+		--save_synthetic_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/synthetic \
+		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/real \
+		--save_visualization_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/visualization \
+		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result > log.txt
+	du -sh .temp.nosync
+	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
+	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
+	du -sh examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}
+
+
 kill:
 	-pkill -9 -f main.py
 	-pkill -9 -f torch.multiprocessing.spawn
@@ -74,3 +93,7 @@ clear_ckpt: kill
 
 clear_gen: kill
 	-rm -r examples/generated.nosync/${DB_NAME}/${EXP_NAME}/
+
+
+clear_eval: kill
+	-rm -r examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/

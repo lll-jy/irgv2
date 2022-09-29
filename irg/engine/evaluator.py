@@ -6,6 +6,7 @@ import os
 import pandas as pd
 
 from ..schema import Database, SyntheticDatabase
+from ..schema.database import DB_TYPE_BY_NAME, SYN_DB_TYPE_BY_NAME
 from ..metrics import SyntheticDatabaseEvaluator
 
 
@@ -45,12 +46,12 @@ def evaluate(real: Union[str, Database],
     are corresponding evaluation results.
     """
     if isinstance(real, str):
-        real = Database.load_from_dir(real)
+        real = DB_TYPE_BY_NAME[Database.get_mtype_from_dir(real)].load_from_dir(real)
     if not isinstance(synthetic, Dict):
         synthetic = {'synthetic': synthetic}
     for descr, syn_db in synthetic.items():
         if isinstance(syn_db, str):
-            synthetic[descr] = SyntheticDatabase.load_from_dir(syn_db)
+            synthetic[descr] = SYN_DB_TYPE_BY_NAME[SyntheticDatabase.get_mtype_from_dir(syn_db)].load_from_dir(syn_db)
 
     evaluator = SyntheticDatabaseEvaluator(real, **constructor_args)
     results = {
