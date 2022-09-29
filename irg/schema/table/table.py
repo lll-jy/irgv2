@@ -717,6 +717,14 @@ class Table:
 
 class SyntheticTable(Table):
     """Synthetic counterpart of real tables."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._describer_cache = '.temp' if 'temp_cache' not in kwargs else kwargs['temp_cache']
+
+    def _describer_path(self, idx: int) -> str:
+        return os.path.join(self._describer_cache, 'describers', f'describer{idx}.json')
+
     @classmethod
     def from_real(cls, table: Table, temp_cache: Optional[str] = None) -> "SyntheticTable":
         """
@@ -736,6 +744,7 @@ class SyntheticTable(Table):
                                    temp_cache=temp_cache if temp_cache is not None else table._temp_cache)
         synthetic._fitted = table._fitted
         synthetic._attributes = table._attributes
+        synthetic._describer_cache = table._temp_cache
         print('create syn tecmp cache', synthetic._temp_cache)
         return synthetic
 
@@ -760,7 +769,7 @@ class SyntheticTable(Table):
         }
         normalized_core = inverse_convert_data(normalized_core, pd.concat({
             n: pd.DataFrame(columns=v) for n, v in columns.items()
-            if self._attributes[n].atype != 'id'
+            if self._attributes[n].atype != 'id' and n in self._core_cols
         }, axis=1).columns)[[col for col in self._core_cols if self._attributes[col].atype != 'id']]
 
         recovered_df = pd.DataFrame()
@@ -772,15 +781,18 @@ class SyntheticTable(Table):
             else:
                 recovered = attribute.inverse_transform(normalized_core[col])
             recovered_df[col] = recovered
+        print('here receovered', recovered_df.columns)
 
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
         print('temp cache', self._temp_cache)
-        complete_data = pd.read_pickle(self._data_path())
+        print('so this is core', recovered_df.head())
+        # complete_data = pd.read_pickle(self._data_path())
         for i, det in enumerate(self._determinants):
             leader = det[0]
             with open(self._describer_path(i), 'r') as f:
                 describer = json.load(f)
-            for grp_name, data in complete_data.groupby(by=[leader], sort=False, dropna=False):
+            # for grp_name, data in complete_data.groupby(by=[leader], sort=False, dropna=False):
+            for grp_name, data in recovered_df.groupby(by=[leader], sort=False, dropna=False):
                 if pd.isnull(grp_name):
                     grp_name = self._attributes[leader].fill_nan_val
                 grp_name = str(grp_name)
@@ -797,7 +809,8 @@ class SyntheticTable(Table):
                     data.loc[data[col] == nan_val, col] = np.nan
                 recovered_df.loc[data.index, det[1:]] = generated
                 os.remove(f'{tempfile_name}.json')
-        os.removedirs(os.path.join(self._temp_cache, 'temp_det'))
+        if os.path.exists(os.path.join(self._temp_cache, 'temp_det')):
+            shutil.rmtree(os.path.join(self._temp_cache, 'temp_det'))
 
         for col, formula in self._formulas:
             recovered_df[col] = recovered_df.apply(eval(formula), axis=1)
@@ -806,7 +819,15 @@ class SyntheticTable(Table):
         if replace_content:
             recovered_df.to_pickle(self._data_path())
             for n, v in columns.items():
-                pd_to_pickle(pd.DataFrame(normalized_core[n], columns=v), self._normalized_path(n))
+                if self._attributes[n].atype != 'id':
+                    if n in normalized_core:
+                        pd_to_pickle(pd.DataFrame(normalized_core[n], columns=v), self._normalized_path(n))
+                    else:
+                        pd_to_pickle(pd.DataFrame(
+                            self._attributes[n].transform(recovered_df[n]), columns=v),
+                            self._normalized_path(n)
+                        )
+            self._length = len(recovered_df)
 
         return recovered_df
 

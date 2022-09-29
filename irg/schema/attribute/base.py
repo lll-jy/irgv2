@@ -221,8 +221,10 @@ class BaseTransformer:
         """
         if not self._fitted:
             raise NotFittedError('Transformer', 'inversely transforming other data')
+        print('here inversely transformed')
         self._load_additional_info()
         data = inverse_convert_data(data, self._transformed_columns)
+        print('inverse data', data.head())
         core_data = data.drop(columns=['is_nan'])
         recovered_no_nan = self._inverse_transform(core_data)
         if nan_thres is not None:
@@ -231,7 +233,11 @@ class BaseTransformer:
             if nan_ratio is None:
                 original = pd.read_pickle(self._data_path)
                 nan_ratio = original.count() / len(original)
-            threshold = data['is_nan'].quantile(1 - nan_ratio)
+                print('hello??', original.isna().sum())
+            threshold = data['is_nan'].quantile(nan_ratio)
+            print('is here', nan_ratio)
+        print('inverse no nan', recovered_no_nan.head())
+        print('threshold', threshold)
         recovered_no_nan[data['is_nan'] > threshold] = np.nan
         self._unload_additional_info()
         return recovered_no_nan

@@ -19,7 +19,7 @@ prepare_small_alset:
             sis_enrolment \
         --sample 50
 
-train_small:
+train:
 	-python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp.nosync train_gen \
         --db_config_path examples/data.nosync/${DB_NAME}/${DATA_VERSION}_db_config.json \
         --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION} \
@@ -34,7 +34,7 @@ train_small:
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 
 
-generate_small:
+generate:
 	-mkdir -p examples/generated.nosync/${DB_NAME}/${EXP_NAME}
 	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 train_gen \
         --db_config_path examples/data.nosync/${DB_NAME}/${DATA_VERSION}_db_config.json \

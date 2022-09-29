@@ -71,11 +71,10 @@ def _optional_default_dict(original: Optional[Dict], default_val: Any) -> Defaul
 
 def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: float, batch_size: int, temp_cache: str) \
         -> Table:
-    print('temp cache')
     syn_table = SyntheticTable.from_real(table, temp_cache)
     need_rows = round(len(table) * scale)
     output = trainer.inference(torch.zeros(need_rows, 0), batch_size).output
-    syn_table.inverse_transform(output)
+    syn_table.inverse_transform(output, replace_content=True)
     return syn_table
 
 
@@ -89,5 +88,5 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularT
     syn_table.assign_degrees(degrees)
     known_tab, _, _ = syn_table.ptg_data
     output = tab_trainer.inference(known_tab, tab_batch_size).output
-    syn_table.inverse_transform(output)
+    syn_table.inverse_transform(output, replace_content=True)
     return syn_table
