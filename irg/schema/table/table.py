@@ -251,6 +251,8 @@ class Table:
             'augmented': self._augmented_normalized_path,
             'degree': self._degree_normalized_path
         }
+        if isinstance(n, str):
+            n = n.replace('/', ':')
         pd_to_pickle(transformed, path_by_variant[variant](n))
         return 0
 
@@ -327,6 +329,7 @@ class Table:
 
         os.makedirs(os.path.join(self._temp_cache, 'pair_joined'), exist_ok=True)
         descr = descr if descr is not None else f'{self._name}_{how}_join_{right._name}'
+        print('pair joined', descr, right._name, 'to', os.path.join(self._temp_cache, 'pair_joined', descr))
         result = Table(
             name=descr,
             need_fit=False, id_cols=id_cols, data=joined,
@@ -348,7 +351,6 @@ class Table:
 
         result._attributes = {}
         for n, v in self._attributes.items():
-            print('v type', type(v))
             result._attributes[f'{self._name}/{n}'] = v.rename(f'{self._name}/{v.name}', inplace=False)
         for n, v in right._attributes.items():
             result._attributes[f'{right._name}/{n}'] = v.rename(f'{right._name}/{v.name}', inplace=False)
