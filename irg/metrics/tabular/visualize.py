@@ -85,10 +85,10 @@ class TableVisualizer:
         reduced_real = dim_reducer.transform(real_data.drop(columns=['label']))
         reduced_synthetic = dim_reducer.transform(synthetic_data.drop(columns=['label']))
         reduced_real, reduced_synthetic = pd.DataFrame(reduced_real), pd.DataFrame(reduced_synthetic)
-        reduced_real.loc[:, 'label'] = 1
-        reduced_synthetic.loc[:, 'label'] = 0
+        reduced_real.loc[:, 'label'] = 'real'
+        reduced_synthetic.loc[:, 'label'] = 'fake'
         combined_reduced = pd.concat([reduced_real, reduced_synthetic]).reset_index(drop=True)
-        plot = sns.pairplot(combined_reduced, hue='label', plot_kws={'s': 10})
+        plot = sns.pairplot(combined_reduced, hue='label', plot_kws={'s': 10, 'alpha': 0.8})
 
         descr = self._real.name if descr is None else descr
         plot.savefig(os.path.join(save_dir, f'{descr}.png'))

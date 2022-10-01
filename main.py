@@ -119,7 +119,7 @@ def _parse_eval_args(parser: ArgumentParser):
     constructor_group.add_argument('--eval_parent_child', type=bool, default=None)
     constructor_group.add_argument('--eval_joined', type=bool, default=None)
     constructor_group.add_argument('--eval_queries', type=bool, default=None)
-    constructor_group.add_argument('--tables', type=str, nargs='*', default=[])
+    constructor_group.add_argument('--tables', type=str, nargs='*', default=None)
     constructor_group.add_argument('--parent_child_pairs_from_file', type=str, default=None)
     constructor_group.add_argument('--all_direct_parent_child', type=bool, default=None)
     constructor_group.add_argument('--queries_from_file', type=str, default=None)
