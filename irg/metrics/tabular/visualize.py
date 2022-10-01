@@ -75,8 +75,8 @@ class TableVisualizer:
             synthetic_data = synthetic_data.sample(n=n_synthetic, replace=False)
         real_data.columns = [':'.join(c) for c in real_data.columns]
         synthetic_data.columns = [':'.join(c) for c in synthetic_data.columns]
-        real_data['label'] = 1
-        synthetic_data['label'] = 0
+        real_data.loc[:, 'label'] = 1
+        synthetic_data.loc[:, 'label'] = 0
         combined = pd.concat([real_data, synthetic_data]).reset_index(drop=True)
         X = combined.drop(columns=['label'])
         y = combined['label']
@@ -84,8 +84,9 @@ class TableVisualizer:
         dim_reducer.fit(X, y)
         reduced_real = dim_reducer.transform(real_data.drop(columns=['label']))
         reduced_synthetic = dim_reducer.transform(synthetic_data.drop(columns=['label']))
-        reduced_real['label'] = 1
-        reduced_synthetic['label'] = 0
+        reduced_real, reduced_synthetic = pd.DataFrame(reduced_real), pd.DataFrame(reduced_synthetic)
+        reduced_real.loc[:, 'label'] = 1
+        reduced_synthetic.loc[:, 'label'] = 0
         combined_reduced = pd.concat([reduced_real, reduced_synthetic]).reset_index(drop=True)
         plot = sns.pairplot(combined_reduced, hue='label', plot_kws={'s': 10})
 

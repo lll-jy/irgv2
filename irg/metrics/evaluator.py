@@ -188,7 +188,6 @@ class SyntheticDatabaseEvaluator:
         results, summary = {}, {}
         os.makedirs(os.path.join(self._table_dir, 'complete', descr), exist_ok=True)
         for type_descr, evaluators_in_type in self._evaluators.items():
-            print('evaluate type', type_descr)
             type_results, type_summary = {}, {}
             if save_eval_res_to is not None:
                 os.makedirs(os.path.join(save_eval_res_to, type_descr), exist_ok=True)
@@ -197,7 +196,6 @@ class SyntheticDatabaseEvaluator:
             os.makedirs(os.path.join(self._table_dir, 'complete', descr, type_descr), exist_ok=True)
 
             for table_descr, evaluator in evaluators_in_type.items():
-                print('evaluate table', table_descr)
                 real_table = self._real_tables[type_descr][table_descr]
                 real_table = Table.load(real_table)
                 synthetic_table = synthetic_tables[type_descr][table_descr]
@@ -224,6 +222,7 @@ class SyntheticDatabaseEvaluator:
             _LOGGER.info(f'Finished evaluating {type_descr}.')
 
         if save_complete_result_to is not None:
+            os.makedirs(os.path.dirname(save_complete_result_to), exist_ok=True)
             with open(save_complete_result_to, 'wb') as f:
                 pickle.dump(results, f)
         result = pd.concat(summary, axis=1)

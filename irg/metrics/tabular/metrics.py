@@ -273,10 +273,12 @@ class MLClfMetric(BaseMetric):
 
         res = pd.DataFrame()
         for name, (y_col, x_cols) in self._tasks.items():
-            X_test, y_test = real_data[x_cols], real_data[y_col]
-            X_train, y_train = synthetic_data[x_cols], real_data[y_col]
+            X_train, y_train = real_data[x_cols], real_data[y_col]
+            X_test, y_test = synthetic_data[x_cols], synthetic_data[y_col]
             y_test = real.attributes[y_col].inverse_transform(y_test)
             y_train = real.attributes[y_col].inverse_transform(y_train)
+            if len(y_train.unique()) <= 1:
+                continue
             for model_name, (model_type, model_kwargs) in self._models.items():
                 model = _CLASSIFIERS[model_type](**model_kwargs)
                 model.fit(X_train, y_train)
@@ -351,8 +353,9 @@ class MLRegMetric(BaseMetric):
 
         res = pd.DataFrame()
         for name, (y_col, x_cols) in self._tasks.items():
-            X_test, y_test = real_normalized.loc[:, x_cols], real_raw[y_col]
-            X_train, y_train = synthetic_normalized.loc[:, x_cols], real_raw[y_col]
+            X_train, y_train = real_normalized.loc[:, x_cols], real_raw[y_col]
+            X_test, y_test = synthetic_normalized.loc[:, x_cols], synthetic_raw[y_col]
+            y_train, y_test = y_train.fillna(y_train.mean()), y_test.fillna(y_test.mean())
             if real.attributes[y_col].atype != 'numerical':
                 y_test = y_test.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
                 y_train = y_train.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
