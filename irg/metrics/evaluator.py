@@ -13,6 +13,7 @@ There are four types of tabular data that can be extracted:
 - `queries`: Tables constructed by some SQL queries (arbitrary query applicable in this database). Names of tabular data
   in this set are up to the user to specify.
 """
+import logging
 from collections import defaultdict
 from typing import Optional, List, Dict, Any, DefaultDict, Union
 import os
@@ -24,11 +25,13 @@ from ..schema import Database, SyntheticDatabase, Table
 from ..schema.database.base import ForeignKey
 from .tabular import SyntheticTableEvaluator, TableVisualizer
 
+_LOGGER = logging.getLogger()
+
 
 class SyntheticDatabaseEvaluator:
     """Evaluator for synthetic database generation on tabular data extracted from the database."""
     def __init__(self, real: Database,
-                 eval_tables: bool = True, eval_parent_child: bool = True, eval_joined: bool = True,
+                 eval_tables: bool = True, eval_parent_child: bool = True, eval_joined: bool = False,
                  eval_queries: bool = True,
                  tables: Optional[List[str]] = None,
                  parent_child_pairs: Optional[List[Union[ForeignKey, Dict[str, Any]]]] = None,
@@ -43,6 +46,7 @@ class SyntheticDatabaseEvaluator:
         - `real` (`Database`): The real database.
         - `eval_tables`, `eval_parent_child`, `eval_joined`, `eval_queries` (`bool`): Whether to apply tabular
           evaluation on this set of tabular data extracted from the database.
+          Default is T, T, F, F.
         - `tables` (`Optional[List[str]]`): The set of table names in `tables` tabular data type. If not provided,
           all tables are evaluated.
         - `parent_child_pairs` (`Optional[List[Union[ForeignKey, Dict[str, Any]]]]`): List of foreign keys to join to
@@ -78,6 +82,8 @@ class SyntheticDatabaseEvaluator:
         self._queries = queries if queries is not None else {}
         self._query_args = query_args if isinstance(query_args, DefaultDict) else defaultdict(dict, query_args) \
             if query_args is not None else defaultdict(dict)
+        tabular_args = tabular_args if tabular_args is not None else {}
+        default_args = default_args if default_args is not None else {}
 
         self._table_dir = save_tables_to
         os.makedirs(self._table_dir, exist_ok=True)
@@ -113,6 +119,7 @@ class SyntheticDatabaseEvaluator:
                 saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'tables', f'{table}.pkl')
                 db[table].save(saved_path)
                 result['tables'][table] = saved_path
+            _LOGGER.debug(f'Constructed tables for {db_descr}.')
 
         if self._eval_parent_child:
             os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'parentchild'), exist_ok=True)
@@ -122,12 +129,14 @@ class SyntheticDatabaseEvaluator:
                 saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'parentchild', f'{descr}.pkl')
                 db.join(fk).save(saved_path)
                 result['parent child'][descr] = saved_path
+            _LOGGER.debug(f'Construct parent-child joined tables for {db_descr}.')
 
         if self._eval_joined:
             os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'joined'), exist_ok=True)
             saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'joined', 'joined.pkl')
             db.all_joined.save(saved_path)
             result['joined'] = {'joined': saved_path}
+            _LOGGER.debug(f'Construct all-joined table for {db_descr}.')
 
         if self._eval_queries:
             os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'queries'), exist_ok=True)
@@ -136,6 +145,9 @@ class SyntheticDatabaseEvaluator:
                 saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'queries', f'{descr}.pkl')
                 db.query(query, descr, **self._query_args[descr]).save(saved_path)
                 result['queries'][descr] = saved_path
+            _LOGGER.debug(f'Construct query tables for {db_descr}.')
+
+        _LOGGER.info(f'Constructed all tables for evaluation for {db_descr}.')
 
         return result
 
@@ -176,6 +188,7 @@ class SyntheticDatabaseEvaluator:
         results, summary = {}, {}
         os.makedirs(os.path.join(self._table_dir, 'complete', descr), exist_ok=True)
         for type_descr, evaluators_in_type in self._evaluators.items():
+            print('evaluate type', type_descr)
             type_results, type_summary = {}, {}
             if save_eval_res_to is not None:
                 os.makedirs(os.path.join(save_eval_res_to, type_descr), exist_ok=True)
@@ -184,6 +197,7 @@ class SyntheticDatabaseEvaluator:
             os.makedirs(os.path.join(self._table_dir, 'complete', descr, type_descr), exist_ok=True)
 
             for table_descr, evaluator in evaluators_in_type.items():
+                print('evaluate table', table_descr)
                 real_table = self._real_tables[type_descr][table_descr]
                 real_table = Table.load(real_table)
                 synthetic_table = synthetic_tables[type_descr][table_descr]
@@ -195,16 +209,23 @@ class SyntheticDatabaseEvaluator:
                 type_results[table_descr] = evaluator.result
                 type_summary[table_descr] = evaluator.summary(mean, smooth)
 
+                _LOGGER.info(f'Finished evaluating {type_descr} table {table_descr}.')
+
                 if save_visualization_to is not None:
                     visualizer = TableVisualizer(real_table, synthetic_table)
                     vis_dir = os.path.join(save_visualization_to, type_descr, table_descr)
                     os.makedirs(vis_dir, exist_ok=True)
                     for descr, args in visualize_args.items():
                         visualizer.visualize(descr=descr, save_dir=vis_dir, **args)
+                        _LOGGER.debug(f'Finished visualizing {type_descr} table {table_descr} version {descr}.')
+                    _LOGGER.info(f'Finished visualizing {type_descr} table {table_descr}.')
             results[type_descr] = type_results
             summary[type_descr] = pd.DataFrame(type_summary)
+            _LOGGER.info(f'Finished evaluating {type_descr}.')
 
         if save_complete_result_to is not None:
             with open(save_complete_result_to, 'wb') as f:
                 pickle.dump(results, f)
-        return pd.concat(summary, axis=1)
+        result = pd.concat(summary, axis=1)
+        _LOGGER.info(f'Finished evaluating database {descr}.')
+        return result

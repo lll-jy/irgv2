@@ -193,7 +193,6 @@ def fast_map_dict(func: FunctionType, dictionary: Dict, verbose_descr: Optional[
 
     **Return**: The returning iterables.
     """
-    import os
     items = dictionary.items()
     length = len(dictionary)
 

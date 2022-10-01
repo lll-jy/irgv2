@@ -81,6 +81,7 @@ class Table:
         os.makedirs(os.path.join(self._temp_cache, 'norm_aug'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'attributes'), exist_ok=True)
+        print('temp cache is ', self._temp_cache)
 
         if attributes is None:
             if data is None:
@@ -325,14 +326,18 @@ class Table:
             left_on.append(f'{self._name}/{left_col}')
             right_on.append(f'{right._name}/{right_col}')
 
+        for left_col, right_col in zip(left_on, right_on):
+            if left_data[left_col].dtype == 'O':
+                right_data = right_data.astype({right_col: 'O'})
+            elif right_data[right_col].dtype == 'O':
+                left_data = left_data.astype({left_col: 'O'})
         joined = left_data.merge(right_data, how=how, left_on=left_on, right_on=right_on)
 
         os.makedirs(os.path.join(self._temp_cache, 'pair_joined'), exist_ok=True)
         descr = descr if descr is not None else f'{self._name}_{how}_join_{right._name}'
-        print('pair joined', descr, right._name, 'to', os.path.join(self._temp_cache, 'pair_joined', descr))
         result = Table(
             name=descr,
-            need_fit=False, id_cols=id_cols, data=joined,
+            need_fit=True, id_cols=id_cols, data=joined,
             temp_cache=os.path.join(self._temp_cache, 'pair_joined', descr)
         )
         result._fitted = True
@@ -527,6 +532,7 @@ class Table:
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
         if self._length is None:
+            print('this table is ', self._name)
             raise NotFittedError('Table', 'getting its data')
         if variant == 'original':
             data = pd.read_pickle(self._data_path())
