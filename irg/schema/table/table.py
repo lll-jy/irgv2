@@ -166,6 +166,7 @@ class Table:
         return os.path.join(self._temp_cache, 'data.pkl')
 
     def _normalized_path(self, attr_name: str) -> str:
+        attr_name = attr_name.replace('/', ':')
         return os.path.join(self._temp_cache, 'normalized', f'{attr_name}.pkl')
 
     def _describer_path(self, idx: int) -> str:
