@@ -284,7 +284,7 @@ def _evaluate(args: Namespace):
         save_synthetic_tables_to=args.save_synthetic_tables_to, save_visualization_to=args.save_visualization_to
     )
     os.makedirs(args.save_all_res_to, exist_ok=True)
-    with open(os.path.join(args.save_all_res_to, 'result.pt'), 'wb') as f:
+    with open(os.path.join(args.save_all_res_to, 'result.pkl'), 'wb') as f:
         pickle.dump(result, f)
 
 
