@@ -67,7 +67,7 @@ evaluate:
 		--save_synthetic_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/synthetic \
 		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/real \
 		--save_visualization_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/visualization \
-		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result #> log.txt
+		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result > log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}

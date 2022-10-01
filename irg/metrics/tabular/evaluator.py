@@ -116,7 +116,15 @@ class SyntheticTableEvaluator:
     @property
     def result(self) -> pd.Series:
         """Evaluated result."""
-        return pd.concat(self._result)
+        # print('to concat', self._result)
+        result = {}
+        print('high im here')
+        for n, v in self._result.items():
+            while v.index.nlevels >= 2:
+                v = v.set_axis(['/'.join(x) for x in v.index])
+            result[n] = v
+            print(n, v.index.nlevels, v[:5].index)
+        return pd.concat(result)
 
     def summary(self, mean: str = 'arithmetic', smooth: float = 0.1) -> pd.Series:
         """

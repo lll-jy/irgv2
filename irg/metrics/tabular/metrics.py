@@ -84,7 +84,7 @@ class StatsMetric(BaseMetric):
                 synthetic_data[name] = synthetic_data[name] \
                     .apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
 
-        eval_res = sdv_evaluate(synthetic_data, real_data, metrics=self._stat_metrics, aggregate=False)
+        eval_res = sdv_evaluate(synthetic_data, real_data, metrics=self._metrics, aggregate=False)
         res = pd.Series()
         for i, row in eval_res.iterrows():
             res.loc[row['metric']] = row['raw_score']
@@ -208,13 +208,14 @@ class DetectionMetric(BaseMetric):
         self._split_kwargs = kwargs
 
     def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
-        real_data = real.data(with_id='none').copy()
-        real_data[':label'] = 1
-        synthetic_data = synthetic.data(with_id='none')
-        synthetic_data[':label'] = 0
+        real_data = real.data(with_id='none', normalize=True).copy()
+        real_data.loc[:, (':label', '')] = 1
+        synthetic_data = synthetic.data(with_id='this')
+        synthetic_data = real.transform(synthetic_data, with_id='none')
+        synthetic_data.loc[:, (':label', '')] = 0
         combined = pd.concat([real_data, synthetic_data]).reset_index(drop=True)
-        X = combined.drop(columns=[':label'])
-        y = combined[':label']
+        X = combined.drop(columns=[(':label', '')])
+        y = combined[(':label', '')]
         X_train, X_test, y_train, y_test = train_test_split(X, y, **self._split_kwargs)
 
         res = pd.Series()
@@ -261,8 +262,9 @@ class MLClfMetric(BaseMetric):
         self._mean, self._smooth = mean, smooth
 
     def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
-        real_data = real.data(with_id='none')
-        synthetic_data = synthetic.data(with_id='none')
+        real_data = real.data(with_id='none', normalize=True)
+        synthetic_data = synthetic.data(with_id='this')
+        synthetic_data = real.transform(synthetic_data, with_id='none')
 
         if self._run_default:
             for name, attr in real.attributes.items():
@@ -273,6 +275,8 @@ class MLClfMetric(BaseMetric):
         for name, (y_col, x_cols) in self._tasks.items():
             X_test, y_test = real_data[x_cols], real_data[y_col]
             X_train, y_train = synthetic_data[x_cols], real_data[y_col]
+            y_test = real.attributes[y_col].inverse_transform(y_test)
+            y_train = real.attributes[y_col].inverse_transform(y_train)
             for model_name, (model_type, model_kwargs) in self._models.items():
                 model = _CLASSIFIERS[model_type](**model_kwargs)
                 model.fit(X_train, y_train)
@@ -333,26 +337,30 @@ class MLRegMetric(BaseMetric):
         self._mean, self._smooth = mean, smooth
 
     def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
-        real_data = real.data(with_id='none')
-        synthetic_data = synthetic.data(with_id='none')
+        real_raw = real.data(with_id='this')
+        synthetic_raw = synthetic.data(with_id='this')
+        real_normalized = real.transform(real_raw, with_id='none')
+        synthetic_normalized = real.transform(synthetic_raw, with_id='none')
 
         if self._run_default:
             for name, attr in real.attributes.items():
                 if attr.atype in {'numerical', 'datetime', 'timedelta'}:
-                    self._tasks[f'{name}_from_all'] = (name, [col for col in real_data.columns if col != name])
+                    self._tasks[f'{name}_from_all'] = (name, [
+                        col for col in real_raw.columns if col != name and real.attributes[col].atype != 'id'
+                    ])
 
         res = pd.DataFrame()
         for name, (y_col, x_cols) in self._tasks.items():
-            X_test, y_test = real_data[x_cols], real_data[y_col]
-            X_train, y_train = synthetic_data[x_cols], real_data[y_col]
+            X_test, y_test = real_normalized.loc[:, x_cols], real_raw[y_col]
+            X_train, y_train = synthetic_normalized.loc[:, x_cols], real_raw[y_col]
             if real.attributes[y_col].atype != 'numerical':
                 y_test = y_test.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
                 y_train = y_train.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
             scaler = MinMaxScaler()
             scaler.partial_fit(y_test.to_frame())
             scaler.partial_fit(y_train.to_frame())
-            y_test = scaler.transform(y_test)
-            y_train = scaler.transform(y_train)
+            y_test = scaler.transform(y_test.values.reshape(-1, 1))
+            y_train = scaler.transform(y_train.values.reshape(-1, 1))
             for model_name, (model_type, model_kwargs) in self._models.items():
                 model = _REGRESSORS[model_type](**model_kwargs)
                 model.fit(X_train, y_train)
@@ -420,7 +428,7 @@ class DegreeMetric(BaseMetric):
 
     def evaluate(self, real: Table, synthetic: SyntheticTable, save_to: Optional[str] = None) -> pd.Series:
         real_data, synthetic_data = real.data(), synthetic.data()
-        res = pd.Series
+        res = pd.Series()
         for descr, columns in self._count_on.items():
             real_freq = real_data.groupby(by=columns, dropna=False, sort=False).size() * self._scaling[descr]
             synthetic_freq = synthetic_data.groupby(by=columns, dropna=False, sort=False).size()

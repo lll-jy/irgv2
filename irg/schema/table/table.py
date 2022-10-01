@@ -81,7 +81,6 @@ class Table:
         os.makedirs(os.path.join(self._temp_cache, 'norm_aug'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'attributes'), exist_ok=True)
-        print('temp cache is ', self._temp_cache)
 
         if attributes is None:
             if data is None:
@@ -512,6 +511,15 @@ class Table:
         os.removedirs(os.path.join(self._temp_cache, 'temp_det'))
         return describers
 
+    def transform(self, data: Data2D, with_id: IdPolicy = 'this', core_only: bool = False, return_as: Data2DName = 'pandas') -> Data2D:
+        exclude_cols = self._id_cols if with_id == 'none' else set()
+        exclude_cols |= {col for col in self._attributes if col not in self._core_cols} if core_only else set()
+        data = pd.concat({
+            n: attr.transform(data[n], return_as)
+            for n, attr in self._attributes.items() if n not in exclude_cols
+        }, axis=1)
+        return convert_data_as(data, return_as)
+
     def data(self, variant: Variant = 'original', normalize: bool = False,
              with_id: IdPolicy = 'this', core_only: bool = False, return_as: Data2DName = 'pandas') -> Data2D:
         """
@@ -533,7 +541,6 @@ class Table:
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
         if self._length is None:
-            print('this table is ', self._name)
             raise NotFittedError('Table', 'getting its data')
         if variant == 'original':
             data = pd.read_pickle(self._data_path())
