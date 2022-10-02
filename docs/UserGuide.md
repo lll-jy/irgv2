@@ -36,11 +36,11 @@ For convenience, we copy the relevant script here.
 
 The following table shows the variables of the script.
 
-| Name | Default | Description | 
-|:---|:---|:---|
-|`DB_NAME`|`rtd`|Name of predefined database.|
-|`SRC_DATA_DIR`|`src`|Path of directory holding the source data files.|
-|`DATA_OUTPUT_DIR`|`data`|Path of directory to save processed data and metadata files to.|
+| Name              | Default | Description                                                     | 
+|:------------------|:--------|:----------------------------------------------------------------|
+| `DB_NAME`         | `rtd`   | Name of predefined database.                                    |
+| `SRC_DATA_DIR`    | `src`   | Path of directory holding the source data files.                |
+| `DATA_OUTPUT_DIR` | `data`  | Path of directory to save processed data and metadata files to. |
 
 #### Input Structure
 
@@ -77,13 +77,21 @@ One can see `examples` package for demonstration of how to process datasets, and
 add processing code for their own databases in this package.
 
 
+# Config Preparation
+
+All configure-able settings have default settings,
+so it's OK to not provide any configurations.
+However, it is suggested to at least specify some for better performance.
+Details on how to prepare configurations throughout all stages
+(training, generation, and evaluation) can be found in [configuration](./configuration).
+
 # Training
 
 ## Preparation
 
 1. Make sure the database configuration file is prepared.
-1. Make sure the data content of each table is saved in one directory and named nicely.
-1. Make sure paths of the cached database directories, log directories, and checkpoint directories exist up to the 
+2. Make sure the data content of each table is saved in one directory and named nicely.
+3. Make sure paths of the cached database directories, log directories, and checkpoint directories exist up to the 
    level of the directories directly holding these directories, and these directories do not contain unwanted 
    and/or un-overridable information. 
 
@@ -109,13 +117,13 @@ For convenience, we copy the relevant script (CPU) here.
 
 The following table shows the variables of the script.
 
-| Name | Default | Description | 
-|:---|:---|:---|
-|`NUM_GPUS`|-|Number of GPUs (only used for distributed training).|
-|`PORT`|`1234`|Master port for distributed training (only used for distributed training).|
-|`DATA_OUTPUT_DIR`|`data`|Directory holding data of the database.|
-|`MTYPE`|`affecting`|Database joining mechanism name.|
-|`MODEL_OUTPUT_DIR`|`output`|Directory saving model outputs.|
+| Name               | Default     | Description                                                                | 
+|:-------------------|:------------|:---------------------------------------------------------------------------|
+| `NUM_GPUS`         | -           | Number of GPUs (only used for distributed training).                       |
+| `PORT`             | `1234`      | Master port for distributed training (only used for distributed training). |
+| `DATA_OUTPUT_DIR`  | `data`      | Directory holding data of the database.                                    |
+| `MTYPE`            | `affecting` | Database joining mechanism name.                                           |
+| `MODEL_OUTPUT_DIR` | `output`    | Directory saving model outputs.                                            |
 
 ### Input Structure
 
@@ -206,7 +214,7 @@ Arguments overridable from CLI include the following:
 ## Preparation
 
 1. Make sure checkpoints and cached database from training stage are saved nicely.
-1. Make sure paths of the output directories and cached fake database directories also exist up to the level of the 
+2. Make sure paths of the output directories and cached fake database directories also exist up to the level of the 
    directories directly holding these directories, and these directories do not contain unwanted and/or un-overridable 
    information.
 
@@ -239,10 +247,10 @@ For convenience, we copy the relevant script (CPU) here.
 
 The following table shows the variables of the script in addition to training stage.
 
-| Name | Default | Description | 
-|:---|:---|:---|
-|`GENERATE_OUTPUT_DIR`|`generated`|Output directory of generated output.|
-|`SCALING`|`1`|Scaling factor (uniform, i.e. for all tables).|
+| Name                  | Default     | Description                                    | 
+|:----------------------|:------------|:-----------------------------------------------|
+| `GENERATE_OUTPUT_DIR` | `generated` | Output directory of generated output.          |
+| `SCALING`             | `1`         | Scaling factor (uniform, i.e. for all tables). |
 
 ### Input Structure
 
@@ -279,8 +287,8 @@ For more details, one can consult `python3 main.py -h`.
 ## Preparation
 
 1. Make sure real database is saved by calling `save_to_dir` to some path.
-1. Make sure all synthetic databases for evaluation are saved by calling `save_to_dir` to some path.
-1. Prepare configuration files for evaluation if needed.
+2. Make sure all synthetic databases for evaluation are saved by calling `save_to_dir` to some path.
+3. Prepare configuration files for evaluation if needed.
 
 ## Use Make Script
 
@@ -307,12 +315,12 @@ For convenience, we copy the relevant script here.
  
 The following table shows the variables of the script.
 
-| Name | Default | Description | 
-|:---|:---|:---|
-|`MODEL_OUTPUT_DIR`|`output`|Training output directory.|
-|`FAKE_DB`|`fake_db`|Fake databases saved directory path (from `GENERATE_OUTPUT_DIR/fake_db` of generation). If multiple synthetic databases (based on the same real database) are to be evaluated, one can specify this variable as `CACHE_DB_FAKE=(DB1 DB2 DB3)`.|
-|`EVAL_CONFIG`|`eval_conf`|Path to configurations for evaluation. Should contain two files: `constructor.json` and `evaluate.json`.|
-|`EVAL_GENERATE_OUTPUT_DIR`|`evaluation`|Path to save the evaluation output.|
+| Name                       | Default      | Description                                                                                                                                                                                                                                    | 
+|:---------------------------|:-------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `MODEL_OUTPUT_DIR`         | `output`     | Training output directory.                                                                                                                                                                                                                     |
+| `FAKE_DB`                  | `fake_db`    | Fake databases saved directory path (from `GENERATE_OUTPUT_DIR/fake_db` of generation). If multiple synthetic databases (based on the same real database) are to be evaluated, one can specify this variable as `CACHE_DB_FAKE=(DB1 DB2 DB3)`. |
+| `EVAL_CONFIG`              | `eval_conf`  | Path to configurations for evaluation. Should contain two files: `constructor.json` and `evaluate.json`.                                                                                                                                       |
+| `EVAL_GENERATE_OUTPUT_DIR` | `evaluation` | Path to save the evaluation output.                                                                                                                                                                                                            |
 
 ### Input Structure
 
