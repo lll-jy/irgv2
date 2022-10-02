@@ -3,6 +3,9 @@ EXP_NAME=small
 DATA_VERSION=samples
 TAB_TRAINER_CFG=default
 DEG_TRAINER_CFG=default
+TAB_TRAIN_CFG=default
+DEG_TRAIN_CFG=default
+SCALING=1
 
 prepare_small_alset:
 	python3.9 process.py database alset \
@@ -44,6 +47,8 @@ train_cfg:
         --aug_resume \
         --default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
         --default_deg_trainer_args config/trainer/${DEG_TRAINER_CFG}.json \
+        --default_tab_train_args config/train/${TAB_TRAIN_CFG}.json \
+        --default_deg_train_args config/train/${DEG_TRAIN_CFG}.json \
         --default_tab_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_deg_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/deg \
         --default_tab_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/tab \
@@ -63,6 +68,32 @@ generate:
         --skip_train \
         --default_tab_train_resume True \
         --default_deg_train_resume True \
+        --default_tab_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/tab \
+        --default_deg_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_tab_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/tab \
+        --default_deg_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --save_generated_to examples/generated.nosync/${DB_NAME}/${EXP_NAME}/generated \
+        --save_synth_db examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db > log.txt
+	du -sh .temp.nosync
+	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
+	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
+
+
+generate_cfg:
+	-mkdir -p examples/generated.nosync/${DB_NAME}/${EXP_NAME}
+	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 train_gen \
+        --db_config_path examples/data.nosync/${DB_NAME}/${DATA_VERSION}_db_config.json \
+        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION} \
+        --db_dir_path examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
+        --aug_resume \
+		--default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
+		--default_deg_trainer_args config/trainer/${DEG_TRAINER_CFG}.json \
+		--default_tab_train_args config/train/${TAB_TRAIN_CFG}.json \
+		--default_deg_train_args config/train/${DEG_TRAIN_CFG}.json \
+        --skip_train \
+        --default_tab_train_resume True \
+        --default_deg_train_resume True \
+        --default_scaling ${SCALING} \
         --default_tab_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_deg_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/deg \
         --default_tab_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/tab \
