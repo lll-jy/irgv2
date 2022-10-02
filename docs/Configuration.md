@@ -3,12 +3,14 @@
 Some shared or non-temporary configuration can be written to configuration files.
 The suggested directories (which already contains some samples) are listed below.
 
-| Argument type                                | Suggested directory | Variable                             | Script argument                                                                                                  |
-|----------------------------------------------|---------------------|--------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [trainer argument](#trainer-arguments)       | config/trainer      | `TAB_TARINER_CFG`, `DEG_TRAINER_CFG` | `--default_tab_trainer_args`, `--default_deg_trainer_args`                                                       |
-| [train argument](#training-arguments)        | config/train        | `TAB_TRAIN_CFG`, `DEG_TRAIN_CFG`     | `--default_tab_train_args`, `--default_deg_train_args`                                                           |
-| [generation argument](#generation-arguments) | -                   | `SCALING`                            | `--default_scaling`, `--scaling`, `--default_gen_tab_bs`, `--gen_tab_bs`, `--default_gen_deg_bs`, `--gen_deg_bs` |
-| [evaluator argument](#evaluator-arguments)   | config/evaluator    | `EVALUATOR_CFG`                      | `--evaluator_path`                                                                                               |
+| Argument type                                      | Suggested directory | Variable                             | Script argument                                                                                                  |
+|----------------------------------------------------|---------------------|--------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [trainer argument](#trainer-arguments)             | config/trainer      | `TAB_TARINER_CFG`, `DEG_TRAINER_CFG` | `--default_tab_trainer_args`, `--default_deg_trainer_args`                                                       |
+| [train argument](#training-arguments)              | config/train        | `TAB_TRAIN_CFG`, `DEG_TRAIN_CFG`     | `--default_tab_train_args`, `--default_deg_train_args`                                                           |
+| [generation argument](#generation-arguments)       | -                   | `SCALING`                            | `--default_scaling`, `--scaling`, `--default_gen_tab_bs`, `--gen_tab_bs`, `--default_gen_deg_bs`, `--gen_deg_bs` |
+| [evaluator argument](#evaluator-arguments)         | config/evaluator    | `EVALUATOR_CFG`                      | `--evaluator_path`                                                                                               |
+| [evaluate argument](#evaluate-arguments)           | config/evaluate     | `EVALUATE_CFG`                       | `--evaluate_path`                                                                                                |
+| [visualization argument](#visualization-arguments) | config/evaluate     | `VIS_CFG`                            | `--visualize_args_from_file`                                                                                     |
 
 In the table above, the variable refers to the variable in `alset.makefile`, 
 and the script argument refers to `Python` script `main.py` argument.
@@ -183,3 +185,21 @@ We give a list of such settings for reference as follows.
    `"count_on"` as a dictionary mapping a short description of the degree checking to a list of column names to count 
    on. For example, counting modules of a student can be `"mod_per_st": ["student_token"]` in table for module 
    enrolment.
+
+
+# Evaluate Arguments
+
+Arguments to 
+[`SyntheticDatabaseEvaluator.evaluate`](../irg/metrics/evaluator#irg.metrics.evaluator.SyntheticDatabaseEvaluator.evaluate)
+except for synthetic database and description.
+
+One can also set by `Python` script CLI arguments.
+
+# Visualization Arguments
+
+This is in fact part of evaluate arguments.
+One can give a set of visualization settings to visualize the real and fake tables
+(or tables constructed by some method).
+Every set of visualization setting is a set of arguments to 
+[`TableVisualizer.visualize`](../irg/metrics/tabular/visualize#irg.metrics.tabular.visualize.TableVisualizer.visualize).
+In particular, one can try different reduction policies.

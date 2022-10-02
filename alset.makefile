@@ -6,6 +6,8 @@ DEG_TRAINER_CFG=default
 TAB_TRAIN_CFG=default
 DEG_TRAIN_CFG=default
 SCALING=1
+EVALUATOR_CFG=default
+EVALUATE_CFG=default
 
 prepare_small_alset:
 	python3.9 process.py database alset \
@@ -112,6 +114,27 @@ evaluate:
 	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 evaluate \
 		--real_db_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
 		--fake_db_dir examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db \
+		--save_eval_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/trivial \
+		--save_complete_result_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/complete \
+		--save_synthetic_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/synthetic \
+		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/real \
+		--save_visualization_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/visualization \
+		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result > log.txt
+	du -sh .temp.nosync
+	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
+	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
+	du -sh examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}
+
+
+evaluate_cfg:
+	-mkdir -p examples/evaluate.nosync
+	-mkdir -p examples/evaluate.nosync/${DB_NAME}
+	-mkdir -p examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}
+	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 evaluate \
+		--real_db_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
+		--fake_db_dir examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db \
+		--evaluator_path ${EVALUATOR_CFG} \
+		--evaluate_path ${EVALUATE_CFG} \
 		--save_eval_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/trivial \
 		--save_complete_result_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/complete \
 		--save_synthetic_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/synthetic \
