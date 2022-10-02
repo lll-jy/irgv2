@@ -97,3 +97,6 @@ clear_gen: kill
 
 clear_eval: kill
 	-rm -r examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/
+
+
+clear_all: clear_eval clear_gen clear_ckpt clear

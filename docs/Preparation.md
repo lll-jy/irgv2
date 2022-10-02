@@ -9,7 +9,7 @@ Usage of the processing code for pre-defined datasets can be found in [`UserGuid
 ## Create Examples Package
 
 1. In [examples](../examples) package, create a new package for the custom dataset.
-1. In the new package, create two sub-packages named `data` and `metadata` respectively.
+1. In the new package, create two sub-packages named `data` and `metadata`, and a `processor` module.
 1. In `data` package, create some files with data processing code.
     - The files can be ordered in arbitrary manner for the users' preference.
       It is suggested to group tables on relevant topics semantically together.
@@ -23,34 +23,85 @@ Usage of the processing code for pre-defined datasets can be found in [`UserGuid
       For more details on recommendations of how to do processing, please see 
       [next next section](#constructing-metadata).
     - In this package (`__init__.py`), export the metadata constructors of all tables.
-1. In the package handling this custom database, construct a dictionary mapping table names to data processors, and 
-   another dictionary mapping table names to metadata constructors. Export these two dictionaries.
-   The following is an example of `__init__.py` for any custom database package in `example`. 
+1. In the `processor` module, implement customized `Database` for this custom dataset.
+    - Declare a dictionary mapping table names to data processors like the following.
+        ```python
+        from typing import Dict
+        from types import FunctionType
+      
+        from . import data
+        MY_NEW_PROCESSORS: Dict[str, FunctionType] = {
+            'my_table1': data.my_table1,
+            'my_table2': data.my_table2
+        }
+        ```
+   
+    - Declare a dictionary mapping table names to metadata constructors like the following.
         ```python
         from typing import Dict
         from types import FunctionType
         
-        from . import data, metadata
-        
-        __all__ = (
-           'MY_NEW_PROCESSORS',
-           'MY_NEW_META_CONSTRUCTORS'
-        )
-        
-        MY_NEW_PROCESSORS: Dict[str, FunctionType] = {
-           'my_table1': data.my_table1,
-           'my_table2': data.my_table2
-        }
+        from . import metadata
         
         MY_NEW_META_CONSTRUCTORS: Dict[str, FunctionType] = {
            'my_table1': metadata.table1,
            'my_table2': metadata.table2
         }
         ```
+    
+    - Declare a dictionary mapping table names and source table files. 
+      There is no need to provide the full path. 
+      Instead, it is designated to use `src_data_dir`/`PATH_IN_DICT.pkl` (or `.csv`) based on user specification.
+      It is OK to specify some multi-level paths.
+      The following is an example.
+         ```python
+         from typing import Dict
+      
+         MY_NEW_PROCESS_NAME_MAP: Dict[str, str] = {
+             'my_table1': 'path/to/table1/without/ext',
+             'my_table2': 'path/to/table2/without/ext'
+         }
+    
+    - Extend `DatabaseProcessor` to create a customized processor and make use of the dictionaries declared above.
+      A typical implementation is shown below.
+         ```python
+         from typing import List, Optional, Dict
+         from types import FunctionType
+      
+         from ..processor import DatabaseProcessor
+      
+         class MyNewProcessor(DatabaseProcessor):
+             def __init__(self, src_data_dir: str, data_dir: str, meta_dir: str, out: str, tables: Optional[List[str]] = None):
+                 if tables is None:
+                     tables = [*MY_NEW_PROCESSORS]
+                 super().__init__('my_new_dataset', src_data_dir, data_dir, meta_dir, tables, out)
+      
+             @property
+             def _table_data_processors(self) -> Dict[str, FunctionType]:
+                 return ALSET_PROCESSORS
+
+             @property
+             def _table_src_name_map(self) -> Dict[str, str]:
+                 return ALSET_PROCESS_NAME_MAP
+
+             @property
+             def _table_metadata_constructors(self) -> Dict[str, FunctionType]:
+                 return ALSET_META_CONSTRUCTORS
+
+             @property
+             def _source_encoding(self) -> Optional[str]:
+                 return None
+         ```
+    - Implement customized `postprocess` method for the `DatabaseProcessor`.
+      It saves output to some directory on the disk, and do some processing if sampling (for smaller dataset for trial)
+      is needed.
+   
+1. In the package handling this custom database, export the three dictionaries and the extended processor from the 
+   previous step in `__init__.py`.
 
 1. In `examples/__init__.py`, import the processors dictionary and metadata constructors dictionary
    for the new database and add in the database-level dictionary for processors and metadata constructors.
-   (Add one element in `PROCESSORS` and `META_CONSTRUCTORS` respectively.)
+   (Add one element in `PROCESSORS`, `META_CONSTRUCTORS`, `PROCESS_NAME_MAP`, and `DATABASE_PROCESSOR` respectively.)
 
 ## Processing Data
 
