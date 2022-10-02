@@ -42,7 +42,7 @@ class CTGANTrainer(TabularTrainer):
               named as "gen_arg1").
                 - `optimizer` (`str`): Optimizer type, currently support "SGD", "Adam", and "AdamW" only.
                   Default is "AdamW".
-                - 'scheduler` (`str`): LR scheduler type, currently support "StepLR" and "ConstantLR" only.
+                - `scheduler` (`str`): LR scheduler type, currently support "StepLR" and "ConstantLR" only.
                   Default is "StepLR".
                 - Optimizer constructor arguments, all prefixed with "optim_". (That is, argument "arg1" under this
                   group will be named as "gen_optim_arg1".
