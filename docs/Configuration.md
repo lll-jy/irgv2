@@ -21,6 +21,7 @@ Some sample trainer argument specification is provided in `config/trainer`.
 The config files are JSON files.
 
 ## General Settings for All Tabular/Degree Trainers
+
 One can change the trainer model type (`CTGAN`, `TVAE`, or `MLP`) by setting `"trainer_type"` here.
 The trainer model type can also be set by `Python` script `--default_tab_trainer_trainer_type` and
 `--default_deg_trainer_trainer_type`.
@@ -74,6 +75,28 @@ Note that the list below is by no means complete.
 [TODO]
 
 # Training Arguments
+
+Some sample training argument specification is provided in `config/train`.
+The config files are JSON files.
+
+## General Settings for All Tabular/Degree Training
+
+One can change the training arguments either by configuration file or by `Python` script CLI arguments.
+This part corresponds to the [`Trainer.train`](../irg/utils/trainer#irg.utils.trainer.Trainer.train) method 
+(other than known and unknown input tensors).
+Accepted settings are shown as follows.
+
+| Config key     | Script argument for tabular      | Script argument for degree       |
+|----------------|----------------------------------|----------------------------------|
+| `"epochs"`     | `--default_tab_train_epochs`     | `--default_deg_train_epochs`     |
+| `"batch_size"` | `--default_tab_train_batch_size` | `--default_deg_train_batch_size` |
+| `"shuffle"`    | `--default_tab_train_shuffle`    | `--default_deg_train_shuffle`    |
+| `"save_freq"`  | `--default_tab_train_save_freq`  | `--default_deg_train_save_freq`  |
+| `"resume"`     | `--default_tab_train_resume`     | `--default_deg_train_resume`     |
+
+## Special Setting for Specific Training Tasks
+
+[TODO]
 
 # Generation Arguments
 
