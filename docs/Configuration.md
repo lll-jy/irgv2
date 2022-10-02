@@ -18,7 +18,9 @@ In the configuration files, all fields are optional because there is some defaul
 # Trainer Arguments
 
 Some sample trainer argument specification is provided in `config/trainer`.
-The config files are JSON files. 
+The config files are JSON files.
+
+## General Settings for All Tabular/Degree Trainers
 One can change the trainer model type (`CTGAN`, `TVAE`, or `MLP`) by setting `"trainer_type"` here.
 The trainer model type can also be set by `Python` script `--default_tab_trainer_trainer_type` and
 `--default_deg_trainer_trainer_type`.
@@ -40,9 +42,12 @@ Supported types include:
 2. [`TVAE`](../irg/tabular/tvae#irg.tabular.tvae.TVAETrainer).
 3. [`MLP`](../irg/tabular/mlp#irg.tabular.mlp.MLPTrainer).
 
-In the following subsections, we list some suggested hyperparameters for tuning.
+## Hyperparameters for Each Trainer Type
 
-## CTGAN Trainer
+In this section, we list some important hyperparameter settings.
+Note that the list below is by no means complete.
+
+### CTGAN Trainer
 
 - `embedding_dim`: Embedding dimensions for latent space.
 - `pac`: Set for mitigating mode collapse (if too small, might over-fit; if too large, might under-fit). 
@@ -51,18 +56,22 @@ In the following subsections, we list some suggested hyperparameters for tuning.
 - `gen_optim_weight_decay`: Generator weight decay.
 - `disc_optim_weight_decay`: Discriminator weight decay.
 
-## TVAE Trainer
+### TVAE Trainer
 
 - `embedding_dim`: Embedding dimensions for latent space.
 - `loss_factor`: Multiplier of reconstruction error.
 - `optim_lr`: Learning rate.
 - `optim_weight_decay`: Weight decay.
 
-## MLP Trainer
+### MLP Trainer
 
 - `hidden_dim`: MLP hidden dimensions (excluding input and output dimensions, as a tuple of integers.)
-- `lr`: Learning rate.
-- `weight_decay`: Weight decay.
+- `optim_lr`: Learning rate.
+- `optim_weight_decay`: Weight decay.
+
+## Special Setting for Specific Trainers
+
+[TODO]
 
 # Training Arguments
 
