@@ -78,11 +78,20 @@ class StatsMetric(BaseMetric):
             if attr.atype == 'categorical':
                 real_data[name] = real_data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
                 synthetic_data[name] = synthetic_data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
-            elif attr.atype == 'datetime':
-                real_data[name] = real_data[name] \
-                    .apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
-                synthetic_data[name] = synthetic_data[name] \
-                    .apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
+            else:
+                if attr.atype == 'datetime':
+                    real_data[name] = real_data[name] \
+                        .apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
+                    synthetic_data[name] = synthetic_data[name] \
+                        .apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
+                real_data[f'{name}:is_nan'] = real_data[name].apply(lambda x: 'y' if pd.isnull(x) else 'n')
+                synthetic_data[f'{name}:is_nan'] = synthetic_data[name].apply(lambda x: 'y' if pd.isnull(x) else 'n')
+                if pd.isnull(real_data[name].mean()) or pd.isnull(synthetic_data[name].mean()):
+                    real_data = real_data.drop(columns=[name])
+                    synthetic_data = synthetic_data.drop(columns=[name])
+                else:
+                    real_data[name] = real_data[name].fillna(real_data[name].mean())
+                    synthetic_data[name] = synthetic_data[name].fillna(synthetic_data[name].mean())
 
         eval_res = sdv_evaluate(synthetic_data, real_data, metrics=self._metrics, aggregate=False)
         res = pd.Series()
