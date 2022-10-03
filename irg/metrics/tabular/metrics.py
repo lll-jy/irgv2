@@ -76,8 +76,8 @@ class StatsMetric(BaseMetric):
 
         for name, attr in real.attributes.items():
             if attr.atype == 'categorical':
-                real_data[name] = real_data[name].apply(lambda x: f'c{x}')
-                synthetic_data[name] = synthetic_data[name].apply(lambda x: f'c{x}')
+                real_data[name] = real_data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
+                synthetic_data[name] = synthetic_data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
             elif attr.atype == 'datetime':
                 real_data[name] = real_data[name] \
                     .apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
