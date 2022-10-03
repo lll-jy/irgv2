@@ -305,7 +305,7 @@ class MLRegMetric(BaseMetric):
     This is the 1 minus MSE for regressors trained on synthetic data and tested on real data,
     where the MSE is calculated based on min-max normalized data in range [0, 1].
     The result is averaged over all tasks conditioned by model, and averaged over all models conditioned by tasks.
-    The range of the metric values is [0, 1], the larger the better.
+    The range of the metric values is [0, 1], the smaller the better.
     """
     _DEFAULT_MODELS = {
         'KNN': ('KNN', {}),
