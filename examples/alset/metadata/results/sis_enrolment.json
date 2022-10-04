@@ -90,16 +90,6 @@
       "type": "categorical"
     }
   },
-  "determinants": [
-    [
-      "department",
-      "department_descr"
-    ],
-    [
-      "program_status",
-      "program_status_descr"
-    ]
-  ],
   "primary_keys": [
     "student_token",
     "academic_program",

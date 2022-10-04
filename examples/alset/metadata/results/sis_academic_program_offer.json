@@ -17,12 +17,6 @@
     }
   },
   "ttype": "base",
-  "determinants": [
-    [
-      "academic_program",
-      "academic_program_descr"
-    ]
-  ],
   "primary_keys": [
     "academic_program"
   ]

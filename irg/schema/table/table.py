@@ -165,7 +165,7 @@ class Table:
         return os.path.join(self._temp_cache, 'data.pkl')
 
     def _normalized_path(self, attr_name: str) -> str:
-        attr_name = attr_name.replace('/', ':')
+        attr_name = attr_name.replace('/', ':').replace('\\\\', ':').replace('\\', ':')
         return os.path.join(self._temp_cache, 'normalized', f'{attr_name}.pkl')
 
     def _describer_path(self, idx: int) -> str:
@@ -253,7 +253,7 @@ class Table:
             'degree': self._degree_normalized_path
         }
         if isinstance(n, str):
-            n = n.replace('/', ':')
+            n = n.replace('/', ':').replace('\\\\', ':').replace('\\', ':')
         pd_to_pickle(transformed, path_by_variant[variant](n))
         return 0
 

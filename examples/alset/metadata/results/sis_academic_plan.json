@@ -35,12 +35,6 @@
       "type": "categorical"
     }
   },
-  "determinants": [
-    [
-      "degree",
-      "degree_descr"
-    ]
-  ],
   "primary_keys": [
     "student_token",
     "academic_career",

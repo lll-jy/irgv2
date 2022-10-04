@@ -26,16 +26,6 @@
     }
   },
   "ttype": "base",
-  "determinants": [
-    [
-      "academic_plan",
-      "academic_plan_descr"
-    ],
-    [
-      "academic_plan_type",
-      "academic_plan_type_descr"
-    ]
-  ],
   "primary_keys": [
     "academic_plan"
   ]
