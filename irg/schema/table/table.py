@@ -774,7 +774,7 @@ class SyntheticTable(Table):
         normalized_core = inverse_convert_data(normalized_core, pd.concat({
             n: pd.DataFrame(columns=v) for n, v in columns.items()
             if n in self._core_cols
-        }, axis=1).columns)[self._core_cols]
+        }, axis=1).columns)
 
         recovered_df = pd.DataFrame()
         for col in self._core_cols:

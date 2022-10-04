@@ -1,11 +1,11 @@
 """Handler for ID attributes."""
 from typing import Optional, List, Tuple, Collection
 
-import numpy as np
 import pandas as pd
 
 from .base import BaseAttribute, BaseTransformer
 from ...utils.misc import Data2D
+from ...utils.io import pd_to_pickle
 
 
 class IdentityTransformer(BaseTransformer):
@@ -31,13 +31,16 @@ class IdentityTransformer(BaseTransformer):
         return 'nan'
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
-        self._transformed_columns = ['is_nan']
+        transformed = self._transform(nan_info)
+        self._transformed_columns = transformed.columns
+        pd_to_pickle(transformed, self._transformed_path)
+        self._cat_cnt = 1
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         return nan_info[['is_nan']]
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
-        return data['original']
+        return data
 
     def inverse_transform(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) \
             -> pd.Series:
