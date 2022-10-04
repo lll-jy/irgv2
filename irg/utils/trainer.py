@@ -12,8 +12,8 @@ from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import Adam, AdamW, SGD, Optimizer
 from torch.optim.lr_scheduler import StepLR, ConstantLR, MultiStepLR, ExponentialLR, LinearLR, _LRScheduler as LRScheduler
 from torch.utils.data import TensorDataset, DistributedSampler, RandomSampler, SequentialSampler, DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from torch.cuda.amp import GradScaler
+# from torch.utils.tensorboard import SummaryWriter # TODO
+from torch.cuda.amp import GradScaler, GradScaler as SummaryWriter
 from tqdm import tqdm
 
 from .dist import is_main_process, get_device, barrier

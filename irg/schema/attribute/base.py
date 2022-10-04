@@ -219,6 +219,12 @@ class BaseTransformer:
 
         **Raise**: `NotFittedError` if the transformer is not yet fitted.
         """
+        nan_indicator, recovered_no_nan = self._inverse_nan_info(data, nan_ratio, nan_thres)
+        recovered_no_nan[nan_indicator] = np.nan
+        return recovered_no_nan
+
+    def _inverse_nan_info(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) -> \
+            Tuple[pd.Series, pd.Series]:
         if not self._fitted:
             raise NotFittedError('Transformer', 'inversely transforming other data')
         self._load_additional_info()
@@ -232,9 +238,8 @@ class BaseTransformer:
                 original = pd.read_pickle(self._data_path)
                 nan_ratio = original.count() / len(original)
             threshold = data['is_nan'].quantile(nan_ratio)
-        recovered_no_nan[data['is_nan'] > threshold] = np.nan
         self._unload_additional_info()
-        return recovered_no_nan
+        return (data['is_nan'] > threshold), recovered_no_nan
 
     @abstractmethod
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
@@ -276,7 +281,7 @@ class BaseAttribute(ABC):
         self._name, self._attr_type, self._temp_cache = name, attr_type, temp_cache
 
         self._transformer: Optional[BaseTransformer] = None
-        if values is not None and attr_type != 'id':
+        if values is not None:
             self.fit(values)
 
     def rename(self, new_name: str, inplace: bool = True) -> Optional["BaseAttribute"]:

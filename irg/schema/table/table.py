@@ -242,11 +242,7 @@ class Table:
 
     def _replace_data_by_attr(self, n: Union[str, TwoLevelName], attr: BaseAttribute, new_data: pd.DataFrame,
                               variant: Variant = 'original') -> int:
-        if attr.atype == 'id':
-            assert isinstance(attr, SerialIDAttribute)
-            transformed = attr.generate(len(new_data))
-        else:
-            transformed = attr.transform(new_data[n])
+        transformed = attr.transform(new_data[n])
         path_by_variant = {
             'original': self._normalized_path,
             'augmented': self._augmented_normalized_path,
@@ -459,11 +455,8 @@ class Table:
         _LOGGER.info(f'Fitted Table {self._name}.')
 
     def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool) -> int:
-        if attr.atype == 'id':
-            pd_to_pickle(data[[name]], self._normalized_path(name), sparse=False)
-        else:
-            attr.fit(data[name], force_redo=force_redo)
-            pd_to_pickle(attr.get_original_transformed(), self._normalized_path(name))
+        attr.fit(data[name], force_redo=force_redo)
+        pd_to_pickle(attr.get_original_transformed(), self._normalized_path(name))
         return 0
 
     def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs) -> int:
@@ -775,22 +768,18 @@ class SyntheticTable(Table):
         if not self._fitted:
             raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
         columns = {
-            n: v.transformed_columns if n not in self._id_cols else [n]
+            n: v.transformed_columns
             for n, v in self._attributes.items()
         }
         normalized_core = inverse_convert_data(normalized_core, pd.concat({
             n: pd.DataFrame(columns=v) for n, v in columns.items()
-            if self._attributes[n].atype != 'id' and n in self._core_cols
-        }, axis=1).columns)[[col for col in self._core_cols if self._attributes[col].atype != 'id']]
+            if n in self._core_cols
+        }, axis=1).columns)[self._core_cols]
 
         recovered_df = pd.DataFrame()
         for col in self._core_cols:
             attribute = self._attributes[col]
-            if col in self._id_cols:
-                assert isinstance(attribute, SerialIDAttribute)
-                recovered = attribute.generate(len(normalized_core))
-            else:
-                recovered = attribute.inverse_transform(normalized_core[col])
+            recovered = attribute.inverse_transform(normalized_core[col])
             recovered_df[col] = recovered
 
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
@@ -825,14 +814,13 @@ class SyntheticTable(Table):
         if replace_content:
             recovered_df.to_pickle(self._data_path())
             for n, v in columns.items():
-                if self._attributes[n].atype != 'id':
-                    if n in normalized_core:
-                        pd_to_pickle(pd.DataFrame(normalized_core[n], columns=v), self._normalized_path(n))
-                    else:
-                        pd_to_pickle(pd.DataFrame(
-                            self._attributes[n].transform(recovered_df[n]), columns=v),
-                            self._normalized_path(n)
-                        )
+                if n in normalized_core:
+                    pd_to_pickle(pd.DataFrame(normalized_core[n], columns=v), self._normalized_path(n))
+                else:
+                    pd_to_pickle(pd.DataFrame(
+                        self._attributes[n].transform(recovered_df[n]), columns=v),
+                        self._normalized_path(n)
+                    )
             self._length = len(recovered_df)
 
         return recovered_df

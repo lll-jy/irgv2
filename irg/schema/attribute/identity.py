@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .base import BaseAttribute, BaseTransformer
+from ...utils.misc import Data2D
 
 
 class IdentityTransformer(BaseTransformer):
@@ -26,17 +27,22 @@ class IdentityTransformer(BaseTransformer):
     def _calc_dim(self) -> int:
         return 1
 
-    def _calc_fill_nan(self, original: pd.Series) -> float:
-        return np.nan
+    def _calc_fill_nan(self, original: pd.Series) -> str:
+        return 'nan'
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
-        pass
+        self._transformed_columns = ['is_nan']
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
-        return nan_info[['original']]
+        return nan_info[['is_nan']]
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         return data['original']
+
+    def inverse_transform(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) \
+            -> pd.Series:
+        nan_indicator, _ = self._inverse_nan_info(data, nan_ratio, nan_thres)
+        return nan_indicator
 
     def _categorical_dimensions(self) -> List[Tuple[int, int]]:
         return [(0, 1)]
@@ -71,12 +77,10 @@ class SerialIDAttribute(BaseAttribute):
     def _create_transformer(self):
         self._transformer = IdentityTransformer(self._temp_cache)
 
-    def fit(self, values: pd.Series, force_redo: bool = False):
-        raise TypeError('ID column cannot be fitted.')
-
-    @property
-    def transformed_columns(self) -> Collection[str]:
-        return ['id']
+    def inverse_transform(self, data: Data2D) -> pd.Series:
+        nan_res = self._transformer.inverse_transform(data)
+        no_nan = self.generate(len(data))
+        return no_nan[nan_res]
 
     def generate(self, n: int) -> pd.Series:
         """
