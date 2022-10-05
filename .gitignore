@@ -6,6 +6,7 @@ dist/
 build/
 **.nosync
 **.temp*
+temp*
 **/out/
 hpc/
 scripts.sh

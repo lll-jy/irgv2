@@ -173,3 +173,9 @@ clear_eval: kill
 
 
 clear_all: clear_eval clear_gen clear_ckpt clear
+
+
+do_all: clear_all train generate
+
+
+do_all_cfg: clear_all train_cfg generate_cfg
