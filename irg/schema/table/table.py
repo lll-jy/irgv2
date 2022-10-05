@@ -622,7 +622,7 @@ class Table:
                 (table, attr) for table, attr in self._augmented_attributes
                 if table == self._name and attr not in self._known_cols
             ]
-            aug_data = self.data(variant='augmented', normalize=True, with_id='none', core_only=True)
+            aug_data = self.data(variant='augmented', normalize=True, with_id='inherit', core_only=True)
             unknown_set = set(unknown_cols)
             known_cols = [col for col in aug_data.columns.droplevel(2) if col not in unknown_set]
             known_data, unknown_data = aug_data[known_cols], aug_data[unknown_cols]
@@ -632,7 +632,7 @@ class Table:
             })
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
-            norm_data = self.data(variant='original', normalize=True, with_id='none', core_only=True)
+            norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)
             return (torch.zeros(len(norm_data), 0), convert_data_as(norm_data, 'torch'),
                     self._attr2catdim(self._attributes))
 

@@ -22,7 +22,7 @@ Data2D = Union[pd.DataFrame, np.ndarray, Tensor]
 """2D data type, including `pd.DataFrame`, `np.ndarray`, and `torch.Tensor`."""
 SparseDType = pd.SparseDtype('float32', fill_value=0)
 """Sparse data type for general usage."""
-Data2DName = Literal['pandas', 'numpy', 'tensor']
+Data2DName = Literal['pandas', 'numpy', 'torch']
 """
 2D data type name. Literal of `pandas`, `numpy`, and `tensor`.
 
