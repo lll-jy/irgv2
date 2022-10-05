@@ -116,7 +116,7 @@ class AffectingDatabase(Database):
         foreign_keys = self._foreign_keys[name]
         augmented = pd.concat({name: table.data()}, axis=1)
         degree = augmented.copy()
-        id_cols, attributes, fk_cols = set(), {}, set()
+        id_cols, attributes, fk_cols, fk_attr = set(), {}, set(), {}
         for i, foreign_key in enumerate(foreign_keys):
             parent_name = foreign_key.parent
             self._descendants[parent_name].append(foreign_key)
@@ -132,6 +132,7 @@ class AffectingDatabase(Database):
             id_cols |= {(prefix, col) for col in new_ids}
             attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
             fk_cols |= {col for _, col in foreign_key.left}
+            fk_attr |= {l_col: new_attr[r_col] for l_col, r_col in foreign_key.ref}
 
         aug_id_cols, deg_id_cols = set(), set()
         aug_attr, deg_attr = {}, {}
@@ -140,9 +141,14 @@ class AffectingDatabase(Database):
                 aug_id_cols.add((name, attr_name))
                 if attr_name in fk_cols:
                     deg_id_cols.add((name, attr_name))
-            aug_attr[(name, attr_name)] = attr
-            if attr_name in fk_cols:
-                deg_attr[(name, attr_name)] = attr
+            if attr_name not in fk_cols:
+                aug_attr[(name, attr_name)] = attr
+            else:
+                aug_attr[(name, attr_name)] = fk_attr[attr_name]
+                deg_attr[(name, attr_name)] = fk_attr[attr_name]
+            # aug_attr[(name, attr_name)] = attr
+            # if attr_name in fk_cols:
+            #     deg_attr[(name, attr_name)] = attr
         table.augment(
             augmented=augmented,
             degree=degree.drop(columns=[(name, col) for col in table.columns if col not in fk_cols]),

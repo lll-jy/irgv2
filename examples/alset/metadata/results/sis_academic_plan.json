@@ -1,8 +1,6 @@
 {
   "id_cols": [
-    "student_token",
-    "academic_program",
-    "academic_plan"
+    "student_token"
   ],
   "attributes": {
     "index": {
@@ -20,11 +18,11 @@
     },
     "academic_program": {
       "name": "academic_program",
-      "type": "id"
+      "type": "categorical"
     },
     "academic_plan": {
       "name": "academic_plan",
-      "type": "id"
+      "type": "categorical"
     },
     "degree": {
       "name": "degree",
@@ -35,12 +33,6 @@
       "type": "categorical"
     }
   },
-  "determinants": [
-    [
-      "degree",
-      "degree_descr"
-    ]
-  ],
   "primary_keys": [
     "student_token",
     "academic_career",

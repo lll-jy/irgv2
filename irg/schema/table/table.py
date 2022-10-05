@@ -606,7 +606,7 @@ class Table:
             return self.data(), self._id_cols, self._attributes
 
         data = self.data(variant='augmented')
-        flattened, attributes = {}, {}
+        flattened, attributes = {}, {n: v for n, v in self._attributes.items()}
         for (table, col), group_df in data.groupby(level=[0, 1]):
             col_name = col if table == self.name else f'{table}/{col}'
             attributes[col_name] = self._augmented_attributes[(table, col)]
