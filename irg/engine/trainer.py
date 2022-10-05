@@ -35,7 +35,6 @@ def train(database: Database, do_train: bool,
 
     **Return**: Tabular models as a dict, and degree models as a dict.
     """
-
     if not isinstance(tab_trainer_args, DefaultDict):
         tab_trainer_args = defaultdict(lambda: {}, tab_trainer_args)
     if not isinstance(deg_trainer_args, DefaultDict):

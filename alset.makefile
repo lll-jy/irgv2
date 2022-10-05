@@ -36,7 +36,7 @@ train:
         --default_deg_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/deg \
         --default_tab_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/deg \
-        --skip_generate > log.txt
+        --skip_generate >> log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 
@@ -55,7 +55,7 @@ train_cfg:
         --default_deg_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/deg \
         --default_tab_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/deg \
-        --skip_generate > log.txt
+        --skip_generate >> log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 
@@ -75,7 +75,7 @@ generate:
         --default_tab_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/deg \
         --save_generated_to examples/generated.nosync/${DB_NAME}/${EXP_NAME}/generated \
-        --save_synth_db examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db > log.txt
+        --save_synth_db examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db >> log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
@@ -101,7 +101,7 @@ generate_cfg:
         --default_tab_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/ckpt/deg \
         --save_generated_to examples/generated.nosync/${DB_NAME}/${EXP_NAME}/generated \
-        --save_synth_db examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db > log.txt
+        --save_synth_db examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db >> log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
@@ -119,7 +119,7 @@ evaluate:
 		--save_synthetic_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/synthetic \
 		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/real \
 		--save_visualization_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/visualization \
-		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result > log.txt
+		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result >> log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
@@ -140,7 +140,7 @@ evaluate_cfg:
 		--save_synthetic_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/synthetic \
 		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/real \
 		--save_visualization_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/visualization \
-		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result > log.txt
+		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result >> log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
@@ -175,7 +175,11 @@ clear_eval: kill
 clear_all: clear_eval clear_gen clear_ckpt clear
 
 
-do_all: clear_all train generate
+rm_log:
+	-rm log.txt
 
 
-do_all_cfg: clear_all train_cfg generate_cfg
+do_all: clear_all rm_log train generate
+
+
+do_all_cfg: clear_all rm_log train_cfg generate_cfg

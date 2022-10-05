@@ -135,7 +135,7 @@ class CTGANTrainer(TabularTrainer):
                 y_fake, y_real = self._discriminator(fake_cat), self._discriminator(real_cat)
                 pen = self._discriminator.calc_gradient_penalty(
                     real_cat, fake_cat, self._device, self._pac
-                )
+                ) / fake_cat.shape[1]
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
                 if self._grad_scaler_d is None:
                     pen.backward(retain_graph=True)

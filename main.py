@@ -187,10 +187,11 @@ def _cfgfile2argdict(default_path: Optional[str], sep_path: Optional[str], args:
     prefix = f'default_{prefix}_'
     prefix_len = len(prefix)
     for n, v in args.__dict__.items():
-        if n.startswith(prefix) and v is not None:
+        if n.startswith(prefix) and v is not None and n[prefix_len:] != 'args':
             default_args[n[prefix_len:]] = v
 
-    return defaultdict(lambda: default_args, sep_args)
+    res = defaultdict(lambda: default_args, sep_args)
+    return res
 
 
 def _narg2nbdict(default_value: Any, special: List[str], vtype: type) -> DefaultDict:
