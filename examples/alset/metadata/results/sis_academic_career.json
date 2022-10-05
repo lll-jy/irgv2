@@ -24,12 +24,6 @@
       "type": "categorical"
     }
   },
-  "determinants": [
-    [
-      "form_of_study",
-      "form_of_study_descr"
-    ]
-  ],
   "primary_keys": [
     "student_token",
     "academic_career"

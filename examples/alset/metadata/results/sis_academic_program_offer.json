@@ -1,11 +1,9 @@
 {
-  "id_cols": [
-    "academic_program"
-  ],
+  "id_cols": [],
   "attributes": {
     "academic_program": {
       "name": "academic_program",
-      "type": "id"
+      "type": "categorical"
     },
     "academic_program_descr": {
       "name": "academic_program_descr",

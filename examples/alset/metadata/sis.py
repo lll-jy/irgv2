@@ -23,9 +23,9 @@ def sis_academic_career(src: pd.DataFrame) -> Dict[str, Any]:
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'determinants': [
-            ['form_of_study', 'form_of_study_descr']
-        ],
+        # 'determinants': [
+        #     ['form_of_study', 'form_of_study_descr']
+        # ],
         'primary_keys': ['student_token', 'academic_career'],
         'foreign_keys': [{
             'columns': ['student_token'],
@@ -35,7 +35,7 @@ def sis_academic_career(src: pd.DataFrame) -> Dict[str, Any]:
 
 
 def sis_academic_program_offer(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['academic_program']
+    id_cols = []  # ['academic_program']
     attributes = Table.learn_meta(src, id_cols)
     return {
         'id_cols': id_cols,
@@ -49,7 +49,7 @@ def sis_academic_program_offer(src: pd.DataFrame) -> Dict[str, Any]:
 
 
 def sis_academic_program(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['student_token', 'academic_program', 'dual_academic_program']
+    id_cols = ['student_token']  # ['student_token', 'academic_program', 'dual_academic_program']
     attributes = Table.learn_meta(src, id_cols)
     return {
         'id_cols': id_cols,
@@ -70,29 +70,29 @@ def sis_academic_program(src: pd.DataFrame) -> Dict[str, Any]:
 
 
 def sis_plan_offer(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['academic_plan']
+    id_cols = []  # ['academic_plan']
     attributes = Table.learn_meta(src, id_cols)
     return {
         'id_cols': id_cols,
         'attributes': attributes,
         'ttype': 'base',
-        'determinants': [
-            ['academic_plan', 'academic_plan_descr'],
-            ['academic_plan_type', 'academic_plan_type_descr']
-        ],
+        # 'determinants': [
+        #     ['academic_plan', 'academic_plan_descr'],
+        #     ['academic_plan_type', 'academic_plan_type_descr']
+        # ],
         'primary_keys': ['academic_plan'],
     }
 
 
 def sis_academic_plan(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['student_token', 'academic_program', 'academic_plan']
+    id_cols = ['student_token']  # ['student_token', 'academic_program', 'academic_plan']
     attributes = Table.learn_meta(src, id_cols)
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'determinants': [
-            ['degree', 'degree_descr'],
-        ],
+        # 'determinants': [
+        #     ['degree', 'degree_descr'],
+        # ],
         'primary_keys': ['student_token', 'academic_career', 'academic_program', 'academic_plan'],
         'foreign_keys': [{
             'columns': ['student_token', 'academic_career', 'academic_program'],
@@ -105,15 +105,15 @@ def sis_academic_plan(src: pd.DataFrame) -> Dict[str, Any]:
 
 
 def sis_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
-    id_cols = ['student_token', 'academic_program', 'academic_plan']
+    id_cols = ['student_token']  # ['student_token', 'academic_program', 'academic_plan']
     attributes = Table.learn_meta(src, id_cols, ['career_nbr'])
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'determinants': [
-            ['department', 'department_descr'],
-            ['program_status', 'program_status_descr']
-        ],
+        # 'determinants': [
+        #     ['department', 'department_descr'],
+        #     ['program_status', 'program_status_descr']
+        # ],
         'primary_keys': ['student_token', 'academic_program', 'academic_plan', 'admit_tyear', 'admit_tsem'],
         'foreign_keys': [{
             'columns': ['student_token', 'academic_career', 'academic_program', 'academic_plan'],
