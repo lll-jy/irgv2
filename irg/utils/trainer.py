@@ -95,16 +95,17 @@ class Trainer(ABC):
         return model, optimizer, lr_scheduler, scaler
 
     @staticmethod
-    def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler):
+    def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler,
+                   retain_graph: bool = False):
         if grad_scaler is not None:
-            grad_scaler.scale(loss).backward()
+            grad_scaler.scale(loss).backward(retain_graph=retain_graph)
             grad_scaler.unscale_(optimizer)
             grad_scaler.step(optimizer)
             grad_scaler.update()
             lr_scheduler.step()
         else:
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=retain_graph)
             optimizer.step()
 
     @staticmethod

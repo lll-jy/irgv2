@@ -6,6 +6,7 @@ from .base import TabularTrainer
 from .ctgan import CTGANTrainer
 from .tvae import TVAETrainer
 from .mlp import MLPTrainer
+from .mtgan import MTGANTrainer
 
 
 __all__ = (
@@ -13,13 +14,15 @@ __all__ = (
     'CTGANTrainer',
     'TVAETrainer',
     'MLPTrainer',
+    'MTGANTrainer',
     'create_trainer'
 )
 
 _TAB_TRAINERS: Dict[str, TabularTrainer.__class__] = {
     'CTGAN': CTGANTrainer,
     'TVAE': TVAETrainer,
-    'MLP': MLPTrainer
+    'MLP': MLPTrainer,
+    'MTGAN': MTGANTrainer
 }
 
 

@@ -1,0 +1,14 @@
+{
+  "trainer_type": "CTGAN",
+  "embedding_dim": 20,
+  "generator_dim": [64, 64],
+  "discriminator_dim": [64, 64],
+  "pac": 1,
+  "discriminator_step": 1,
+  "gen_optimizer": "AdamW",
+  "gen_scheduler": "StepLR",
+  "disc_optimizer": "AdamW",
+  "disc_scheduler": "StepLR",
+  "gen_optim_lr": 0.05,
+  "disc_optim_lr": 0.05
+}

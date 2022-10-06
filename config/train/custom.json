@@ -1,7 +1,7 @@
 {
-  "epochs": 100,
-  "batch_size": 256,
+  "epochs": 20,
+  "batch_size": 50,
   "shuffle": true,
-  "save_freq": 100,
+  "save_freq": 10,
   "resume": true
 }

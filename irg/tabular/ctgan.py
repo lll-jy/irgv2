@@ -1,7 +1,7 @@
 """Partial CTGAN Training."""
 
 from collections import OrderedDict
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Optional, Any
 import os
 
 import torch
@@ -82,6 +82,9 @@ class CTGANTrainer(TabularTrainer):
         if not os.path.exists(path):
             return
         loaded = torch.load(path)
+        self._load_content_from(loaded)
+
+    def _load_content_from(self, loaded: Dict[str, Any]):
         generator_dict = loaded['generator']['model']
         if hasattr(self._generator, 'module'):
             generator_dict = OrderedDict({f'module.{n}': v for n, v in generator_dict.items()})
@@ -99,30 +102,33 @@ class CTGANTrainer(TabularTrainer):
         else:
             self._grad_scaler_g = None
         if 'grad_scaler' in loaded['discriminator']:
-            self._grad_scaler_d.load_state_dict(loaded['discrminator']['grad_scaler'])
+            self._grad_scaler_d.load_state_dict(loaded['discriminator']['grad_scaler'])
         else:
             self._grad_scaler_d = None
         torch.manual_seed(loaded['seed'])
 
     def _save_checkpoint(self, idx: int, by: str):
         torch.save(
-            {
-                'generator': {
-                    'model': (self._generator.module if hasattr(self._generator, 'module')
-                              else self._generator).state_dict(),
-                    'optimizer': self._optimizer_g.state_dict(),
-                    'lr_scheduler': self._lr_schd_g.state_dict()
-                } | ({'grad_scaler': self._grad_scaler_g.state_dict()} if self._grad_scaler_g is not None else {}),
-                'discriminator': {
-                    'model': (self._discriminator.module if hasattr(self._discriminator, 'module')
-                              else self._discriminator).state_dict(),
-                    'optimizer': self._optimizer_d.state_dict(),
-                    'lr_scheduler': self._lr_schd_d.state_dict()
-                } | ({'grad_scaler': self._grad_scaler_d.state_dict()} if self._grad_scaler_d is not None else {}),
-                'seed': torch.initial_seed()
-            },
+            self._construct_content_to_save(),
             os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
         )
+
+    def _construct_content_to_save(self) -> Dict[str, Any]:
+        return {
+            'generator': {
+                'model': (self._generator.module if hasattr(self._generator, 'module')
+                          else self._generator).state_dict(),
+                'optimizer': self._optimizer_g.state_dict(),
+                'lr_scheduler': self._lr_schd_g.state_dict()
+            } | ({'grad_scaler': self._grad_scaler_g.state_dict()} if self._grad_scaler_g is not None else {}),
+            'discriminator': {
+                'model': (self._discriminator.module if hasattr(self._discriminator, 'module')
+                          else self._discriminator).state_dict(),
+                'optimizer': self._optimizer_d.state_dict(),
+                'lr_scheduler': self._lr_schd_d.state_dict()
+            } | ({'grad_scaler': self._grad_scaler_d.state_dict()} if self._grad_scaler_d is not None else {}),
+            'seed': torch.initial_seed()
+        }
 
     def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
@@ -136,13 +142,16 @@ class CTGANTrainer(TabularTrainer):
                 pen = self._discriminator.calc_gradient_penalty(
                     real_cat, fake_cat, self._device, self._pac
                 ) / (known.shape[1] + self._embedding_dim)
-                loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
+                pen = torch.clip(pen, -1, 1)
+                # loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
+                loss_d = -(torch.clip(torch.mean(y_real), -1, 1) - torch.clip(torch.mean(y_fake), -1, 1))
                 if self._grad_scaler_d is None:
                     pen.backward(retain_graph=True)
                 else:
                     self._grad_scaler_d.scale(pen).backward(retain_graph=True)
             self._take_step(loss_d, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d)
             # TODO: for param in model.parameters(): param.grad = None
+            print('discr out', torch.mean(y_fake).item(), torch.mean(y_real).item())
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             fake_cat = self._construct_fake(mean, std, known)
@@ -152,13 +161,17 @@ class CTGANTrainer(TabularTrainer):
                 distance = torch.tensor(0)
             else:
                 distance = F.mse_loss(fake_cat, real_cat, reduction='mean')
-            loss_g = -torch.mean(y_fake) + distance
+            # loss_g = -torch.mean(y_fake) + distance
+            loss_g = -torch.clip(torch.mean(y_fake), -1, 1) + distance
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
+        print('gen out', torch.mean(y_fake).item())
         return {
             'G loss': loss_g.detach().cpu().item(),
             'distance': distance.detach().cpu().item(),
             'D loss': loss_d.detach().cpu().item(),
-            'penalty': pen.detach().cpu().item()
+            'penalty': pen.detach().cpu().item(),
+            'G lr': self._optimizer_g.param_groups[0]['lr'],
+            'D lr': self._optimizer_d.param_groups[0]['lr']
         }, fake_cat
 
     def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor) -> Tensor:

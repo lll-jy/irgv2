@@ -8,7 +8,5 @@
   "gen_optimizer": "AdamW",
   "gen_scheduler": "StepLR",
   "disc_optimizer": "AdamW",
-  "disc_scheduler": "StepLR",
-  "gen_optim_lr": 0.01,
-  "disc_optim_lr": 0.01
+  "disc_scheduler": "StepLR"
 }
