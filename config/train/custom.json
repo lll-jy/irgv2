@@ -1,5 +1,5 @@
 {
-  "epochs": 20,
+  "epochs": 5,
   "batch_size": 50,
   "shuffle": true,
   "save_freq": 10,

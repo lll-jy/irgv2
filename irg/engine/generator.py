@@ -73,7 +73,7 @@ def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: fl
         -> Table:
     syn_table = SyntheticTable.from_real(table, temp_cache)
     need_rows = round(len(table) * scale)
-    output = trainer.inference(torch.zeros(need_rows, 0), batch_size).output
+    output = trainer.inference(torch.zeros(need_rows, 0), batch_size).output[:, -trainer.unknown_dim:]
     syn_table.inverse_transform(output, replace_content=True)
     return syn_table
 

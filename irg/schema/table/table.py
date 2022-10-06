@@ -104,6 +104,7 @@ class Table:
 
         _LOGGER.debug(f'Loaded required information for Table {name}.')
         if need_fit and data is not None:
+            print('{}_-------- fit table', self._name)
             self.fit(data, **kwargs)
 
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False

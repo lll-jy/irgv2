@@ -27,9 +27,11 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
     **Return**: Augmented database.
     """
     if save_db_to is not None and resume and os.path.exists(save_db_to):
+        print('***** db load from ', save_db_to)
         database = DB_TYPE_BY_NAME[mtype].load_from_dir(save_db_to)
         _LOGGER.info(f'Loaded database from {save_db_to}.')
     else:
+        print('**** re fit')
         os.makedirs(temp_cache, exist_ok=True)
         database = create_db(
             schema=schema,

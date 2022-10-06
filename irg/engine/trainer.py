@@ -70,6 +70,6 @@ def _train_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]]
     known_dim, unknown_dim = known.shape[1], unknown.shape[1]
     trainer = create_tab_trainer(cat_dims=cat_dims, known_dim=known_dim, unknown_dim=unknown_dim, descr=descr,
                                  **trainer_args)
-    if do_train:
-        trainer.train(known, unknown, **train_args)
+    # if do_train or True:
+    trainer.train(known, unknown, **train_args)
     return trainer

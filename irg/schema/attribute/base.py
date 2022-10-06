@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 import logging
 import os
+import pickle
 from typing import Any, Collection, List, Optional, Tuple
 
 import numpy as np
@@ -112,6 +113,7 @@ class BaseTransformer:
         """
         if self._fitted and not force_redo:
             return
+        print('$$$$ do fittt')
         self._load_additional_info()
         data.to_pickle(self._data_path)
         nan_info = self._fit_for_nan(data)
@@ -281,8 +283,15 @@ class BaseAttribute(ABC):
         self._name, self._attr_type, self._temp_cache = name, attr_type, temp_cache
 
         self._transformer: Optional[BaseTransformer] = None
-        if values is not None:
+        if os.path.exists(self._transformer_path):
+            with open(self._transformer_path, 'rb') as f:
+                self._transformer = pickle.load(f)
+        elif values is not None:
             self.fit(values)
+
+    @property
+    def _transformer_path(self) -> str:
+        return os.path.join(self._temp_cache, 'transformer.pkl')
 
     def rename(self, new_name: str, inplace: bool = True) -> Optional["BaseAttribute"]:
         """
@@ -359,8 +368,14 @@ class BaseAttribute(ABC):
         - `force_redo` (`bool`) [default `False`]: Whether to re-fit if the attribute is already fitted.
           Default is `False`.
         """
-        self._create_transformer()
+        if os.path.exists(self._transformer_path):
+            with open(self._transformer_path, 'rb') as f:
+                self._transformer = pickle.load(f)
+        else:
+            self._create_transformer()
         self._transformer.fit(values, force_redo)
+        with open(self._transformer_path, 'wb') as f:
+            pickle.dump(self._transformer, f)
         _LOGGER.debug(f'Fitted attribute {self._name}.')
 
     @abstractmethod

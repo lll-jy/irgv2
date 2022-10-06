@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Tuple, Dict, Optional, Any
 import os
 
+import numpy as np
 import torch
 from torch import Tensor
 import torch.nn.functional as F
@@ -28,12 +29,17 @@ class CTGANOutput(InferenceOutput):
 
 class CTGANTrainer(TabularTrainer):
     """Trainer for CTGAN."""
-    def __init__(self, embedding_dim: int = 128, generator_dim: Tuple[int, ...] = (256, 256),
-                 discriminator_dim: Tuple[int, ...] = (256, 256),
+    def __init__(self, cond_cat_range: Tuple[int, int] = (3, 10), embedding_dim: int = 128,
+                 generator_dim: Tuple[int, ...] = (256, 256), discriminator_dim: Tuple[int, ...] = (256, 256),
                  pac: int = 10, discriminator_step: int = 1, **kwargs):
         """
         **Args**:
 
+        - `cond_cat_range` (`Tuple[int, int]`): For known dimension = 0, generation of condvec based on CTGAN,
+          only on categories with number of categories in this range. For example, if there are 3 categorical values
+          with number of categories 2, 5, 20 respectively, and given default value for this parameter (3, 10),
+          the only possible choice on condvec construction is based on the second categorical column. In the case that
+          no categorical column satisfy the range constraint, we do not use any condvec.
         - `embedding_dim` to `discriminator_step`: Arguments for
           [CTGAN](https://sdv.dev/SDV/api_reference/tabular/api/sdv.tabular.ctgan.CTGAN.html#sdv.tabular.ctgan.CTGAN).
         - `kwargs`: It has the following groups:
@@ -56,13 +62,34 @@ class CTGANTrainer(TabularTrainer):
             n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr',
                   'cat_dims', 'known_dim', 'unknown_dim'}
         })
+
+        if os.path.exists(self._aux_info_path):
+            self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated = \
+                torch.load(self._aux_info_path)
+        else:
+            self._condvec_left, self._condvec_right = 0, 0
+            if self._known_dim == 0:
+                rearranged_cat_dims_idx = np.random.choice(range(len(self._cat_dims)), len(self._cat_dims),
+                                                           replace=False)
+                left, right = cond_cat_range
+                for i in rearranged_cat_dims_idx:
+                    l, r = self._cat_dims[i]
+                    if left <= r - l <= right:
+                        self._condvec_left, self._condvec_right = l, r
+                        break
+            self._condvec_dim = self._condvec_right - self._condvec_left
+            self._condvec_accumulated = [0 for _ in range(self._condvec_dim)]
+            torch.save((self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated),
+                       self._aux_info_path)
+        print('chosen condvec', self._condvec_left, self._condvec_right)
+
         self._generator = Generator(
-            embedding_dim=embedding_dim + self._known_dim,
+            embedding_dim=embedding_dim + self._known_dim + self._condvec_dim,
             generator_dim=generator_dim,
             data_dim=self._unknown_dim
         ).to(self._device)
         self._discriminator = Discriminator(
-            input_dim=self._known_dim + self._unknown_dim,
+            input_dim=self._known_dim + self._unknown_dim + self._condvec_dim,
             discriminator_dim=discriminator_dim,
             pac=pac
         ).to(self._device)
@@ -76,6 +103,10 @@ class CTGANTrainer(TabularTrainer):
         )
 
         self._embedding_dim, self._pac, self._discriminator_step = embedding_dim, pac, discriminator_step
+
+    @property
+    def _aux_info_path(self) -> str:
+        return os.path.join(self._ckpt_dir, self._descr, 'info.pt')
 
     def _reload_checkpoint(self, idx: int, by: str):
         path = os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
@@ -105,6 +136,7 @@ class CTGANTrainer(TabularTrainer):
             self._grad_scaler_d.load_state_dict(loaded['discriminator']['grad_scaler'])
         else:
             self._grad_scaler_d = None
+        self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim = loaded['condvec']
         torch.manual_seed(loaded['seed'])
 
     def _save_checkpoint(self, idx: int, by: str):
@@ -127,59 +159,72 @@ class CTGANTrainer(TabularTrainer):
                 'optimizer': self._optimizer_d.state_dict(),
                 'lr_scheduler': self._lr_schd_d.state_dict()
             } | ({'grad_scaler': self._grad_scaler_d.state_dict()} if self._grad_scaler_d is not None else {}),
-            'seed': torch.initial_seed()
+            'seed': torch.initial_seed(),
+            'condvec': (self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim)
         }
 
     def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
         std = mean + 1
         enable_autocast = torch.cuda.is_available() and self._autocast
+        condvec = unknown[:, self._condvec_left:self._condvec_right]
+        if self._condvec_dim > 0:
+            conditions = condvec.argmax(dim=1)
+            for v in conditions:
+                self._condvec_accumulated[v.item()] += 1
         for ds in range(self._discriminator_step):
             with torch.cuda.amp.autocast(enabled=enable_autocast):
                 fake_cat = self._construct_fake(mean, std, known)
-                real_cat = torch.cat([known, unknown], dim=1)
+                real_cat = torch.cat([known, condvec, unknown], dim=1)
                 y_fake, y_real = self._discriminator(fake_cat), self._discriminator(real_cat)
                 pen = self._discriminator.calc_gradient_penalty(
                     real_cat, fake_cat, self._device, self._pac
                 ) / (known.shape[1] + self._embedding_dim)
-                pen = torch.clip(pen, -1, 1)
-                # loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                loss_d = -(torch.clip(torch.mean(y_real), -1, 1) - torch.clip(torch.mean(y_fake), -1, 1))
+                # pen = torch.clip(pen, -1, 1)
+                loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
+                # loss_d = -(torch.clip(torch.mean(y_real), -1, 1) - torch.clip(torch.mean(y_fake), -1, 1))
                 if self._grad_scaler_d is None:
                     pen.backward(retain_graph=True)
                 else:
                     self._grad_scaler_d.scale(pen).backward(retain_graph=True)
             self._take_step(loss_d, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d)
             # TODO: for param in model.parameters(): param.grad = None
-            print('discr out', torch.mean(y_fake).item(), torch.mean(y_real).item())
+            # print('discr out', torch.mean(y_fake).item(), torch.mean(y_real).item())
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             fake_cat = self._construct_fake(mean, std, known)
-            real_cat = torch.cat([known, unknown], dim=1)
+            real_cat = torch.cat([known, condvec, unknown], dim=1)
             y_fake = self._discriminator(fake_cat)
             if known.shape[1] == 0:
                 distance = torch.tensor(0)
             else:
                 distance = F.mse_loss(fake_cat, real_cat, reduction='mean')
-            # loss_g = -torch.mean(y_fake) + distance
-            loss_g = -torch.clip(torch.mean(y_fake), -1, 1) + distance
+            loss_g = -torch.mean(y_fake) + distance
+            # loss_g = -torch.clip(torch.mean(y_fake), -1, 1) + distance
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
-        print('gen out', torch.mean(y_fake).item())
+        # print('gen out', torch.mean(y_fake).item())
         return {
-            'G loss': loss_g.detach().cpu().item(),
-            'distance': distance.detach().cpu().item(),
-            'D loss': loss_d.detach().cpu().item(),
-            'penalty': pen.detach().cpu().item(),
-            'G lr': self._optimizer_g.param_groups[0]['lr'],
-            'D lr': self._optimizer_d.param_groups[0]['lr']
-        }, fake_cat
+                   'G loss': loss_g.detach().cpu().item(),
+                   'distance': distance.detach().cpu().item(),
+                   'D loss': loss_d.detach().cpu().item(),
+                   'penalty': pen.detach().cpu().item(),
+                   'G lr': self._optimizer_g.param_groups[0]['lr'],
+                   'D lr': self._optimizer_d.param_groups[0]['lr']
+               }, fake_cat
 
     def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor) -> Tensor:
         fakez = torch.normal(mean=mean, std=std)[:known_tensor.shape[0]]
-        fakez = torch.cat([fakez, known_tensor], dim=1)
+        if self._condvec_dim > 0:
+            sum_cnt = sum(self._condvec_accumulated)
+            probabilities = [x / sum_cnt for x in self._condvec_accumulated]
+            conditions = np.random.choice(range(self._condvec_dim), known_tensor.shape[0], p=probabilities)
+            condvec = F.one_hot(torch.from_numpy(conditions), self._condvec_dim).to(self._device)
+        else:
+            condvec = known_tensor[:, 0:0]
+        fakez = torch.cat([fakez, condvec, known_tensor], dim=1)
         fake = self._generator(fakez)
         fakeact = self._apply_activate(fake)
-        fake_cat = torch.cat([known_tensor, fakeact], dim=1)
+        fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
         return fake_cat
 
     def _apply_activate(self, data: Tensor) -> Tensor:
@@ -210,6 +255,8 @@ class CTGANTrainer(TabularTrainer):
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> CTGANOutput:
+        print('--- inference')
+        print(self._discriminator.state_dict())
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
         std = mean + 1
 
@@ -230,5 +277,6 @@ class CTGANTrainer(TabularTrainer):
                 y_fakes.append(y_fake)
         self._generator.train()
         self._discriminator.train()
+        print('--- inference', torch.cat(fakes).shape, self._known_dim, self._unknown_dim)
 
         return CTGANOutput(torch.cat(fakes), torch.cat(y_fakes))

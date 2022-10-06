@@ -45,6 +45,7 @@ class Trainer(ABC):
         self._distributed, self._autocast, self._descr, self._ckpt_dir = distributed, autocast, descr, ckpt_dir
         self._device = get_device()
         self._writer = SummaryWriter(log_dir=os.path.join(log_dir, descr))
+        os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
 
     def _make_model_optimizer(self, model: Union[nn.Module, List[nn.Module]], optimizer: str = 'AdamW',
                               scheduler: str = 'StepLR', **kwargs) -> Tuple[
@@ -166,6 +167,10 @@ class Trainer(ABC):
             barrier()
             if is_main_process():
                 self._save_checkpoint(i+1, 'epoch')
+
+        if is_main_process():
+            self._save_checkpoint(0, 'final')
+        print('finally', self._discriminator.state_dict())
 
     def _resume_id(self) -> Tuple[int, int]:
         all_ckpt = os.listdir(os.path.join(self._ckpt_dir, self._descr))
