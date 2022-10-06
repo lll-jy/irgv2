@@ -803,7 +803,6 @@ class SyntheticTable(Table):
             n: pd.DataFrame(columns=v) for n, v in columns.items()
             if n in self._core_cols and n not in self._known_cols
         }, axis=1).columns)
-        print('syn table', self._name, self.is_independent(), self._known_cols)
         if not self.is_independent():
             augmented_df = pd.read_pickle(self._augmented_path())
         else:
