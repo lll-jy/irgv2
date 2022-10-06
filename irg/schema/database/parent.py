@@ -83,6 +83,5 @@ class SyntheticParentChildDatabase(ParentChildDatabase, SyntheticDatabase):
     Synthetic database for parent-child augmenting mechanism.
     """
     def degree_known_for(self, table_name: str) -> Tensor:
-        self._augment_table(table_name, self[table_name])
-        known, _, _ = self[table_name].deg_data()
+        known, _, _ = self._real[table_name].deg_data()
         return known

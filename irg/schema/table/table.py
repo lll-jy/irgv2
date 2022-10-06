@@ -184,6 +184,7 @@ class Table:
     def _reduce_name_level(two_level: TwoLevelName) -> str:
         left, right = two_level
         left = re.sub(f'[/:<>"|*^]', '&', left)
+        right = re.sub(f'[/:<>"|*^]', '&', right)
         return f'{left}__{right}'
 
     def _augmented_normalized_path(self, attr_name: TwoLevelName) -> str:
@@ -745,10 +746,13 @@ class SyntheticTable(Table):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._describer_cache = '.temp' if 'temp_cache' not in kwargs else kwargs['temp_cache']
+        self._real_cache = '.temp' if 'temp_cache' not in kwargs else kwargs['temp_cache']
 
     def _describer_path(self, idx: int) -> str:
-        return os.path.join(self._describer_cache, 'describers', f'describer{idx}.json')
+        return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
+
+    def _degree_attr_path(self) -> str:
+        return os.path.join(self._real_cache, 'deg.pkl')
 
     @classmethod
     def from_real(cls, table: Table, temp_cache: Optional[str] = None) -> "SyntheticTable":
@@ -767,9 +771,13 @@ class SyntheticTable(Table):
                                    id_cols={*table._id_cols}, attributes=table._attr_meta,
                                    determinants=table._determinants, formulas=table._formulas,
                                    temp_cache=temp_cache if temp_cache is not None else table._temp_cache)
-        synthetic._fitted = table._fitted
+        synthetic._fitted, synthetic._augment_fitted = table._fitted, table._augment_fitted
         synthetic._attributes = table._attributes
-        synthetic._describer_cache = table._temp_cache
+        synthetic._real_cache = table._temp_cache
+        synthetic._known_cols, synthetic._unknown_cols = table._known_cols, table._unknown_cols
+        synthetic._augmented_attributes = table._augmented_attributes
+        synthetic._degree_attributes = table._degree_attributes
+        synthetic._augmented_ids, synthetic._degree_ids = table._augmented_ids, table._degree_ids
         return synthetic
 
     def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
@@ -793,13 +801,25 @@ class SyntheticTable(Table):
         }
         normalized_core = inverse_convert_data(normalized_core, pd.concat({
             n: pd.DataFrame(columns=v) for n, v in columns.items()
-            if n in self._core_cols
+            if n in self._core_cols and n not in self._known_cols
         }, axis=1).columns)
+        print('syn table', self._name, self.is_independent(), self._known_cols)
+        if not self.is_independent():
+            augmented_df = pd.read_pickle(self._augmented_path())
+        else:
+            augmented_df = pd.DataFrame()
 
         recovered_df = pd.DataFrame()
         for col in self._core_cols:
             attribute = self._attributes[col]
-            recovered = attribute.inverse_transform(normalized_core[col])
+            if col in normalized_core:
+                recovered = attribute.inverse_transform(normalized_core[col])
+            elif col in self._known_cols:
+                recovered = augmented_df[(self._name, col)]
+            else:
+                assert isinstance(attribute, SerialIDAttribute), f'Column cannot be recovered directly must be IDs. ' \
+                                                                 f'Got {type(attribute)}.'
+                recovered = attribute.generate(len(normalized_core))
             recovered_df[col] = recovered
 
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
@@ -853,20 +873,25 @@ class SyntheticTable(Table):
 
         - `degrees` (`pd.Series`): The degrees to be assigned.
         """
-        degree_df = pd.read_pickle(self._degree_path())
+        degree_df = pd.read_pickle(self._degree_known_path())
         degree_df[('', 'degree')] = degrees
         pd_to_pickle(
             self._degree_attributes[('', 'degree')].transform(degrees),
             self._degree_normalized_path(('', 'degree'))
         )
-        augmented = degree_df.loc[degree_df.index.repeat(degree_df[degree_df.index])]\
+        augmented = degree_df.loc[degree_df.index.repeat(degree_df[('', 'degree')])]\
             .reset_index(drop=True)
         augmented.to_pickle(self._augmented_path())
         for (table, attr_name), attr in self._augmented_attributes.items():
-            if (table, attr_name) in self._augmented_ids:
-                if table != self._name or attr_name in self._known_cols:
-                    transformed = augmented[[(table, attr_name)]]
-                    pd_to_pickle(transformed, self._augmented_normalized_path((table, attr_name)))
+            if (table, attr_name) not in augmented.columns:
+                continue
+            transformed = attr.transform(augmented[(table, attr_name)])
+            pd_to_pickle(transformed, self._augmented_normalized_path((table, attr_name)))
+        self._fitted = True
+        self._length = len(augmented)
+
+    def _degree_known_path(self) -> str:
+        return os.path.join(self._real_cache, 'deg.pkl')
 
     def inverse_transform_degrees(self, degree_tensor: Tensor, scale: float = 1) -> pd.Series:
         """

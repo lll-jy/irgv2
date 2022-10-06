@@ -82,11 +82,13 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularT
                               tab_batch_size: int, deg_batch_size: int, syn_db: SyntheticDatabase, temp_cache: str) \
         -> SyntheticTable:
     syn_table = SyntheticTable.from_real(table, temp_cache)
+    print('get degree known for', table.name)
     known = syn_db.degree_known_for(table.name)
-    deg_tensor = deg_trainer.inference(known, deg_batch_size).output
+    deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:]
+    print('degree output', table.name, deg_tensor.shape, deg_trainer._known_dim, deg_trainer._unknown_dim)
     degrees = syn_table.inverse_transform_degrees(deg_tensor, scale)
     syn_table.assign_degrees(degrees)
     known_tab, _, _ = syn_table.ptg_data()
-    output = tab_trainer.inference(known_tab, tab_batch_size).output
+    output = tab_trainer.inference(known_tab, tab_batch_size).output[:, -tab_trainer.unknown_dim:]
     syn_table.inverse_transform(output, replace_content=True)
     return syn_table
