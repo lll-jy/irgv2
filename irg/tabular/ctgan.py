@@ -179,9 +179,7 @@ class CTGANTrainer(TabularTrainer):
                 pen = self._discriminator.calc_gradient_penalty(
                     real_cat, fake_cat, self._device, self._pac
                 ) / (known.shape[1] + self._embedding_dim)
-                # pen = torch.clip(pen, -1, 1)
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                # loss_d = -(torch.clip(torch.mean(y_real), -1, 1) - torch.clip(torch.mean(y_fake), -1, 1))
                 if self._grad_scaler_d is None:
                     pen.backward(retain_graph=True)
                 else:
@@ -198,7 +196,6 @@ class CTGANTrainer(TabularTrainer):
             else:
                 distance = F.mse_loss(fake_cat, real_cat, reduction='mean')
             loss_g = -torch.mean(y_fake) + distance
-            # loss_g = -torch.clip(torch.mean(y_fake), -1, 1) + distance
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
         return {
                    'G loss': loss_g.detach().cpu().item(),

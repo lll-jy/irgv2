@@ -32,7 +32,7 @@ class MTGANTrainer(CTGANTrainer):
                              if n.startswith('cnn_') and not n.startswith('cnn_model_')}
         super().__init__(**super_args)
         self._cnn = CNNDiscriminator(
-            row_width=self._known_dim + self._unknown_dim,
+            row_width=self._known_dim + self._unknown_dim + self._condvec_dim,
             num_samples=meta_size,
             **cnn_args
         ).to(self._device)
@@ -69,10 +69,15 @@ class MTGANTrainer(CTGANTrainer):
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
         std = mean + 1
         enable_autocast = torch.cuda.is_available() and self._autocast
+        condvec = unknown[:, self._condvec_left:self._condvec_right]
+        if self._condvec_dim > 0:
+            conditions = condvec.argmax(dim=1)
+            for v in conditions:
+                self._condvec_accumulated[v.item()] += 1
         for ds in range(self._discriminator_step):
             with torch.cuda.amp.autocast(enabled=enable_autocast):
                 fake_cat = self._construct_fake(mean, std, known)
-                real_cat = torch.cat([known, unknown], dim=1)
+                real_cat = torch.cat([known, condvec, unknown], dim=1)
                 y_fake, y_real = self._discriminator(fake_cat), self._discriminator(real_cat)
                 pen = self._discriminator.calc_gradient_penalty(
                     real_cat, fake_cat, self._device, self._pac
@@ -91,7 +96,7 @@ class MTGANTrainer(CTGANTrainer):
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             fake_cat = self._construct_fake(mean, std, known)
-            real_cat = torch.cat([known, unknown], dim=1)
+            real_cat = torch.cat([known, condvec, unknown], dim=1)
             y_fake = self._discriminator(fake_cat)
             if known.shape[1] == 0:
                 distance = torch.tensor(0)
