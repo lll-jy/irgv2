@@ -112,7 +112,7 @@ class SyntheticDatabaseEvaluator:
         os.makedirs(os.path.join(self._table_dir, 'cache', db_descr), exist_ok=True)
 
         if self._eval_tables:
-            tables = self._tables if self._tables is not None else [name for name, _ in db.tables]
+            tables = self._tables if self._tables is not None else [name for name, _ in db.tables()]
             os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'tables'), exist_ok=True)
             result['tables'] = {}
             for table in tables:

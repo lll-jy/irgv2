@@ -4,6 +4,7 @@ All tables affecting the table are taken into account when generating it.
 Please refer to [the paper](TODO: link) for detailed definition of `affect`.
 """
 from collections import defaultdict
+import os
 from typing import Any, DefaultDict, List, Set, Tuple, Dict, Optional
 from types import FunctionType
 
@@ -108,9 +109,10 @@ class AffectingDatabase(Database):
         return 'affecting'
 
     def augment(self):
-        for name, table in self.tables:
-            table = Table.load(table)
+        for name, path in self.tables():
+            table = Table.load(path)
             self._augment_table(name, table)
+            table.save(path)
 
     def _augment_table(self, name: str, table: Table):
         foreign_keys = self._foreign_keys[name]
@@ -136,7 +138,7 @@ class AffectingDatabase(Database):
 
         aug_id_cols, deg_id_cols = set(), set()
         aug_attr, deg_attr = {}, {}
-        for attr_name, attr in table.attributes.items():
+        for attr_name, attr in table.attributes().items():
             if attr.atype == 'id':
                 aug_id_cols.add((name, attr_name))
                 if attr_name in fk_cols:
@@ -158,7 +160,7 @@ class AffectingDatabase(Database):
 
     def _descendant_joined(self, curr_name: str, parent_name: str) -> \
             Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
-        data, new_ids, new_attr = self[parent_name].augmented_for_join
+        data, new_ids, new_attr = self[parent_name].augmented_for_join()
         for i, foreign_key in enumerate(self._descendants[parent_name]):
             if foreign_key.child == curr_name:
                 continue
@@ -204,5 +206,5 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
     """
     def degree_known_for(self, table_name: str) -> Tensor:
         self._augment_table(table_name, self[table_name])
-        known, _, _ = self[table_name].deg_data
+        known, _, _ = self[table_name].deg_data()
         return known

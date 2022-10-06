@@ -40,13 +40,13 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
     tab_batch_sizes = _optional_default_dict(tab_batch_sizes, 32)
     deg_batch_sizes = _optional_default_dict(deg_batch_sizes, 32)
 
-    for name, table in real_db.tables:
+    for name, table in real_db.tables():
         table = Table.load(table)
         table_temp_cache = os.path.join(temp_cache, name)
         if table.ttype == 'base':
             gen_table = table.shallow_copy()
             gen_table.update_temp_cache(table_temp_cache)
-        elif table.is_independent:
+        elif table.is_independent():
             gen_table = _generate_independent_table(tab_models[name], table, scaling[name], tab_batch_sizes[name],
                                                     table_temp_cache)
         else:
@@ -86,7 +86,7 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularT
     deg_tensor = deg_trainer.inference(known, deg_batch_size).output
     degrees = syn_table.inverse_transform_degrees(deg_tensor, scale)
     syn_table.assign_degrees(degrees)
-    known_tab, _, _ = syn_table.ptg_data
+    known_tab, _, _ = syn_table.ptg_data()
     output = tab_trainer.inference(known_tab, tab_batch_size).output
     syn_table.inverse_transform(output, replace_content=True)
     return syn_table

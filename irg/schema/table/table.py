@@ -196,6 +196,9 @@ class Table:
             self._deg_norm_by_attr_files[attr_name] = self._reduce_name_level(attr_name)
         return os.path.join(self._temp_cache, 'norm_deg', f'{self._deg_norm_by_attr_files[attr_name]}.pkl')
 
+    def _degree_attr_path(self) -> str:
+        return os.path.join(self._temp_cache, 'deg_attr.pkl')
+
     @classmethod
     def learn_meta(cls, data: pd.DataFrame, id_cols: Optional[Iterable[str]] = None,
                    force_cat: Optional[Iterable[str]] = None) -> Dict[str, Dict[str, Any]]:
@@ -250,6 +253,8 @@ class Table:
         }
         if isinstance(n, str):
             n = n.replace('/', ':')
+        else:
+            n = n[0].replace('/', ':'), n[1].replace('/', ':')
         pd_to_pickle(transformed, path_by_variant[variant](n))
         return 0
 
@@ -399,10 +404,23 @@ class Table:
         - `degree_attributes` (`Dict[TwoLevelName, BaseAttribute]`): Attributes (typically fitted) of the degree
           table.
         """
+        self._known_cols = [col for (table, col) in degree_attributes if table == self._name]
+        self._unknown_cols = [col for col in self._unknown_cols if col not in self._known_cols]
+        if len(self._known_cols) > 0:
+            groupby_cols = [(self._name, col) for col in self._known_cols]
+            sizes = degree.loc[:, groupby_cols].groupby(groupby_cols).size()
+            degree = degree.merge(pd.DataFrame({('', 'degree'): sizes}), on=groupby_cols)
+
         augmented.to_pickle(self._augmented_path())
         degree.to_pickle(self._degree_path())
         self._augmented_ids, self._degree_ids = augmented_ids, degree_ids
         self._augmented_attributes, self._degree_attributes = augmented_attributes, degree_attributes
+        if len(self._known_cols) > 0:
+            self._degree_attributes[('', 'degree')] = create_attribute(
+                learn_meta(degree.loc[:, ('', 'degree')], name='degree'),
+                values=degree.loc[:, ('', 'degree')],
+                temp_cache=self._degree_attr_path()
+            )
 
         fast_map_dict(
             func=self._replace_data_by_attr,
@@ -563,7 +581,7 @@ class Table:
     def _get_aug_or_deg_data(self, data: pd.DataFrame, normalized_by_attr: Dict[TwoLevelName, str],
                              id_cols: Set[TwoLevelName], normalize: bool = False, with_id: IdPolicy = 'this',
                              core_only: bool = False, path_getter: Optional[FunctionType] = None) -> pd.DataFrame:
-        if self.is_independent:
+        if self.is_independent():
             raise NoPartiallyKnownError(self._name)
         if with_id == 'inherit':
             exclude_cols = set()
@@ -580,16 +598,20 @@ class Table:
         if not normalize:
             data = data[[col for col in data.columns if col not in exclude_cols]]
         else:
-            data = pd.concat({
+            if not normalized_by_attr:
+                raise ValueError()
+            to_concat = {
                 n: pd_read_compressed_pickle(path_getter(n)) for n
                 in normalized_by_attr if n not in exclude_cols
-            }, axis=1)
+            }
+            data = pd.concat(to_concat, axis=1) if to_concat else pd.DataFrame()
+            if data.empty:
+                raise ValueError('hello this is empty', self._name, exclude_cols, [*normalized_by_attr])
         return data
 
-    @property
     def is_independent(self):
         """Whether the table is independent (i.e. no parents)"""
-        return not self._augment_fitted
+        return not self._augment_fitted or len(self._known_cols) == 0
 
     @staticmethod
     def _attr2catdim(attributes: Dict[str, BaseAttribute]) -> List[Tuple[int, int]]:
@@ -599,25 +621,23 @@ class Table:
             base += len(attr.transformed_columns)
         return res
 
-    @property
     def augmented_for_join(self) -> Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
         """Augmented information for joining, including augmented table, set of ID column names, and attributes."""
-        if self.is_independent:
+        if self.is_independent():
             return self.data(), self._id_cols, self._attributes
 
         data = self.data(variant='augmented')
         flattened, attributes = {}, {n: v for n, v in self._attributes.items()}
-        for (table, col), group_df in data.groupby(level=[0, 1]):
+        for (table, col), group_df in data.groupby(level=[0, 1], axis=1):
             col_name = col if table == self.name else f'{table}/{col}'
             attributes[col_name] = self._augmented_attributes[(table, col)]
-            flattened[col_name] = group_df
+            flattened[col_name] = group_df[(table, col)]
         return pd.concat(flattened, axis=1), self._id_cols, attributes
 
-    @property
     def ptg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]]]:
         """Data used for tabular data generation (X, y) with a list showing
         [categorical columns](../tabular/ctgan#irg.tabular.ctgan.CTGANTrainer)."""
-        if not self.is_independent:
+        if not self.is_independent():
             unknown_cols = [
                 (table, attr) for table, attr in self._augmented_attributes
                 if table == self._name and attr not in self._known_cols
@@ -625,10 +645,11 @@ class Table:
             aug_data = self.data(variant='augmented', normalize=True, with_id='inherit', core_only=True)
             unknown_set = set(unknown_cols)
             known_cols = [col for col in aug_data.columns.droplevel(2) if col not in unknown_set]
-            known_data, unknown_data = aug_data[known_cols], aug_data[unknown_cols]
+            known_data = aug_data[[(a, b, c) for a, b, c in aug_data.columns if (a, b) in known_cols]]
+            unknown_data = aug_data[[(a, b, c) for a, b, c in aug_data.columns if (a, b) in unknown_cols]]
             cat_dims = self._attr2catdim({
-                table: attr for table, attr in self._augmented_attributes
-                if table == self._name and attr not in self._known_cols
+                table: attr for (table, attr_name), attr in self._augmented_attributes.items()
+                if table == self._name and attr_name not in self._known_cols
             })
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
@@ -636,21 +657,21 @@ class Table:
             return (torch.zeros(len(norm_data), 0), convert_data_as(norm_data, 'torch'),
                     self._attr2catdim(self._attributes))
 
-    @property
     def deg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]]]:
         """Data used for degree generate (X, y) with a list showing
         [categorical columns](../tabular/ctgan#irg.tabular.ctgan.CTGANTrainer).
         Raises [`NoPartiallyKnownError`](../utils/errors#irg.utils.errors.NoPartiallyKnownError) if not independent."""
-        if self.is_independent:
+        if self.is_independent():
             raise NoPartiallyKnownError(self._name)
-        unknown_cols = [
+        unknown_cols = [('', 'degree')] + [
             (table, attr) for table, attr in self._degree_attributes
             if table == self._name and attr not in self._known_cols
         ]
         deg_data = self.data(variant='degree', normalize=True, with_id='none', core_only=True)
         unknown_set = set(unknown_cols)
         known_cols = [col for col in deg_data.columns.droplevel(2) if col not in unknown_set]
-        known_data, unknown_data = deg_data[unknown_cols], deg_data[known_cols]
+        known_data = deg_data[[(a, b, c) for a, b, c in deg_data.columns if (a, b) in known_cols]]
+        unknown_data = deg_data[[(a, b, c) for a, b, c in deg_data.columns if (a, b) in unknown_cols]]
         cat_dims = self._attr2catdim({
             table: attr for table, attr in self._degree_attributes
             if table == self._name and attr not in self._known_cols
@@ -714,7 +735,6 @@ class Table:
     def __len__(self):
         return self._length
 
-    @property
     def attributes(self) -> Dict[str, BaseAttribute]:
         """All attributes of the table."""
         return self._attributes

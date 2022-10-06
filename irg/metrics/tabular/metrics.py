@@ -74,7 +74,7 @@ class StatsMetric(BaseMetric):
         real_data = real.data(with_id='none').copy()
         synthetic_data = synthetic.data(with_id='none').copy()
 
-        for name, attr in real.attributes.items():
+        for name, attr in real.attributes().items():
             if attr.atype == 'categorical':
                 real_data[name] = real_data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
                 synthetic_data[name] = synthetic_data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
@@ -276,7 +276,7 @@ class MLClfMetric(BaseMetric):
         synthetic_data = real.transform(synthetic_data, with_id='none')
 
         if self._run_default:
-            for name, attr in real.attributes.items():
+            for name, attr in real.attributes().items():
                 if attr.atype == 'categorical':
                     self._tasks[f'{name}_from_all'] = (name, [col for col in real_data.columns if col != name])
 
@@ -284,8 +284,8 @@ class MLClfMetric(BaseMetric):
         for name, (y_col, x_cols) in self._tasks.items():
             X_train, y_train = real_data[x_cols], real_data[y_col]
             X_test, y_test = synthetic_data[x_cols], synthetic_data[y_col]
-            y_test = real.attributes[y_col].inverse_transform(y_test)
-            y_train = real.attributes[y_col].inverse_transform(y_train)
+            y_test = real.attributes()[y_col].inverse_transform(y_test)
+            y_train = real.attributes()[y_col].inverse_transform(y_train)
             if len(y_train.unique()) <= 1:
                 continue
             for model_name, (model_type, model_kwargs) in self._models.items():
@@ -354,10 +354,10 @@ class MLRegMetric(BaseMetric):
         synthetic_normalized = real.transform(synthetic_raw, with_id='none')
 
         if self._run_default:
-            for name, attr in real.attributes.items():
+            for name, attr in real.attributes().items():
                 if attr.atype in {'numerical', 'datetime', 'timedelta'}:
                     self._tasks[f'{name}_from_all'] = (name, [
-                        col for col in real_raw.columns if col != name and real.attributes[col].atype != 'id'
+                        col for col in real_raw.columns if col != name and real.attributes()[col].atype != 'id'
                     ])
 
         res = pd.DataFrame()
@@ -365,7 +365,7 @@ class MLRegMetric(BaseMetric):
             X_train, y_train = real_normalized.loc[:, x_cols], real_raw[y_col]
             X_test, y_test = synthetic_normalized.loc[:, x_cols], synthetic_raw[y_col]
             y_train, y_test = y_train.fillna(y_train.mean()), y_test.fillna(y_test.mean())
-            if real.attributes[y_col].atype != 'numerical':
+            if real.attributes()[y_col].atype != 'numerical':
                 y_test = y_test.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
                 y_train = y_train.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
             scaler = MinMaxScaler()
@@ -421,7 +421,7 @@ class DegreeMetric(BaseMetric):
     Metric on degrees.
     The result is Kolmogorov-Smirnov test p-values under the null hypothesis that the distribution of real and synthetic
     tables are the same.
-    The range of the metric's value is [0, +inf], the higher the better.
+    The range of the metric's value is [0, 1], the higher the better.
     """
     def __init__(self, count_on: Optional[Dict[str, List[str]]] = None,
                  default_scaling: float = 1, scaling: Optional[Dict[str, float]] = None):

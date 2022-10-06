@@ -51,7 +51,7 @@ def main():
             processor.construct_table_metadata(args.table_name, args.src, args.out)
     else:
         processor: DatabaseProcessor = DATABASE_PROCESSORS[args.database_name](args.src_data_dir, args.data_dir,
-                                                                               args.meta_dir, args.out, args.tables)
+                                                                               args.meta_dir, args.out, args.tables())
         processor.process_database(args.redo_meta, args.redo_data)
         if args.sample is not None:
             processor.postprocess(os.path.join(os.path.dirname(args.out), 'samples'), args.sample)

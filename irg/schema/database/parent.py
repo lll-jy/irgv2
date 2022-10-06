@@ -4,6 +4,7 @@ When generating a table, only tables that this table directly references are tak
 For example, if T1 references T2 and T2 references T3, when generating T3, the content of T2 is used but
 the content of T1 is left there unused.
 """
+import os
 from typing import Any
 
 import pandas as pd
@@ -30,9 +31,10 @@ class ParentChildDatabase(Database):
         return 'parent-child'
 
     def augment(self):
-        for name, table in self.tables:
-            table = Table.load(table)
+        for name, path in self.tables():
+            table = Table.load(path)
             self._augment_table(name, table)
+            table.save(path)
 
     def _augment_table(self, name: str, table: Table):
         foreign_keys = self._foreign_keys[name]
@@ -51,12 +53,12 @@ class ParentChildDatabase(Database):
             degree = degree.merge(data, how='outer', left_on=left, right_on=right)
 
             id_cols |= {(prefix, col) for col in parent_table.id_cols}
-            attributes |= {(prefix, name): attr for name, attr in parent_table.attributes.items()}
+            attributes |= {(prefix, name): attr for name, attr in parent_table.attributes().items()}
             fk_cols |= {col for _, col in foreign_key.left}
 
         aug_id_cols, deg_id_cols = set(), set()
         aug_attr, deg_attr = {}, {}
-        for attr_name, attr in table.attributes.items():
+        for attr_name, attr in table.attributes().items():
             if attr.atype == 'id':
                 aug_id_cols.add((name, attr_name))
                 if attr_name in fk_cols:
@@ -82,5 +84,5 @@ class SyntheticParentChildDatabase(ParentChildDatabase, SyntheticDatabase):
     """
     def degree_known_for(self, table_name: str) -> Tensor:
         self._augment_table(table_name, self[table_name])
-        known, _, _ = self[table_name].deg_data
+        known, _, _ = self[table_name].deg_data()
         return known
