@@ -8,6 +8,7 @@ DEG_TRAIN_CFG=default
 SCALING=1
 EVALUATOR_CFG=default
 EVALUATE_CFG=default
+USE_SAMPLE=/samples
 
 prepare_small_alset:
 	python3.9 process.py database alset \
@@ -26,10 +27,22 @@ prepare_small_alset:
             sis_enrolment \
         --sample 50
 
+
+prepare_table_alset:
+	python3.9 process.py database alset \
+        --src_data_dir examples/data.nosync/alset \
+        --data_dir examples/data.nosync/alset/table \
+        --meta_dir examples/alset/metadata/results \
+        --out examples/data.nosync/alset/table_db_config.json \
+        --redo_meta --redo_data \
+        --tables \
+            personal_data \
+        --sample 50
+
 train:
 	-python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp.nosync train_gen \
         --db_config_path examples/data.nosync/${DB_NAME}/${DATA_VERSION}_db_config.json \
-        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION} \
+        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
         --db_dir_path examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
         --aug_resume \
         --default_tab_trainer_log_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/tf/tab \
@@ -44,7 +57,7 @@ train:
 train_cfg:
 	-python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp.nosync train_gen \
         --db_config_path examples/data.nosync/${DB_NAME}/${DATA_VERSION}_db_config.json \
-        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION} \
+        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
         --db_dir_path examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
         --aug_resume \
         --default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
@@ -64,7 +77,7 @@ generate:
 	-mkdir -p examples/generated.nosync/${DB_NAME}/${EXP_NAME}
 	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 train_gen \
         --db_config_path examples/data.nosync/${DB_NAME}/${DATA_VERSION}_db_config.json \
-        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION} \
+        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
         --db_dir_path examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
         --aug_resume \
         --skip_train \
@@ -85,7 +98,7 @@ generate_cfg:
 	-mkdir -p examples/generated.nosync/${DB_NAME}/${EXP_NAME}
 	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 train_gen \
         --db_config_path examples/data.nosync/${DB_NAME}/${DATA_VERSION}_db_config.json \
-        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION} \
+        --data_dir examples/data.nosync/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
         --db_dir_path examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
         --aug_resume \
 		--default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
