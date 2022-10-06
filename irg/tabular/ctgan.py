@@ -81,7 +81,6 @@ class CTGANTrainer(TabularTrainer):
             self._condvec_accumulated = [0 for _ in range(self._condvec_dim)]
             torch.save((self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated),
                        self._aux_info_path)
-        print('chosen condvec', self._condvec_left, self._condvec_right)
 
         self._generator = Generator(
             embedding_dim=embedding_dim + self._known_dim + self._condvec_dim,
@@ -189,7 +188,6 @@ class CTGANTrainer(TabularTrainer):
                     self._grad_scaler_d.scale(pen).backward(retain_graph=True)
             self._take_step(loss_d, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d)
             # TODO: for param in model.parameters(): param.grad = None
-            # print('discr out', torch.mean(y_fake).item(), torch.mean(y_real).item())
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             fake_cat = self._construct_fake(mean, std, known)
@@ -202,7 +200,6 @@ class CTGANTrainer(TabularTrainer):
             loss_g = -torch.mean(y_fake) + distance
             # loss_g = -torch.clip(torch.mean(y_fake), -1, 1) + distance
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
-        # print('gen out', torch.mean(y_fake).item())
         return {
                    'G loss': loss_g.detach().cpu().item(),
                    'distance': distance.detach().cpu().item(),
@@ -255,8 +252,6 @@ class CTGANTrainer(TabularTrainer):
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> CTGANOutput:
-        print('--- inference')
-        print(self._discriminator.state_dict())
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
         std = mean + 1
 
@@ -277,6 +272,5 @@ class CTGANTrainer(TabularTrainer):
                 y_fakes.append(y_fake)
         self._generator.train()
         self._discriminator.train()
-        print('--- inference', torch.cat(fakes).shape, self._known_dim, self._unknown_dim)
 
         return CTGANOutput(torch.cat(fakes), torch.cat(y_fakes))

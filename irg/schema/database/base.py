@@ -244,7 +244,6 @@ class Database:
         - `file_path` and `engine`: Arguments for [`utils.load_from`](../../utils/misc#irg.utils.misc.load_from)
         - `data_dir` and `temp_cache`: Argument for [constructor](#irg.schema.database.base.Database).
         """
-        print('*** load from file', file_path)
         schema = load_from(file_path, engine)
         result = Database(OrderedDict(schema), data_dir, temp_cache)
         cls._update_cls(result)
@@ -405,7 +404,6 @@ class Database:
 
         **Return**: Loaded database.
         """
-        print('*&**** load from dir', path)
         database = Database(OrderedDict({}))
 
         with open(os.path.join(path, 'config.json'), 'r') as f:

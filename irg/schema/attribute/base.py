@@ -113,7 +113,6 @@ class BaseTransformer:
         """
         if self._fitted and not force_redo:
             return
-        print('$$$$ do fittt')
         self._load_additional_info()
         data.to_pickle(self._data_path)
         nan_info = self._fit_for_nan(data)

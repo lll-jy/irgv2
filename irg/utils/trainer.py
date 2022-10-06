@@ -170,7 +170,6 @@ class Trainer(ABC):
 
         if is_main_process():
             self._save_checkpoint(0, 'final')
-        print('finally', self._discriminator.state_dict())
 
     def _resume_id(self) -> Tuple[int, int]:
         all_ckpt = os.listdir(os.path.join(self._ckpt_dir, self._descr))
