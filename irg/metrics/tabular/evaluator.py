@@ -1,6 +1,6 @@
 """Evaluator for synthetic table."""
 
-from typing import List, Optional, Dict, Tuple, Any, Union
+from typing import List, Optional, Dict, Tuple, Any, Union, Literal
 import os
 
 import pandas as pd
@@ -60,39 +60,50 @@ class SyntheticTableEvaluator:
         """
 
         self._metrics: Dict[str, BaseMetric] = {}
+        os.makedirs(res_dir, exist_ok=True)
         if eval_stats:
-            self._metrics['stats'] = StatsMetric(real, statistical_metrics)
+            self._metrics['stats'] = StatsMetric(
+                real=real, res_dir=os.path.join(res_dir, 'stats'),
+                metrics=statistical_metrics
+            )
         if eval_corr:
-            self._metrics['corr'] = CorrMatMetric(real, corr_mean, corr_smooth)
+            self._metrics['corr'] = CorrMatMetric(
+                real=real, res_dir=os.path.join(res_dir, 'corr'),
+                mean=corr_mean, smooth=corr_smooth
+            )
         if eval_invalid_comb:
-            self._metrics['comb'] = InvalidCombMetric(real, invalid_comb)
+            self._metrics['comb'] = InvalidCombMetric(
+                real=real, res_dir=os.path.join(res_dir, 'comb'),
+                invalid_combinations=invalid_comb)
         if eval_detect:
             self._metrics['detect'] = DetectionMetric(
-                real,
+                real=real, res_dir=os.path.join(res_dir, 'detect'),
                 models=detect_models, test_size=detect_test_size, train_size=detect_train_size, shuffle=detect_shuffle
             )
         if eval_clf:
             self._metrics['clf'] = MLClfMetric(
-                real, models=clf_models, tasks=clf_tasks, run_default=clf_run_default,
+                real=real, res_dir=os.path.join(res_dir, 'clf'),
+                models=clf_models, tasks=clf_tasks, run_default=clf_run_default,
                 mean=clf_mean, smooth=clf_smooth
             )
         if eval_reg:
             self._metrics['reg'] = MLRegMetric(
-                real, models=reg_models, tasks=reg_tasks, run_default=reg_run_default,
+                real=real, res_dir=os.path.join(res_dir, 'reg'),
+                models=reg_models, tasks=reg_tasks, run_default=reg_run_default,
                 mean=reg_mean, smooth=reg_smooth
             )
         if eval_card:
-            self._metrics['card'] = CardMetric(real, scaling)
+            self._metrics['card'] = CardMetric(real=real, res_dir=os.path.join(res_dir, 'card'), scaling=scaling)
         if eval_degree:
             self._metrics['degree'] = DegreeMetric(
-                real, count_on=count_on,
+                real=real, res_dir=os.path.join(res_dir, 'degree'), count_on=count_on,
                 default_scaling=default_degree_scaling,
                 scaling=degree_scaling
             )
 
         self._result: Dict[str, pd.Series] = {}
 
-    def evaluate(self, synthetic: SyntheticTable, save_to: Optional[str] = None):
+    def evaluate(self, synthetic: SyntheticTable, descr: str):
         """
         Evaluate a pair of real and fake tables. Result is saved to inner structure of the evaluator.
         Hence, to retrieve evaluation result, please call `result` or `summary` before going on to next
@@ -100,21 +111,29 @@ class SyntheticTableEvaluator:
 
         **Args**:
 
-        - `real` (`Table`): Real table.
         - `synthetic` (`SyntheticTable`): Synthetic table.
-        - `save_to` (`Optional[str]`): Path to save some original data before aggregation or visualized graphs.
-          If not specified, nothing is saved.
+        - `descr` (`str`): Short description of the synthetic table.
         """
-        if save_to is not None:
-            os.makedirs(save_to, exist_ok=True)
-            for t in ['corr', 'clf', 'reg']:
-                if t in self._metrics:
-                    new_path = os.path.join(save_to, t)
-                    os.makedirs(new_path, exist_ok=True)
         self._result = {
-            n: v.evaluate(synthetic, os.path.join(save_to, n) if save_to is not None else None)
+            n: v.evaluate(synthetic, descr)
             for n, v in self._metrics.items()
         }
+
+    def compare(self, return_as: Literal['dataframe', 'dict'] = 'dataframe') -> Union[pd.DataFrame, Dict[str, pd.DataFrame]]:
+        """
+        Compare all tables evaluated, with respect to the same real table.
+
+        **Args**:
+
+        - `return_as` (`Literal['dataframe', 'dict']`): Return type of comparison result.
+          Default is dataframe.
+        """
+        dict_res = {
+            metric_type: metric.compare() for metric_type, metric in self._metrics.items()
+        }
+        if return_as == 'dict':
+            return dict_res
+        return pd.concat(dict_res, axis=1)
 
     def result(self) -> pd.Series:
         """Evaluated result."""

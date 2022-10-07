@@ -15,7 +15,7 @@ There are four types of tabular data that can be extracted:
 """
 import logging
 from collections import defaultdict
-from typing import Optional, List, Dict, Any, DefaultDict, Union
+from typing import Optional, List, Dict, Any, DefaultDict, Union, Literal
 import os
 import pickle
 
@@ -24,6 +24,7 @@ import pandas as pd
 from ..schema import Database, SyntheticDatabase, Table, SyntheticTable
 from ..schema.database.base import ForeignKey
 from .tabular import SyntheticTableEvaluator, TableVisualizer
+from ..utils.misc import calculate_mean
 
 _LOGGER = logging.getLogger()
 
@@ -100,10 +101,13 @@ class SyntheticDatabaseEvaluator:
 
         for type_descr, tables_in_type in self._real_tables.items():
             evaluators = {}
+            os.makedirs(os.path.join(self._res_dir, type_descr), exist_ok=True)
             for table_descr, table in tables_in_type.items():
                 table = Table.load(table)
-                evaluator = SyntheticTableEvaluator(real=table, res_dir=self._res_dir,
-                                                    **eval_args[type_descr][table_descr])
+                evaluator = SyntheticTableEvaluator(
+                    real=table, res_dir=os.path.join(self._res_dir, type_descr, table_descr),
+                    **eval_args[type_descr][table_descr]
+                )
                 evaluators[table_descr] = evaluator
             self._evaluators[type_descr] = evaluators
 
@@ -152,7 +156,7 @@ class SyntheticDatabaseEvaluator:
         return result
 
     def evaluate(self, synthetic: SyntheticDatabase, descr: str, mean: str = 'arithmetic', smooth: float = 0.1,
-                 save_eval_res_to: Optional[str] = None, save_complete_result_to: Optional[str] = None,
+                 save_complete_result_to: Optional[str] = None,
                  save_visualization_to: Optional[str] = None,
                  visualize_args: Optional[Dict[str, Dict[str, Any]]] = None) -> pd.DataFrame:
         """
@@ -164,8 +168,6 @@ class SyntheticDatabaseEvaluator:
         - `descr` (`str`): Description of the synthetic database.
         - `mean` and `smooth`: Arguments to
           [`SyntheticTableEvaluator.summary`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator.summary).
-        - `save_eval_res_to` (`Optional[str]`): Path to save extra evaluation result that is not returned.
-          Not saved if not provided.
         - `save_complete_result_to` (`Optional[str]`): Path to save complete evaluation results for each tabular data
           set to. If it is not provided, this piece of information is not saved.
         - `save_visualization_to` (`Optional[str]`): If provided, all constructed tabular data sets are visualized and
@@ -179,8 +181,6 @@ class SyntheticDatabaseEvaluator:
         **Return**: A `pd.DataFrame` describing the metrics result.
         """
         synthetic_tables = self._construct_tables(synthetic, descr)
-        if save_eval_res_to is not None:
-            os.makedirs(save_eval_res_to, exist_ok=True)
         if save_visualization_to is not None:
             os.makedirs(save_visualization_to, exist_ok=True)
         visualize_args = visualize_args if visualize_args is not None else {'default': {}}
@@ -188,8 +188,6 @@ class SyntheticDatabaseEvaluator:
         results, summary = {}, {}
         for type_descr, evaluators_in_type in self._evaluators.items():
             type_results, type_summary = {}, {}
-            if save_eval_res_to is not None:
-                os.makedirs(os.path.join(save_eval_res_to, type_descr), exist_ok=True)
             if save_visualization_to is not None:
                 os.makedirs(os.path.join(save_visualization_to, type_descr), exist_ok=True)
 
@@ -197,7 +195,7 @@ class SyntheticDatabaseEvaluator:
                 real_table = self._real_tables[type_descr][table_descr]
                 synthetic_table = synthetic_tables[type_descr][table_descr]
                 evaluator = self._evaluate_table(real_table, synthetic_table, descr, type_descr, table_descr, evaluator,
-                                                 visualize_args, save_eval_res_to, save_visualization_to)
+                                                 visualize_args, save_visualization_to)
                 type_results[table_descr] = evaluator.result()
                 type_summary[table_descr] = evaluator.summary(mean, smooth)
 
@@ -213,16 +211,64 @@ class SyntheticDatabaseEvaluator:
         _LOGGER.info(f'Finished evaluating database {descr}.')
         return result
 
+    def compare(self, info_level: Literal['all', 'type', 'table'] = 'all') -> pd.DataFrame:
+        """
+        Compare all evaluated tables in this evaluator.
+
+        **Args**:
+
+        - `info_level` (`Literal['all', 'type', 'table']`): Most detailed level of information to be returned. If too
+          detailed information is available, we calculate a mean over them.
+
+        **Return**: Full result of all evaluated tables consolidated in one dataframe. The column indices are table
+        version descriptions, and row indices are multilevel with metric type, metric name, table type (if 'type' or
+        'table' `info_level`), table name (if 'table' `info_type`).
+        """
+        final_res = {}
+        for type_descr, evaluators_in_type in self._evaluators.items():
+            for table_descr, evaluator in evaluators_in_type.items():
+                compare_res = evaluator.compare(return_as='dict')
+                for metric_type, metric_res in compare_res.items():
+                    if metric_type not in final_res:
+                        final_res[metric_type] = {}
+                    for metric_name in metric_res.columns:
+                        if metric_name not in final_res[metric_type]:
+                            final_res[metric_type][metric_name] = {}
+                        if type_descr not in final_res[metric_type][metric_name]:
+                            final_res[metric_type][metric_name][type_descr] = {}
+                        final_res[metric_type][metric_name][type_descr][table_descr] = metric_res[metric_name]
+
+        all_combined = {}
+        for metric_type, type_res in final_res.items():
+            per_metric_type = {}
+            for metric_name, metric_res in type_res.items():
+                per_metric_sep = {}
+                for type_descr, table_type_res in metric_res.items():
+                    per_table_type = pd.DataFrame(table_type_res)
+                    if info_level != 'table':
+                        per_table_type = per_table_type.aggregate(lambda x: calculate_mean(x, 'harmonic', 0))
+                    per_metric_sep[type_descr] = per_table_type
+                if info_level == 'table':
+                    per_metric = pd.concat(per_metric_sep, axis=1)
+                else:
+                    per_metric = pd.DataFrame(per_metric_sep)
+                if info_level == 'all':
+                    per_metric = per_metric.aggregate(lambda x: calculate_mean(x, 'harmonic', 0))
+                per_metric_type[metric_name] = per_metric
+            if info_level == 'all':
+                per_metric_type = pd.DataFrame(per_metric_type)
+            else:
+                per_metric_type = pd.concat(per_metric_type, axis=1)
+            all_combined[metric_type] = per_metric_type
+        return pd.concat(all_combined).T
+
     def _evaluate_table(self, real_table: str, synthetic_table: str, descr: str, type_descr: str, table_descr: str,
                         evaluator: SyntheticTableEvaluator, visualize_args: Dict[str, Dict[str, Any]],
-                        save_eval_res_to: Optional[str] = None, save_visualization_to: Optional[str] = None) -> \
+                        save_visualization_to: Optional[str] = None) -> \
             SyntheticTableEvaluator:
         real_table = Table.load(real_table)
         synthetic_table = SyntheticTable.load(synthetic_table)
-        synthetic_table.save_complete(os.path.join(self._table_dir, 'complete', descr, type_descr, table_descr))
-        evaluator.evaluate(synthetic_table,
-                           os.path.join(save_eval_res_to, type_descr, table_descr)
-                           if save_eval_res_to is not None else None)
+        evaluator.evaluate(synthetic_table, descr)
 
         _LOGGER.info(f'Finished evaluating {type_descr} table {table_descr}.')
 

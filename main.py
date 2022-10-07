@@ -139,7 +139,6 @@ def _parse_eval_args(parser: ArgumentParser):
     save_group = parser.add_argument_group('save results path arguments')
     save_group.add_argument('--save_eval_res_to', type=str, default=None)
     save_group.add_argument('--save_complete_result_to', type=str, default=None)
-    save_group.add_argument('--save_synthetic_tables_to', type=str, default=None)
     save_group.add_argument('--save_visualization_to', type=str, default=None)
     save_group.add_argument('--save_all_res_to', type=str, default='evaluation',
                             help='Path of directory to save eventual result of the evaluation.')
@@ -282,7 +281,7 @@ def _evaluate(args: Namespace):
         real=args.real_db_dir, synthetic=synthetic_db,
         constructor_args=constructor_args, eval_args=eval_args,
         save_eval_res_to=args.save_eval_res_to, save_complete_result_to=args.save_complete_result_to,
-        save_synthetic_tables_to=args.save_synthetic_tables_to, save_visualization_to=args.save_visualization_to
+        save_visualization_to=args.save_visualization_to
     )
     os.makedirs(args.save_all_res_to, exist_ok=True)
     with open(os.path.join(args.save_all_res_to, 'result.pkl'), 'wb') as f:
