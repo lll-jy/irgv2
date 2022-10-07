@@ -113,7 +113,6 @@ class SyntheticTableEvaluator:
                           os.path.join(save_to, n) if save_to is not None else None) for n, v in self._metrics.items()
         }
 
-    @property
     def result(self) -> pd.Series:
         """Evaluated result."""
         result = {}

@@ -100,9 +100,9 @@ class SyntheticDatabaseEvaluator:
             evaluators = {}
             os.makedirs(os.path.join(self._table_dir, 'complete', 'real', type_descr), exist_ok=True)
             for table_descr, table in tables_in_type.items():
+                table = Table.load(table)
                 evaluator = SyntheticTableEvaluator(**eval_args[type_descr][table_descr])
                 evaluators[table_descr] = evaluator
-                table = Table.load(table)
                 table.save_complete(os.path.join(self._table_dir, 'complete', 'real', type_descr, table_descr))
             self._evaluators[type_descr] = evaluators
 
@@ -197,26 +197,12 @@ class SyntheticDatabaseEvaluator:
 
             for table_descr, evaluator in evaluators_in_type.items():
                 real_table = self._real_tables[type_descr][table_descr]
-                real_table = Table.load(real_table)
                 synthetic_table = synthetic_tables[type_descr][table_descr]
-                synthetic_table = Table.load(synthetic_table)
-                synthetic_table.save_complete(os.path.join(self._table_dir, 'complete', descr, type_descr, table_descr))
-                evaluator.evaluate(real_table, synthetic_table,
-                                   os.path.join(save_eval_res_to, type_descr, table_descr)
-                                   if save_eval_res_to is not None else None)
-                type_results[table_descr] = evaluator.result
+                evaluator = self._evaluate_table(real_table, synthetic_table, descr, type_descr, table_descr, evaluator,
+                                                 visualize_args, save_eval_res_to, save_visualization_to)
+                type_results[table_descr] = evaluator.result()
                 type_summary[table_descr] = evaluator.summary(mean, smooth)
 
-                _LOGGER.info(f'Finished evaluating {type_descr} table {table_descr}.')
-
-                if save_visualization_to is not None:
-                    visualizer = TableVisualizer(real_table, synthetic_table)
-                    vis_dir = os.path.join(save_visualization_to, type_descr, table_descr)
-                    os.makedirs(vis_dir, exist_ok=True)
-                    for descr, args in visualize_args.items():
-                        visualizer.visualize(descr=descr, save_dir=vis_dir, **args)
-                        _LOGGER.debug(f'Finished visualizing {type_descr} table {table_descr} version {descr}.')
-                    _LOGGER.info(f'Finished visualizing {type_descr} table {table_descr}.')
             results[type_descr] = type_results
             summary[type_descr] = pd.DataFrame(type_summary)
             _LOGGER.info(f'Finished evaluating {type_descr}.')
@@ -228,3 +214,26 @@ class SyntheticDatabaseEvaluator:
         result = pd.concat(summary, axis=1)
         _LOGGER.info(f'Finished evaluating database {descr}.')
         return result
+
+    def _evaluate_table(self, real_table: str, synthetic_table: str, descr: str, type_descr: str, table_descr: str,
+                        evaluator: SyntheticTableEvaluator, visualize_args: Dict[str, Dict[str, Any]],
+                        save_eval_res_to: Optional[str] = None, save_visualization_to: Optional[str] = None) -> \
+            SyntheticTableEvaluator:
+        real_table = Table.load(real_table)
+        synthetic_table = Table.load(synthetic_table)
+        synthetic_table.save_complete(os.path.join(self._table_dir, 'complete', descr, type_descr, table_descr))
+        evaluator.evaluate(real_table, synthetic_table,
+                           os.path.join(save_eval_res_to, type_descr, table_descr)
+                           if save_eval_res_to is not None else None)
+
+        _LOGGER.info(f'Finished evaluating {type_descr} table {table_descr}.')
+
+        if save_visualization_to is not None:
+            visualizer = TableVisualizer(real_table, synthetic_table)
+            vis_dir = os.path.join(save_visualization_to, type_descr, table_descr)
+            os.makedirs(vis_dir, exist_ok=True)
+            for descr, args in visualize_args.items():
+                visualizer.visualize(descr=descr, save_dir=vis_dir, **args)
+                _LOGGER.debug(f'Finished visualizing {type_descr} table {table_descr} version {descr}.')
+            _LOGGER.info(f'Finished visualizing {type_descr} table {table_descr}.')
+        return evaluator
