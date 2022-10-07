@@ -51,6 +51,8 @@ class BaseMetric(ABC):
         - `res_dir` (`str`): Result directory path.
         """
         self._real, self._res_dir = real, res_dir
+        os.makedirs(res_dir, exist_ok=True)
+        os.makedirs(os.path.join(res_dir, 'real'), exist_ok=True)
         self._real_raw: Dict[str, Dict[str, Any]] = {}
         self._seen_results: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
@@ -80,8 +82,9 @@ class BaseMetric(ABC):
         raw_result = self._evaluate_complete_raw(synthetic, os.path.join(self._res_dir, descr))
         normalized_result = self._normalize_result(raw_result)
         self._seen_results[descr] = normalized_result
+        print('raw result', [*raw_result])
         df = pd.DataFrame(columns=pd.concat({
-            subtype: pd.concat({name: [] for name in sub_results})
+            subtype: pd.DataFrame({name: [] for name in sub_results})
             for subtype, sub_results in raw_result.items()
         }).columns)
         for subtype, sub_results in raw_result.items():
@@ -116,6 +119,8 @@ class BaseMetric(ABC):
     def _normalize_metric(raw: float, real_raw: float, elaborate: bool = False,
                           raw_range: Tuple[float, float] = (0, 1), goal: Literal['min', 'max'] = 'max') -> \
             Union[float, pd.Series]:
+        if pd.isnull(raw) or pd.isnull(real_raw):
+            return np.nan
         if not raw_range[0] <= raw <= raw_range[1] or not raw_range[0] <= real_raw <= raw_range[1]:
             raise ValueError(f'Raw score out of range. '
                              f'Expected in range {raw_range}, given scores {raw} and {real_raw}.')
@@ -239,7 +244,7 @@ class CorrMatMetric(BaseMetric):
         diff_corr = 1 - (self._r_corr - s_corr).abs() / 2
         res = diff_corr.aggregate(lambda x: calculate_mean(x, self._mean, self._smooth))
         pd_to_pickle(s_corr, os.path.join(save_to, 'corr.pkl'))
-        return {'score': {c: v for c, v in res.to_dict()}}
+        return {'score': {':'.join(c): v for c, v in res.to_dict().items()}}
 
     def compare(self) -> pd.DataFrame:
         res = pd.DataFrame()
@@ -449,8 +454,6 @@ class MLClfMetric(BaseMetric):
             for name, attr in self._real.attributes().items():
                 if attr.atype == 'categorical':
                     self._tasks[f'{name}_from_all'] = (name, [col for col in self._real_data.columns if col != name])
-        self._real_raw = self._evaluate_complete_raw(self._real, os.path.join(self._res_dir, 'real'))
-        self._seen_results = {'real': self._normalize_result(self._real_raw)}
 
         self._task_tests = {}
         for name, (y_col, x_cols) in self._tasks.items():
@@ -459,6 +462,9 @@ class MLClfMetric(BaseMetric):
             if len(y_test.unique()) <= 1:
                 continue
             self._task_tests[name] = X_test, y_test
+
+        self._real_raw = self._evaluate_complete_raw(self._real, os.path.join(self._res_dir, 'real'))
+        self._seen_results = {'real': self._normalize_result(self._real_raw)}
 
     def _evaluate_complete_raw(self, synthetic: Table, save_to: str) -> Dict[str, Dict[str, float]]:
         synthetic_data = synthetic.data(with_id='this')
@@ -482,7 +488,7 @@ class MLClfMetric(BaseMetric):
                     'truth': y_test,
                     'pred': y_pred
                 })
-                pd_to_pickle(pred_res, os.path.join(save_to, name, f'{model_name}_pred.pkl'))
+                pd_to_pickle(pred_res, os.path.join(save_to, name, f'{model_name}_pred.pkl'), sparse=False)
                 perf = f1_score(y_test, y_pred, average='macro')
                 res[name][model_name] = perf
 
@@ -555,8 +561,6 @@ class MLRegMetric(BaseMetric):
                         col for col in self._real_raw_data.columns 
                         if col != name and self._real.attributes()[col].atype != 'id'
                     ])
-        self._real_raw = self._evaluate_complete_raw(self._real, os.path.join(self._res_dir, 'real'))
-        self._seen_results = {'real': self._normalize_result(self._real_raw)}
 
         self._task_tests = {}
         for name, (y_col, x_cols) in self._tasks.items():
@@ -571,6 +575,9 @@ class MLRegMetric(BaseMetric):
             y_test = scaler.transform(y_test.values.reshape(-1, 1))
             self._task_tests[name] = X_test, y_test, scaler
 
+        self._real_raw = self._evaluate_complete_raw(self._real, os.path.join(self._res_dir, 'real'))
+        self._seen_results = {'real': self._normalize_result(self._real_raw)}
+
     def _evaluate_complete_raw(self, synthetic: Table, save_to: str) -> Dict[str, Dict[str, float]]:
         synthetic_raw = synthetic.data(with_id='this')
         synthetic_normalized = self._real.transform(synthetic_raw, with_id='none')
@@ -580,6 +587,7 @@ class MLRegMetric(BaseMetric):
             X_test, y_test, scaler = self._task_tests[name]
             X_train, y_train = synthetic_normalized.loc[:, x_cols], synthetic_raw[y_col]
             y_train = y_train.fillna(y_test.mean())
+            os.makedirs(os.path.join(save_to, name), exist_ok=True)
             if self._real.attributes()[y_col].atype == 'datetime':
                 y_train = y_train.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
             elif self._real.attributes()[y_col].atype == 'timedelta':
@@ -592,6 +600,7 @@ class MLRegMetric(BaseMetric):
                 with open(os.path.join(save_to, name, f'{model_name}_model.pkl'), 'wb') as f:
                     pickle.dump(model, f)
                 y_pred = model.predict(X_test)
+                y_pred, y_test = y_pred.flatten(), y_test.flatten()
                 pred_res = pd.DataFrame({
                     'truth': y_test,
                     'pred': y_pred

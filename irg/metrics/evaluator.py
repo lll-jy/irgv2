@@ -128,7 +128,7 @@ class SyntheticDatabaseEvaluator:
                     descr: create_visualizer(
                         real=table, model_dir=os.path.join(self._vis_dir, type_descr, table_descr, 'models'),
                         vis_to=os.path.join(self._vis_dir, type_descr, table_descr, 'vis'), **vis_args
-                    ) for descr, vis_args in visualize_args.items()
+                    ) for descr, vis_args in self._vis_args.items()
                 }
             self._evaluators[type_descr] = evaluators
             self._visualizers[type_descr] = visualizers
