@@ -1,7 +1,7 @@
 """Tabular metrics."""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Any, Dict, Tuple, DefaultDict
+from typing import List, Optional, Any, Dict, Tuple, DefaultDict, Union, Literal
 from collections import defaultdict
 import os
 
@@ -57,6 +57,63 @@ class BaseMetric(ABC):
         """
         raise NotImplementedError()
 
+    def normalize(self, raw_scores: pd.Series, real_raw_scores: pd.Series, elaborate: bool = False) -> \
+            Union[pd.Series, pd.DataFrame]:
+        raw_dict, real_raw_dict = raw_scores.to_dict(), real_raw_scores.to_dict()
+        names, real_names = {*raw_dict.keys()}, {*real_raw_dict.keys()}
+        if names != real_names:
+            raise ValueError(f'Sub metric names of given raw scores {names} does not match '
+                             f'the real scores provided {real_names}.')
+        result = {}
+        for name in names:
+            m_range, m_goal = self._raw_info_for(name)
+            normalized = self._normalize_metric(raw_dict[name], real_raw_dict[name], elaborate, m_range, m_goal)
+            result[name] = normalized
+        if elaborate:
+            return pd.DataFrame(result)
+        else:
+            return pd.Series(result)
+
+    @staticmethod
+    @abstractmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        raise NotImplementedError()
+
+    @staticmethod
+    def _normalize_metric(raw: float, real_raw: float, elaborate: bool = False,
+                          raw_range: Tuple[float, float] = (0, 1), goal: Literal['min', 'max'] = 'max') -> \
+            Union[float, pd.Series]:
+        if not raw_range[0] <= raw <= raw_range[1] or not raw_range[0] <= real_raw <= raw_range[1]:
+            raise ValueError(f'Raw score out of range. '
+                             f'Expected in range {raw_range}, given scores {raw} and {real_raw}.')
+        if raw_range == (0, 1) and goal == 'max':
+            if real_raw == 0:
+                normalized = 1
+            else:
+                normalized = min(raw, real_raw) / real_raw
+        elif raw_range == (0, 1) and goal == 'min':
+            if real_raw == 1:
+                normalized = 1
+            else:
+                normalized = (1 - max(raw, real_raw)) / (1 - real_raw)
+        elif raw_range[0] == -np.inf and goal == 'max':
+            normalized = np.exp(min(raw, real_raw)) / np.exp(real_raw)
+        elif raw_range[1] == np.inf and goal == 'min':
+            normalized = np.exp(-max(raw, real_raw)) / np.exp(-real_raw)
+        else:
+            raise NotImplementedError(f'The metric with range {raw_range} and goal {goal}imization is not implemented.')
+
+        if not elaborate:
+            return normalized
+        else:
+            return pd.Series({
+                'raw': raw,
+                'normalized': normalized,
+                'min': raw_range[0],
+                'max': raw_range[1],
+                'goal': goal
+            })
+
 
 class StatsMetric(BaseMetric):
     """Metric using [SDV](https://sdv.dev/SDV/user_guides/evaluation/single_table_metrics.html) statistical metrics."""
@@ -98,6 +155,17 @@ class StatsMetric(BaseMetric):
         for i, row in eval_res.iterrows():
             res.loc[row['metric']] = row['raw_score']
         return res
+
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        if name in {'CSTest', 'KSTest'}:
+            return (0, 1), 'max'
+        elif name == 'BNLogLikelihood':
+            return (-np.inf, 0), 'max'
+        elif name == 'GMLogLikelihood':
+            return (-np.inf, np.inf), 'max'
+        else:
+            raise NotImplementedError(f'Statistical metric {name} is not recognized.')
 
 
 class CorrMatMetric(BaseMetric):
@@ -141,12 +209,16 @@ class CorrMatMetric(BaseMetric):
 
         return res
 
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        return (0, 1), 'max'
+
 
 class InvalidCombMetric(BaseMetric):
     """
     Metric checking invalid value combinations.
-    The metric values are 1 minus the ratio of invalid combinations among the entire table.
-    The range of the metric values is [0, 1], the larger the better.
+    The metric values are the ratio of invalid combinations among the entire table.
+    The range of the metric values is [0, 1], the smaller the better.
     """
     def __init__(self, invalid_combinations: Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]]):
         """
@@ -172,16 +244,20 @@ class InvalidCombMetric(BaseMetric):
                 total += len(df)
                 if value in invalid_values:
                     invalid += len(df)
-            res.loc[descr] = 1 - invalid / total
+            res.loc[descr] = invalid / total
         return res
+
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        return (0, 1), 'min'
 
 
 class DetectionMetric(BaseMetric):
     """
     Metric checking how easy it is to distinguish fake data from real.
-    This will be processed by some binary classifiers, and 1 minus the F1 score is the result of the metric.
+    This will be processed by some binary classifiers, and the F1 score is the result of the metric.
     Real data is considered positive type.
-    The range of the metric values is [0, 1], the larger the better.
+    The range of the metric values is [0, 1], the smaller the better.
 
     The models will be executed using scikit-learn but not other more powerful deep learning frameworks like PyTorch,
     because we do not want the evaluation metric to be too complicated.
@@ -231,8 +307,12 @@ class DetectionMetric(BaseMetric):
         for name, model in self._models.items():
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
-            res.loc[name] = 1 - f1_score(y_test, y_pred)
+            res.loc[name] = f1_score(y_test, y_pred)
         return res
+
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        return (0, 1), 'min'
 
 
 class MLClfMetric(BaseMetric):
@@ -307,6 +387,10 @@ class MLClfMetric(BaseMetric):
             agg_res.loc[f'task_{task_name}'] = calculate_mean(res.loc[task_name, :], self._mean, self._smooth)
         return agg_res
 
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        return (0, 1), 'max'
+
 
 class MLRegMetric(BaseMetric):
     """
@@ -314,7 +398,7 @@ class MLRegMetric(BaseMetric):
     This is the 1 minus MSE for regressors trained on synthetic data and tested on real data,
     where the MSE is calculated based on min-max normalized data in range [0, 1].
     The result is averaged over all tasks conditioned by model, and averaged over all models conditioned by tasks.
-    The range of the metric values is [0, 1], the smaller the better.
+    The range of the metric values is [0, +inf], the smaller the better.
     """
     _DEFAULT_MODELS = {
         'KNN': ('KNN', {}),
@@ -392,12 +476,17 @@ class MLRegMetric(BaseMetric):
             agg_res.loc[f'task_{task_name}'] = calculate_mean(res.loc[task_name, :], self._mean, self._smooth)
         return agg_res
 
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        return (0, np.inf), 'min'
+
 
 class CardMetric(BaseMetric):
     """
     Metric on cardinality.
     Namely, this checks the size of the generated table.
     The result is relative error, namely, say E is expected size and A is actual length, the result is |E-A|/E.
+    The range is [0, 1], the smaller the better.
     """
     def __init__(self, scaling: float = 1):
         """
@@ -414,6 +503,10 @@ class CardMetric(BaseMetric):
         res = pd.Series()
         res.loc[''] = abs(expected - synthetic_len) / expected
         return res
+
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        return (0, 1), 'min'
 
 
 class DegreeMetric(BaseMetric):
@@ -447,3 +540,7 @@ class DegreeMetric(BaseMetric):
             p_value = kstest(synthetic_freq, real_freq).pvalue
             res.loc[descr] = p_value
         return res
+
+    @staticmethod
+    def _raw_info_for(name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
+        return (0, 1), 'max'
