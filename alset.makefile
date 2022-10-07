@@ -145,8 +145,8 @@ evaluate_cfg:
 	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 evaluate \
 		--real_db_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
 		--fake_db_dir examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db \
-		--evaluator_path ${EVALUATOR_CFG} \
-		--evaluate_path ${EVALUATE_CFG} \
+		--evaluator_path config/evaluator/${EVALUATOR_CFG}.json \
+		--evaluate_path config/evaluator/${EVALUATE_CFG}.json \
 		--save_eval_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/results \
 		--save_complete_result_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/complete \
 		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables \

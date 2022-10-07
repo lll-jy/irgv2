@@ -167,7 +167,7 @@ class SyntheticDatabaseEvaluator:
         if self._eval_queries:
             os.makedirs(os.path.join(self._table_dir, db_descr, 'queries'), exist_ok=True)
             result['queries'] = {}
-            for descr, query in self._queries:
+            for descr, query in self._queries.items():
                 saved_path = os.path.join(self._table_dir, db_descr, 'queries', f'{descr}.pkl')
                 db.query(query, descr, **self._query_args[descr]).save(saved_path)
                 result['queries'][descr] = saved_path
