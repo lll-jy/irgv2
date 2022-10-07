@@ -1,7 +1,8 @@
 {
   "queries": {
-    "male": "SELECT gender, residency, country_of_citizenship, returning_national_serviceman, month_year_of_birth FROM personal_data WHERE gender == 'M'",
-    "female": "SELECT gender, residency, country_of_citizenship, returning_national_serviceman, month_year_of_birth FROM personal_data WHERE gender == 'F'"
+    "male": "SELECT residency, country_of_citizenship, returning_national_serviceman, month_year_of_birth FROM personal_data WHERE gender == 'M'",
+    "female": "SELECT residency, country_of_citizenship, returning_national_serviceman, month_year_of_birth FROM personal_data WHERE gender == 'F'",
+    "sg_cit": "SELECT gender, country_of_citizenship, returning_national_serviceman, month_year_of_birth FROM personal_data WHERE residency == 'Singapore Citizen'"
   },
   "tabular_args": {
     "tables": {
