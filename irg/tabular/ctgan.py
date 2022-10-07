@@ -212,7 +212,7 @@ class CTGANTrainer(TabularTrainer):
             sum_cnt = sum(self._condvec_accumulated)
             probabilities = [x / sum_cnt for x in self._condvec_accumulated]
             conditions = np.random.choice(range(self._condvec_dim), known_tensor.shape[0], p=probabilities)
-            condvec = F.one_hot(torch.from_numpy(conditions), self._condvec_dim).to(self._device)
+            condvec = F.one_hot(torch.from_numpy(conditions).long(), self._condvec_dim).to(self._device)
         else:
             condvec = known_tensor[:, 0:0]
         fakez = torch.cat([fakez, condvec, known_tensor], dim=1)
