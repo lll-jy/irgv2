@@ -189,13 +189,17 @@ class StatsMetric(BaseMetric):
                 data.loc[:, name] = data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
             else:
                 if attr.atype == 'datetime':
-                    data.loc[:, name] = data[name] \
+                    data.loc[:, name] = data[name].astype('datetime64[ns]') \
                         .apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
                 data.loc[:, f'{name}:is_nan'] = data[name].apply(lambda x: 'y' if pd.isnull(x) else 'n')
-                if pd.isnull(self._real_df[name].mean()):
+                if hasattr(self, '_real_data'):
+                    mean = self._real_data[name].mean()
+                else:
+                    mean = data[name].mean()
+                if pd.isnull(mean):
                     data = data.drop(columns=[name])
                 else:
-                    data.loc[:, name] = data[name].fillna(self._real_df[name].mean())
+                    data.loc[:, name] = data[name].fillna(mean)
         return data
 
     def _evaluate_complete_raw(self, synthetic: Table, save_to: str) -> Dict[str, Dict[str, float]]:
@@ -567,11 +571,11 @@ class MLRegMetric(BaseMetric):
         self._task_tests = {}
         for name, (y_col, x_cols) in self._tasks.items():
             X_test, y_test = self._real_normalized_data.loc[:, x_cols], self._real_raw_data[y_col]
-            y_test = y_test.fillna(y_test.mean())
             if self._real.attributes()[y_col].atype == 'datetime':
-                y_test = y_test.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
+                y_test = y_test.astype('datetime64[ns]').apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
             elif self._real.attributes()[y_col].atype == 'timedelta':
                 y_test = y_test.apply(lambda x: x.total_seconds() if not pd.isnull(x) else np.nan)
+            y_test = y_test.fillna(y_test.mean())
             scaler = MinMaxScaler()
             scaler.fit(y_test.to_frame())
             y_test = scaler.transform(y_test.values.reshape(-1, 1))
@@ -588,12 +592,12 @@ class MLRegMetric(BaseMetric):
         for name, (y_col, x_cols) in self._tasks.items():
             X_test, y_test, scaler = self._task_tests[name]
             X_train, y_train = synthetic_normalized.loc[:, x_cols], synthetic_raw[y_col]
-            y_train = y_train.fillna(y_test.mean())
             os.makedirs(os.path.join(save_to, name), exist_ok=True)
             if self._real.attributes()[y_col].atype == 'datetime':
-                y_train = y_train.apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
+                y_train = y_train.astype('datetime64[ns]').apply(lambda x: x.toordinal() if not pd.isnull(x) else np.nan)
             elif self._real.attributes()[y_col].atype == 'timedelta':
                 y_train = y_train.apply(lambda x: x.total_seconds() if not pd.isnull(x) else np.nan)
+            y_train = y_train.fillna(y_test.mean())
             y_train = scaler.transform(y_train.values.reshape(-1, 1))
             for model_name, (model_type, model_kwargs) in self._models.items():
                 model = _REGRESSORS[model_type](**model_kwargs)
