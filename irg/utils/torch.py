@@ -56,12 +56,17 @@ class MLP(nn.Module):
 
 
 class Discriminator(CTGANDiscriminator):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.sigmoid = nn.Sigmoid()
+
     def forward(self, input_: torch.Tensor):
         x, y = input_.size()
         size = math.ceil(x / self.pac) * self.pac
         placeholder = torch.zeros(size, y).to(input_.device)
         placeholder[:x, :] = input_
         res = super().forward(placeholder)
+        res = self.sigmoid(res)
         return res[:x]
 
     @staticmethod
