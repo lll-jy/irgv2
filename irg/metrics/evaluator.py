@@ -24,6 +24,7 @@ import pandas as pd
 from ..schema import Database, SyntheticDatabase, Table, SyntheticTable
 from ..schema.database.base import ForeignKey
 from .tabular import SyntheticTableEvaluator, TableVisualizer
+from .tabular.visualize import create_visualizer
 from ..utils.misc import calculate_mean
 
 _LOGGER = logging.getLogger()
@@ -38,9 +39,9 @@ class SyntheticDatabaseEvaluator:
                  parent_child_pairs: Optional[List[Union[ForeignKey, Dict[str, Any]]]] = None,
                  all_direct_parent_child: bool = True,
                  queries: Optional[Dict[str, str]] = None, query_args: Optional[Dict[str, Dict[str, Any]]] = None,
-                 save_tables_to: str = 'eval_tables', save_eval_res_to: str = 'eval_res',
+                 save_tables_to: str = 'eval_tables', save_eval_res_to: str = 'eval_res', save_vis_to: str = 'vis',
                  tabular_args: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
-                 default_args: Optional[Dict[str, Any]] = None):
+                 default_args: Optional[Dict[str, Any]] = None, visualize_args: Optional[Dict[str, Any]] = None):
         """
         **Args**:
 
@@ -63,6 +64,8 @@ class SyntheticDatabaseEvaluator:
           Keys of the `dict` should match the keys of `queries` if provided.
         - `save_tables_to` (`str`): Path to save the constructed tabular data in the format of `Table` based
           on the real database. Default is `'eval_tables'`.
+        - `save_eval_res_to` (`str`): Path to save the evaluation results to. Default is `'eval_res'`.
+        - `save_vis_to` (`str`): Path to save visualization result to. Default is `'vis'`.
         - `tabular_args` (`Optional[Dict[str, Dict[str, Dict[str, Any]]]]`): Arguments to
           [`SyntheticTableEvaluator`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator)
           for each set of tabular data. The first level keys are the names of the four tabular types.
@@ -71,6 +74,10 @@ class SyntheticDatabaseEvaluator:
         - `default_args` (`Optional[Dict[str, Any]]`): Default arguments to
           [`SyntheticTableEvaluator`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator) (second level values
           for `tabular_args` if the relevant keys are not found.
+        - `visualize_args` (`Optional[Dict[str, Dict[str, Any]]`): Visualization settings applying to all tables, where
+          keys are short descriptions of the visualization and values are arguments to
+          [`create_visualizer`](./tabular#irg.metrics.tabular.visualize.create_visualizer) constructor.
+          By default, we will use PCA and LDA.
         """
         self._real = real
 
@@ -85,6 +92,10 @@ class SyntheticDatabaseEvaluator:
             if query_args is not None else defaultdict(dict)
         tabular_args = tabular_args if tabular_args is not None else {}
         default_args = default_args if default_args is not None else {}
+        self._vis_args = visualize_args if visualize_args is not None else {
+            'pca': {'policy': 'pca'},
+            'lda': {'policy': 'lda'}
+        }
 
         self._table_dir = save_tables_to
         os.makedirs(self._table_dir, exist_ok=True)
@@ -94,14 +105,17 @@ class SyntheticDatabaseEvaluator:
         for type_descr, tables_in_type in tabular_args.items():
             for table_descr, table_args in tables_in_type.items():
                 eval_args[type_descr][table_descr] |= table_args
-        self._evaluators = {}
+        self._evaluators, self._visualizers = {}, {}
 
         self._res_dir = save_eval_res_to
         os.makedirs(self._res_dir, exist_ok=True)
+        self._vis_dir = save_vis_to
+        os.makedirs(self._vis_dir, exist_ok=True)
 
         for type_descr, tables_in_type in self._real_tables.items():
-            evaluators = {}
+            evaluators, visualizers = {}, {}
             os.makedirs(os.path.join(self._res_dir, type_descr), exist_ok=True)
+            os.makedirs(os.path.join(self._vis_dir, type_descr), exist_ok=True)
             for table_descr, table in tables_in_type.items():
                 table = Table.load(table)
                 evaluator = SyntheticTableEvaluator(
@@ -109,7 +123,15 @@ class SyntheticDatabaseEvaluator:
                     **eval_args[type_descr][table_descr]
                 )
                 evaluators[table_descr] = evaluator
+                os.makedirs(os.path.join(self._vis_dir, type_descr, table_descr), exist_ok=True)
+                visualizers[table_descr] = {
+                    descr: create_visualizer(
+                        real=table, model_dir=os.path.join(self._vis_dir, type_descr, table_descr, 'models'),
+                        vis_to=os.path.join(self._vis_dir, type_descr, table_descr, 'vis'), **vis_args
+                    ) for descr, vis_args in visualize_args.items()
+                }
             self._evaluators[type_descr] = evaluators
+            self._visualizers[type_descr] = visualizers
 
     def _construct_tables(self, db: Database, db_descr: str) -> Dict[str, Dict[str, str]]:
         result = {}
@@ -156,9 +178,7 @@ class SyntheticDatabaseEvaluator:
         return result
 
     def evaluate(self, synthetic: SyntheticDatabase, descr: str, mean: str = 'arithmetic', smooth: float = 0.1,
-                 save_complete_result_to: Optional[str] = None,
-                 save_visualization_to: Optional[str] = None,
-                 visualize_args: Optional[Dict[str, Dict[str, Any]]] = None) -> pd.DataFrame:
+                 save_complete_result_to: Optional[str] = None) -> pd.DataFrame:
         """
         Evaluate synthetic database.
 
@@ -170,32 +190,19 @@ class SyntheticDatabaseEvaluator:
           [`SyntheticTableEvaluator.summary`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator.summary).
         - `save_complete_result_to` (`Optional[str]`): Path to save complete evaluation results for each tabular data
           set to. If it is not provided, this piece of information is not saved.
-        - `save_visualization_to` (`Optional[str]`): If provided, all constructed tabular data sets are visualized and
-          saved to the designated directory.
-        - `visualize_args` (`Optional[Dict[str, Dict[str, Any]]]`): Visualization arguments. For each pair of real and
-          synthetic tabular data, the same set of visualization arguments are applied, but multiple sets can be applied
-          together. If not provided, a default setting is still run. The keys of this argument serves as `descr`, so
-          this argument does not need to be specified in its values, otherwise there will be errors. Also, `save_dir`
-          should not be specified because they are saved in designated place under `save_visualization_to`.
 
         **Return**: A `pd.DataFrame` describing the metrics result.
         """
         synthetic_tables = self._construct_tables(synthetic, descr)
-        if save_visualization_to is not None:
-            os.makedirs(save_visualization_to, exist_ok=True)
-        visualize_args = visualize_args if visualize_args is not None else {'default': {}}
 
         results, summary = {}, {}
         for type_descr, evaluators_in_type in self._evaluators.items():
             type_results, type_summary = {}, {}
-            if save_visualization_to is not None:
-                os.makedirs(os.path.join(save_visualization_to, type_descr), exist_ok=True)
 
             for table_descr, evaluator in evaluators_in_type.items():
-                real_table = self._real_tables[type_descr][table_descr]
                 synthetic_table = synthetic_tables[type_descr][table_descr]
-                evaluator = self._evaluate_table(real_table, synthetic_table, descr, type_descr, table_descr, evaluator,
-                                                 visualize_args, save_visualization_to)
+                evaluator = self._evaluate_table(synthetic_table, descr, type_descr, table_descr, evaluator,
+                                                 self._visualizers[type_descr][table_descr])
                 type_results[table_descr] = evaluator.result()
                 type_summary[table_descr] = evaluator.summary(mean, smooth)
 
@@ -262,22 +269,17 @@ class SyntheticDatabaseEvaluator:
             all_combined[metric_type] = per_metric_type
         return pd.concat(all_combined).T
 
-    def _evaluate_table(self, real_table: str, synthetic_table: str, descr: str, type_descr: str, table_descr: str,
-                        evaluator: SyntheticTableEvaluator, visualize_args: Dict[str, Dict[str, Any]],
-                        save_visualization_to: Optional[str] = None) -> \
+    @staticmethod
+    def _evaluate_table(synthetic_table: str, descr: str, type_descr: str, table_descr: str,
+                        evaluator: SyntheticTableEvaluator, visualizers: Dict[str, TableVisualizer]) -> \
             SyntheticTableEvaluator:
-        real_table = Table.load(real_table)
         synthetic_table = SyntheticTable.load(synthetic_table)
         evaluator.evaluate(synthetic_table, descr)
 
         _LOGGER.info(f'Finished evaluating {type_descr} table {table_descr}.')
 
-        if save_visualization_to is not None:
-            visualizer = TableVisualizer(real_table, synthetic_table)
-            vis_dir = os.path.join(save_visualization_to, type_descr, table_descr)
-            os.makedirs(vis_dir, exist_ok=True)
-            for descr, args in visualize_args.items():
-                visualizer.visualize(descr=descr, save_dir=vis_dir, **args)
-                _LOGGER.debug(f'Finished visualizing {type_descr} table {table_descr} version {descr}.')
-            _LOGGER.info(f'Finished visualizing {type_descr} table {table_descr}.')
+        for descr, visualizer in visualizers.items():
+            visualizer.visualize(synthetic_table, descr)
+            _LOGGER.debug(f'Finished visualizing {type_descr} table {table_descr} version {descr}.')
+        _LOGGER.info(f'Finished visualizing {type_descr} table {table_descr}.')
         return evaluator

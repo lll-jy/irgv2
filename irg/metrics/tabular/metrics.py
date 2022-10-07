@@ -176,6 +176,8 @@ class StatsMetric(BaseMetric):
     def _construct_sdv_input(self, table: Table) -> pd.DataFrame:
         data = table.data(with_id='none').copy()
         for name, attr in self._real.attributes().items():
+            if attr.atype == 'id':
+                continue
             if attr.atype == 'categorical':
                 data.loc[:, name] = data[name].apply(lambda x: 'nan' if pd.isnull(x) else f'c{x}')
             else:

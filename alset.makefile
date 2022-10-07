@@ -127,12 +127,11 @@ evaluate:
 	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp.nosync --num_processes 10 evaluate \
 		--real_db_dir examples/model.nosync/${DB_NAME}/${EXP_NAME}/real_db \
 		--fake_db_dir examples/generated.nosync/${DB_NAME}/${EXP_NAME}/fake_db \
-		--save_eval_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/trivial \
+		--save_eval_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/results \
 		--save_complete_result_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/complete \
-		--save_synthetic_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/synthetic \
-		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables/real \
+		--save_tables_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/tables \
 		--save_visualization_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/visualization \
-		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result >> log.txt
+		--save_all_res_to examples/evaluate.nosync/${DB_NAME}/${EXP_NAME}/result.pkl >> log.txt
 	du -sh .temp.nosync
 	du -sh examples/model.nosync/${DB_NAME}/${EXP_NAME}
 	du -sh examples/generated.nosync/${DB_NAME}/${EXP_NAME}
