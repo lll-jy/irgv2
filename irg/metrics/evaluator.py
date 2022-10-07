@@ -15,15 +15,17 @@ There are four types of tabular data that can be extracted:
 """
 import logging
 from collections import defaultdict
-from typing import Optional, List, Dict, Any, DefaultDict, Union
+from typing import Optional, List, Dict, Any, DefaultDict, Union, Literal
 import os
 import pickle
 
 import pandas as pd
 
-from ..schema import Database, SyntheticDatabase, Table
+from ..schema import Database, SyntheticDatabase, Table, SyntheticTable
 from ..schema.database.base import ForeignKey
 from .tabular import SyntheticTableEvaluator, TableVisualizer
+from .tabular.visualize import create_visualizer
+from ..utils.misc import calculate_mean
 
 _LOGGER = logging.getLogger()
 
@@ -37,9 +39,9 @@ class SyntheticDatabaseEvaluator:
                  parent_child_pairs: Optional[List[Union[ForeignKey, Dict[str, Any]]]] = None,
                  all_direct_parent_child: bool = True,
                  queries: Optional[Dict[str, str]] = None, query_args: Optional[Dict[str, Dict[str, Any]]] = None,
-                 save_tables_to: str = 'eval_tables',
+                 save_tables_to: str = 'eval_tables', save_eval_res_to: str = 'eval_res', save_vis_to: str = 'vis',
                  tabular_args: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
-                 default_args: Optional[Dict[str, Any]] = None):
+                 default_args: Optional[Dict[str, Any]] = None, visualize_args: Optional[Dict[str, Any]] = None):
         """
         **Args**:
 
@@ -62,6 +64,8 @@ class SyntheticDatabaseEvaluator:
           Keys of the `dict` should match the keys of `queries` if provided.
         - `save_tables_to` (`str`): Path to save the constructed tabular data in the format of `Table` based
           on the real database. Default is `'eval_tables'`.
+        - `save_eval_res_to` (`str`): Path to save the evaluation results to. Default is `'eval_res'`.
+        - `save_vis_to` (`str`): Path to save visualization result to. Default is `'vis'`.
         - `tabular_args` (`Optional[Dict[str, Dict[str, Dict[str, Any]]]]`): Arguments to
           [`SyntheticTableEvaluator`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator)
           for each set of tabular data. The first level keys are the names of the four tabular types.
@@ -70,6 +74,10 @@ class SyntheticDatabaseEvaluator:
         - `default_args` (`Optional[Dict[str, Any]]`): Default arguments to
           [`SyntheticTableEvaluator`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator) (second level values
           for `tabular_args` if the relevant keys are not found.
+        - `visualize_args` (`Optional[Dict[str, Dict[str, Any]]`): Visualization settings applying to all tables, where
+          keys are short descriptions of the visualization and values are arguments to
+          [`create_visualizer`](./tabular#irg.metrics.tabular.visualize.create_visualizer) constructor.
+          By default, we will use PCA and LDA.
         """
         self._real = real
 
@@ -84,6 +92,10 @@ class SyntheticDatabaseEvaluator:
             if query_args is not None else defaultdict(dict)
         tabular_args = tabular_args if tabular_args is not None else {}
         default_args = default_args if default_args is not None else {}
+        self._vis_args = visualize_args if visualize_args is not None else {
+            'pca': {'policy': 'pca'},
+            'lda': {'policy': 'lda'}
+        }
 
         self._table_dir = save_tables_to
         os.makedirs(self._table_dir, exist_ok=True)
@@ -93,56 +105,70 @@ class SyntheticDatabaseEvaluator:
         for type_descr, tables_in_type in tabular_args.items():
             for table_descr, table_args in tables_in_type.items():
                 eval_args[type_descr][table_descr] |= table_args
-        self._evaluators = {}
-        os.makedirs(os.path.join(self._table_dir, 'complete'), exist_ok=True)
-        os.makedirs(os.path.join(self._table_dir, 'complete', 'real'), exist_ok=True)
+        self._evaluators, self._visualizers = {}, {}
+
+        self._res_dir = save_eval_res_to
+        os.makedirs(self._res_dir, exist_ok=True)
+        self._vis_dir = save_vis_to
+        os.makedirs(self._vis_dir, exist_ok=True)
+
         for type_descr, tables_in_type in self._real_tables.items():
-            evaluators = {}
-            os.makedirs(os.path.join(self._table_dir, 'complete', 'real', type_descr), exist_ok=True)
+            evaluators, visualizers = {}, {}
+            os.makedirs(os.path.join(self._res_dir, type_descr), exist_ok=True)
+            os.makedirs(os.path.join(self._vis_dir, type_descr), exist_ok=True)
             for table_descr, table in tables_in_type.items():
-                evaluator = SyntheticTableEvaluator(**eval_args[type_descr][table_descr])
-                evaluators[table_descr] = evaluator
                 table = Table.load(table)
-                table.save_complete(os.path.join(self._table_dir, 'complete', 'real', type_descr, table_descr))
+                evaluator = SyntheticTableEvaluator(
+                    real=table, res_dir=os.path.join(self._res_dir, type_descr, table_descr),
+                    **eval_args[type_descr][table_descr]
+                )
+                evaluators[table_descr] = evaluator
+                os.makedirs(os.path.join(self._vis_dir, type_descr, table_descr), exist_ok=True)
+                visualizers[table_descr] = {
+                    descr: create_visualizer(
+                        real=table, model_dir=os.path.join(self._vis_dir, type_descr, table_descr, 'models'),
+                        vis_to=os.path.join(self._vis_dir, type_descr, table_descr, 'vis'), **vis_args
+                    ) for descr, vis_args in self._vis_args.items()
+                }
             self._evaluators[type_descr] = evaluators
+            self._visualizers[type_descr] = visualizers
 
     def _construct_tables(self, db: Database, db_descr: str) -> Dict[str, Dict[str, str]]:
         result = {}
-        os.makedirs(os.path.join(self._table_dir, 'cache'), exist_ok=True)
-        os.makedirs(os.path.join(self._table_dir, 'cache', db_descr), exist_ok=True)
+        os.makedirs(os.path.join(self._table_dir, db_descr), exist_ok=True)
 
         if self._eval_tables:
             tables = self._tables if self._tables is not None else [name for name, _ in db.tables()]
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'tables'), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'tables'), exist_ok=True)
             result['tables'] = {}
             for table in tables:
-                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'tables', f'{table}.pkl')
+                saved_path = os.path.join(self._table_dir, db_descr, 'tables', f'{table}.pkl')
                 db[table].save(saved_path)
                 result['tables'][table] = saved_path
             _LOGGER.debug(f'Constructed tables for {db_descr}.')
 
         if self._eval_parent_child:
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'parentchild'), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'parentchild'), exist_ok=True)
             result['parent child'] = {}
             for i, fk in enumerate(self._all_fk):
                 descr = f'{i}__{fk.child}__{fk.parent}'
-                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'parentchild', f'{descr}.pkl')
+                saved_path = os.path.join(self._table_dir, db_descr, 'parentchild', f'{descr}.pkl')
                 db.join(fk).save(saved_path)
                 result['parent child'][descr] = saved_path
             _LOGGER.debug(f'Construct parent-child joined tables for {db_descr}.')
 
         if self._eval_joined:
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'joined'), exist_ok=True)
-            saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'joined', 'joined.pkl')
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'joined'), exist_ok=True)
+            saved_path = os.path.join(self._table_dir, db_descr, 'joined', 'joined.pkl')
             db.all_joined.save(saved_path)
             result['joined'] = {'joined': saved_path}
             _LOGGER.debug(f'Construct all-joined table for {db_descr}.')
 
         if self._eval_queries:
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'queries'), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'queries'), exist_ok=True)
             result['queries'] = {}
             for descr, query in self._queries:
-                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'queries', f'{descr}.pkl')
+                saved_path = os.path.join(self._table_dir, db_descr, 'queries', f'{descr}.pkl')
                 db.query(query, descr, **self._query_args[descr]).save(saved_path)
                 result['queries'][descr] = saved_path
             _LOGGER.debug(f'Construct query tables for {db_descr}.')
@@ -152,9 +178,7 @@ class SyntheticDatabaseEvaluator:
         return result
 
     def evaluate(self, synthetic: SyntheticDatabase, descr: str, mean: str = 'arithmetic', smooth: float = 0.1,
-                 save_eval_res_to: Optional[str] = None, save_complete_result_to: Optional[str] = None,
-                 save_visualization_to: Optional[str] = None,
-                 visualize_args: Optional[Dict[str, Dict[str, Any]]] = None) -> pd.DataFrame:
+                 save_complete_result_to: Optional[str] = None) -> pd.DataFrame:
         """
         Evaluate synthetic database.
 
@@ -164,59 +188,24 @@ class SyntheticDatabaseEvaluator:
         - `descr` (`str`): Description of the synthetic database.
         - `mean` and `smooth`: Arguments to
           [`SyntheticTableEvaluator.summary`](./tabular#irg.metrics.tabular.SyntheticTableEvaluator.summary).
-        - `save_eval_res_to` (`Optional[str]`): Path to save extra evaluation result that is not returned.
-          Not saved if not provided.
         - `save_complete_result_to` (`Optional[str]`): Path to save complete evaluation results for each tabular data
           set to. If it is not provided, this piece of information is not saved.
-        - `save_visualization_to` (`Optional[str]`): If provided, all constructed tabular data sets are visualized and
-          saved to the designated directory.
-        - `visualize_args` (`Optional[Dict[str, Dict[str, Any]]]`): Visualization arguments. For each pair of real and
-          synthetic tabular data, the same set of visualization arguments are applied, but multiple sets can be applied
-          together. If not provided, a default setting is still run. The keys of this argument serves as `descr`, so
-          this argument does not need to be specified in its values, otherwise there will be errors. Also, `save_dir`
-          should not be specified because they are saved in designated place under `save_visualization_to`.
 
         **Return**: A `pd.DataFrame` describing the metrics result.
         """
         synthetic_tables = self._construct_tables(synthetic, descr)
-        if save_eval_res_to is not None:
-            os.makedirs(save_eval_res_to, exist_ok=True)
-        if save_visualization_to is not None:
-            os.makedirs(save_visualization_to, exist_ok=True)
-        visualize_args = visualize_args if visualize_args is not None else {'default': {}}
 
         results, summary = {}, {}
-        os.makedirs(os.path.join(self._table_dir, 'complete', descr), exist_ok=True)
         for type_descr, evaluators_in_type in self._evaluators.items():
             type_results, type_summary = {}, {}
-            if save_eval_res_to is not None:
-                os.makedirs(os.path.join(save_eval_res_to, type_descr), exist_ok=True)
-            if save_visualization_to is not None:
-                os.makedirs(os.path.join(save_visualization_to, type_descr), exist_ok=True)
-            os.makedirs(os.path.join(self._table_dir, 'complete', descr, type_descr), exist_ok=True)
 
             for table_descr, evaluator in evaluators_in_type.items():
-                real_table = self._real_tables[type_descr][table_descr]
-                real_table = Table.load(real_table)
                 synthetic_table = synthetic_tables[type_descr][table_descr]
-                synthetic_table = Table.load(synthetic_table)
-                synthetic_table.save_complete(os.path.join(self._table_dir, 'complete', descr, type_descr, table_descr))
-                evaluator.evaluate(real_table, synthetic_table,
-                                   os.path.join(save_eval_res_to, type_descr, table_descr)
-                                   if save_eval_res_to is not None else None)
-                type_results[table_descr] = evaluator.result
+                evaluator = self._evaluate_table(synthetic_table, descr, type_descr, table_descr, evaluator,
+                                                 self._visualizers[type_descr][table_descr])
+                type_results[table_descr] = evaluator.result()
                 type_summary[table_descr] = evaluator.summary(mean, smooth)
 
-                _LOGGER.info(f'Finished evaluating {type_descr} table {table_descr}.')
-
-                if save_visualization_to is not None:
-                    visualizer = TableVisualizer(real_table, synthetic_table)
-                    vis_dir = os.path.join(save_visualization_to, type_descr, table_descr)
-                    os.makedirs(vis_dir, exist_ok=True)
-                    for descr, args in visualize_args.items():
-                        visualizer.visualize(descr=descr, save_dir=vis_dir, **args)
-                        _LOGGER.debug(f'Finished visualizing {type_descr} table {table_descr} version {descr}.')
-                    _LOGGER.info(f'Finished visualizing {type_descr} table {table_descr}.')
             results[type_descr] = type_results
             summary[type_descr] = pd.DataFrame(type_summary)
             _LOGGER.info(f'Finished evaluating {type_descr}.')
@@ -228,3 +217,69 @@ class SyntheticDatabaseEvaluator:
         result = pd.concat(summary, axis=1)
         _LOGGER.info(f'Finished evaluating database {descr}.')
         return result
+
+    def compare(self, info_level: Literal['all', 'type', 'table'] = 'all') -> pd.DataFrame:
+        """
+        Compare all evaluated tables in this evaluator.
+
+        **Args**:
+
+        - `info_level` (`Literal['all', 'type', 'table']`): Most detailed level of information to be returned. If too
+          detailed information is available, we calculate a mean over them.
+
+        **Return**: Full result of all evaluated tables consolidated in one dataframe. The column indices are table
+        version descriptions, and row indices are multilevel with metric type, metric name, table type (if 'type' or
+        'table' `info_level`), table name (if 'table' `info_type`).
+        """
+        final_res = {}
+        for type_descr, evaluators_in_type in self._evaluators.items():
+            for table_descr, evaluator in evaluators_in_type.items():
+                compare_res = evaluator.compare(return_as='dict')
+                for metric_type, metric_res in compare_res.items():
+                    if metric_type not in final_res:
+                        final_res[metric_type] = {}
+                    for metric_name in metric_res.columns:
+                        if metric_name not in final_res[metric_type]:
+                            final_res[metric_type][metric_name] = {}
+                        if type_descr not in final_res[metric_type][metric_name]:
+                            final_res[metric_type][metric_name][type_descr] = {}
+                        final_res[metric_type][metric_name][type_descr][table_descr] = metric_res[metric_name]
+
+        all_combined = {}
+        for metric_type, type_res in final_res.items():
+            per_metric_type = {}
+            for metric_name, metric_res in type_res.items():
+                per_metric_sep = {}
+                for type_descr, table_type_res in metric_res.items():
+                    per_table_type = pd.DataFrame(table_type_res)
+                    if info_level != 'table':
+                        per_table_type = per_table_type.aggregate(lambda x: calculate_mean(x, 'harmonic', 0))
+                    per_metric_sep[type_descr] = per_table_type
+                if info_level == 'table':
+                    per_metric = pd.concat(per_metric_sep, axis=1)
+                else:
+                    per_metric = pd.DataFrame(per_metric_sep)
+                if info_level == 'all':
+                    per_metric = per_metric.aggregate(lambda x: calculate_mean(x, 'harmonic', 0))
+                per_metric_type[metric_name] = per_metric
+            if info_level == 'all':
+                per_metric_type = pd.DataFrame(per_metric_type)
+            else:
+                per_metric_type = pd.concat(per_metric_type, axis=1)
+            all_combined[metric_type] = per_metric_type
+        return pd.concat(all_combined).T
+
+    @staticmethod
+    def _evaluate_table(synthetic_table: str, descr: str, type_descr: str, table_descr: str,
+                        evaluator: SyntheticTableEvaluator, visualizers: Dict[str, TableVisualizer]) -> \
+            SyntheticTableEvaluator:
+        synthetic_table = SyntheticTable.load(synthetic_table)
+        evaluator.evaluate(synthetic_table, descr)
+
+        _LOGGER.info(f'Finished evaluating {type_descr} table {table_descr}.')
+
+        for descr, visualizer in visualizers.items():
+            visualizer.visualize(synthetic_table, descr)
+            _LOGGER.debug(f'Finished visualizing {type_descr} table {table_descr} version {descr}.')
+        _LOGGER.info(f'Finished visualizing {type_descr} table {table_descr}.')
+        return evaluator

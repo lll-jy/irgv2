@@ -748,6 +748,13 @@ class SyntheticTable(Table):
         super().__init__(**kwargs)
         self._real_cache = '.temp' if 'temp_cache' not in kwargs else kwargs['temp_cache']
 
+    @classmethod
+    def load(cls, path: str) -> "SyntheticTable":
+        with open(path, 'rb') as f:
+            loaded = pickle.load(f)
+            loaded.__class__ = SyntheticTable
+        return loaded
+
     def _describer_path(self, idx: int) -> str:
         return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
 
