@@ -98,6 +98,7 @@ def calculate_mean(x: Union[pd.Series, np.ndarray, Tensor], mean: str = 'arithme
     if not 0 <= smooth <= 1:
         raise ValueError(f'Smooth value should be in [0, 1], got {smooth}.')
 
+    x = np.array([y for y in x if not pd.isnull(y)])
     if len(x) == 0:
         return np.nan
 

@@ -284,7 +284,6 @@ def _evaluate(args: Namespace):
         save_eval_res_to=args.save_eval_res_to, save_complete_result_to=args.save_complete_result_to,
         save_visualization_to=args.save_visualization_to
     )
-    os.makedirs(args.save_all_res_to, exist_ok=True)
     with open(args.save_all_res_to, 'wb') as f:
         pickle.dump(result, f)
 

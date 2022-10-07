@@ -82,17 +82,19 @@ class BaseMetric(ABC):
         raw_result = self._evaluate_complete_raw(synthetic, os.path.join(self._res_dir, descr))
         normalized_result = self._normalize_result(raw_result)
         self._seen_results[descr] = normalized_result
-        print('raw result', [*raw_result])
-        df = pd.DataFrame(columns=pd.concat({
-            subtype: pd.DataFrame({name: [] for name in sub_results})
-            for subtype, sub_results in raw_result.items()
-        }).columns)
-        for subtype, sub_results in raw_result.items():
-            for name in sub_results:
-                df.loc['raw', (subtype, name)] = raw_result[subtype][name]
-                df.loc['norm', (subtype, name)] = normalized_result[subtype][name]
-        df.T.to_csv(os.path.join(self._res_dir, descr, 'all_scores.pkl'))
-        return df.loc['norm']
+        if raw_result:
+            df = pd.DataFrame(columns=pd.concat({
+                subtype: pd.DataFrame({name: [] for name in sub_results})
+                for subtype, sub_results in raw_result.items()
+            }).columns)
+            for subtype, sub_results in raw_result.items():
+                for name in sub_results:
+                    df.loc['raw', (subtype, name)] = raw_result[subtype][name]
+                    df.loc['norm', (subtype, name)] = normalized_result[subtype][name]
+            df.T.to_csv(os.path.join(self._res_dir, descr, 'all_scores.pkl'))
+            return df.loc['norm']
+        else:
+            return pd.Series()
 
     def _normalize_result(self, raw_result: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
         result = {}
@@ -258,7 +260,7 @@ class CorrMatMetric(BaseMetric):
             res.loc[descr, 'h_mean'] = h_score
             res.loc[descr, 'a_mean'] = mean
 
-            corr = pd_read_compressed_pickle(os.path.join(self._res_dir, descr))
+            corr = pd_read_compressed_pickle(os.path.join(self._res_dir, descr, 'corr.pkl'))
             corr.loc[:, ':dummy1'] = -1
             corr.loc[:, ':dummy2'] = 1
             axes[idx].matshow(corr)
@@ -715,6 +717,6 @@ class DegreeMetric(BaseMetric):
         res = pd.DataFrame()
         for descr, table_res in self._seen_results.items():
             scores = np.array([scores['p'] for scores in table_res.values()])
-            res.loc[descr, 'h_mean'] = calculate_mean(scores, 'harnomic', 0)
+            res.loc[descr, 'h_mean'] = calculate_mean(scores, 'harmonic', 0)
             res.loc[descr, 'a_mean'] = calculate_mean(scores)
         return res

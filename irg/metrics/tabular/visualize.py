@@ -38,15 +38,24 @@ class TableVisualizer(ABC):
         self._real_data = self._real.data(with_id='none', normalize=True)
         self._columns = [':'.join(c) for c in self._real_data.columns]
         self._real_data.columns = self._columns
-        self._n_components, self._n_samples = n_components, n_samples
+        self._n_components, self._n_samples = min(n_components, len(self._real_data.columns)), n_samples
         self._model_dir, self._vis_to = model_dir, vis_to
         if self._model_dir is not None:
             os.makedirs(self._model_dir, exist_ok=True)
         os.makedirs(self._vis_to, exist_ok=True)
 
     def visualize(self, synthetic: SyntheticTable, descr: str):
+        """
+        Visualize synthetic data based on the given real data.
+
+        **Args**:
+
+        - `synthetic` (`SyntheticTable`): The synthetic table to visualize.
+        - `descr` (`str`): Short description of this synthetic version.
+        """
         synthetic_data = synthetic.data(with_id='none', normalize=True)
         synthetic_data.columns = self._columns
+        self._update_model(synthetic_data)
         real_reduced = self._get_real_reduced()
         synthetic_reduced = self._get_reduced(synthetic_data, 'fake')
         self._construct_data_to_plot(real_reduced, synthetic_reduced, descr)
@@ -56,6 +65,7 @@ class TableVisualizer(ABC):
         plot = sns.pairplot(combined_reduced, hue='label', plot_kws={'s': 10, 'alpha': 0.8})
 
         plot.savefig(os.path.join(self._vis_to, f'{descr}.png'))
+        combined_reduced.loc[:, 'label'] = combined_reduced['label'] == 'real'
         pd_to_pickle(combined_reduced, os.path.join(self._model_dir, f'{descr}_reduced.pkl'))
 
     @abstractmethod
@@ -71,7 +81,7 @@ class TableVisualizer(ABC):
         raise NotImplementedError()
 
 
-class UnlabeledTableVisualizer(TableVisualizer, ABC):
+class _UnlabeledTableVisualizer(TableVisualizer, ABC):
     """
     Visualizer where the dimension reducer is fitted on real data only, without knowledge of the fake data.
     """
@@ -90,7 +100,8 @@ class UnlabeledTableVisualizer(TableVisualizer, ABC):
         pass
 
 
-class SKLearnUnlabeledTableVisualizer(UnlabeledTableVisualizer):
+class SKLearnUnlabeledTableVisualizer(_UnlabeledTableVisualizer):
+    """Dimension reduction using methods implemented in Scikit-learn, fitted using real data only."""
     _DIM_REDUCERS: Dict = {
         'pca': PCA,
         'kpca': KernelPCA,
@@ -132,7 +143,7 @@ class SKLearnUnlabeledTableVisualizer(UnlabeledTableVisualizer):
         return reduced
 
 
-class LabeledTableVisualizer(TableVisualizer, ABC):
+class _LabeledTableVisualizer(TableVisualizer, ABC):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._reducer = None
@@ -141,7 +152,8 @@ class LabeledTableVisualizer(TableVisualizer, ABC):
         return self._get_reduced(self._real_data, 'real')
 
 
-class SKLearnLabeledTableVisualizer(LabeledTableVisualizer):
+class SKLearnLabeledTableVisualizer(_LabeledTableVisualizer):
+    """Dimension reduction using methods implemented in Scikit-learn, fitted by discriminating real and fake data."""
     _DIM_REDUCERS: Dict = {
         'lda': LinearDiscriminantAnalysis
     }

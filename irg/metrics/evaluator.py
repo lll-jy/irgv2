@@ -94,7 +94,7 @@ class SyntheticDatabaseEvaluator:
         default_args = default_args if default_args is not None else {}
         self._vis_args = visualize_args if visualize_args is not None else {
             'pca': {'policy': 'pca'},
-            'lda': {'policy': 'lda'}
+            # 'lda': {'policy': 'lda'}
         }
 
         self._table_dir = save_tables_to
@@ -267,7 +267,7 @@ class SyntheticDatabaseEvaluator:
             else:
                 per_metric_type = pd.concat(per_metric_type, axis=1)
             all_combined[metric_type] = per_metric_type
-        return pd.concat(all_combined).T
+        return pd.concat(all_combined, axis=1).T
 
     @staticmethod
     def _evaluate_table(synthetic_table: str, descr: str, type_descr: str, table_descr: str,
