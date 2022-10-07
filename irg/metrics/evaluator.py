@@ -21,7 +21,7 @@ import pickle
 
 import pandas as pd
 
-from ..schema import Database, SyntheticDatabase, Table
+from ..schema import Database, SyntheticDatabase, Table, SyntheticTable
 from ..schema.database.base import ForeignKey
 from .tabular import SyntheticTableEvaluator, TableVisualizer
 
@@ -37,7 +37,7 @@ class SyntheticDatabaseEvaluator:
                  parent_child_pairs: Optional[List[Union[ForeignKey, Dict[str, Any]]]] = None,
                  all_direct_parent_child: bool = True,
                  queries: Optional[Dict[str, str]] = None, query_args: Optional[Dict[str, Dict[str, Any]]] = None,
-                 save_tables_to: str = 'eval_tables',
+                 save_tables_to: str = 'eval_tables', save_eval_res_to: str = 'eval_res',
                  tabular_args: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
                  default_args: Optional[Dict[str, Any]] = None):
         """
@@ -94,55 +94,55 @@ class SyntheticDatabaseEvaluator:
             for table_descr, table_args in tables_in_type.items():
                 eval_args[type_descr][table_descr] |= table_args
         self._evaluators = {}
-        os.makedirs(os.path.join(self._table_dir, 'complete'), exist_ok=True)
-        os.makedirs(os.path.join(self._table_dir, 'complete', 'real'), exist_ok=True)
+
+        self._res_dir = save_eval_res_to
+        os.makedirs(self._res_dir, exist_ok=True)
+
         for type_descr, tables_in_type in self._real_tables.items():
             evaluators = {}
-            os.makedirs(os.path.join(self._table_dir, 'complete', 'real', type_descr), exist_ok=True)
             for table_descr, table in tables_in_type.items():
                 table = Table.load(table)
-                evaluator = SyntheticTableEvaluator(**eval_args[type_descr][table_descr])
+                evaluator = SyntheticTableEvaluator(real=table, res_dir=self._res_dir,
+                                                    **eval_args[type_descr][table_descr])
                 evaluators[table_descr] = evaluator
-                table.save_complete(os.path.join(self._table_dir, 'complete', 'real', type_descr, table_descr))
             self._evaluators[type_descr] = evaluators
 
     def _construct_tables(self, db: Database, db_descr: str) -> Dict[str, Dict[str, str]]:
         result = {}
-        os.makedirs(os.path.join(self._table_dir, 'cache'), exist_ok=True)
-        os.makedirs(os.path.join(self._table_dir, 'cache', db_descr), exist_ok=True)
+        os.makedirs(os.path.join(self._table_dir, db_descr), exist_ok=True)
 
         if self._eval_tables:
             tables = self._tables if self._tables is not None else [name for name, _ in db.tables()]
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'tables'), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'tables'), exist_ok=True)
             result['tables'] = {}
             for table in tables:
-                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'tables', f'{table}.pkl')
+                saved_path = os.path.join(self._table_dir, db_descr, 'tables', f'{table}.pkl')
                 db[table].save(saved_path)
                 result['tables'][table] = saved_path
             _LOGGER.debug(f'Constructed tables for {db_descr}.')
 
         if self._eval_parent_child:
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'parentchild'), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'parentchild'), exist_ok=True)
             result['parent child'] = {}
             for i, fk in enumerate(self._all_fk):
                 descr = f'{i}__{fk.child}__{fk.parent}'
-                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'parentchild', f'{descr}.pkl')
+                saved_path = os.path.join(self._table_dir, db_descr, 'parentchild', f'{descr}.pkl')
                 db.join(fk).save(saved_path)
                 result['parent child'][descr] = saved_path
             _LOGGER.debug(f'Construct parent-child joined tables for {db_descr}.')
 
         if self._eval_joined:
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'joined'), exist_ok=True)
-            saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'joined', 'joined.pkl')
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'joined'), exist_ok=True)
+            saved_path = os.path.join(self._table_dir, db_descr, 'joined', 'joined.pkl')
             db.all_joined.save(saved_path)
             result['joined'] = {'joined': saved_path}
             _LOGGER.debug(f'Construct all-joined table for {db_descr}.')
 
         if self._eval_queries:
-            os.makedirs(os.path.join(self._table_dir, 'cache', db_descr, 'queries'), exist_ok=True)
+            os.makedirs(os.path.join(self._table_dir, db_descr, 'queries'), exist_ok=True)
             result['queries'] = {}
             for descr, query in self._queries:
-                saved_path = os.path.join(self._table_dir, 'cache', db_descr, 'queries', f'{descr}.pkl')
+                saved_path = os.path.join(self._table_dir, db_descr, 'queries', f'{descr}.pkl')
                 db.query(query, descr, **self._query_args[descr]).save(saved_path)
                 result['queries'][descr] = saved_path
             _LOGGER.debug(f'Construct query tables for {db_descr}.')
@@ -186,14 +186,12 @@ class SyntheticDatabaseEvaluator:
         visualize_args = visualize_args if visualize_args is not None else {'default': {}}
 
         results, summary = {}, {}
-        os.makedirs(os.path.join(self._table_dir, 'complete', descr), exist_ok=True)
         for type_descr, evaluators_in_type in self._evaluators.items():
             type_results, type_summary = {}, {}
             if save_eval_res_to is not None:
                 os.makedirs(os.path.join(save_eval_res_to, type_descr), exist_ok=True)
             if save_visualization_to is not None:
                 os.makedirs(os.path.join(save_visualization_to, type_descr), exist_ok=True)
-            os.makedirs(os.path.join(self._table_dir, 'complete', descr, type_descr), exist_ok=True)
 
             for table_descr, evaluator in evaluators_in_type.items():
                 real_table = self._real_tables[type_descr][table_descr]
@@ -220,9 +218,9 @@ class SyntheticDatabaseEvaluator:
                         save_eval_res_to: Optional[str] = None, save_visualization_to: Optional[str] = None) -> \
             SyntheticTableEvaluator:
         real_table = Table.load(real_table)
-        synthetic_table = Table.load(synthetic_table)
+        synthetic_table = SyntheticTable.load(synthetic_table)
         synthetic_table.save_complete(os.path.join(self._table_dir, 'complete', descr, type_descr, table_descr))
-        evaluator.evaluate(real_table, synthetic_table,
+        evaluator.evaluate(synthetic_table,
                            os.path.join(save_eval_res_to, type_descr, table_descr)
                            if save_eval_res_to is not None else None)
 
