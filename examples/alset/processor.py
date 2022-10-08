@@ -18,7 +18,12 @@ ALSET_PROCESSORS: Dict[str, FunctionType] = {
     'sis_academic_program': data.sis_academic_program,
     'sis_plan_offer': data.sis_plan_offer,
     'sis_academic_plan': data.sis_academic_plan,
-    'sis_enrolment': data.sis_enrolment
+    'sis_enrolment': data.sis_enrolment,
+    'gym': data.gym,
+    'sis_module_enrolment': data.sis_module_enrolment,
+    'sis_course': data.sis_course,
+    'sis_credits': data.sis_credits,
+    'sis_milestone': data.sis_milestone
 }
 """ALSET table data processors."""
 
@@ -29,7 +34,12 @@ ALSET_META_CONSTRUCTORS: Dict[str, FunctionType] = {
     'sis_academic_program': metadata.sis_academic_program,
     'sis_plan_offer': metadata.sis_plan_offer,
     'sis_academic_plan': metadata.sis_academic_plan,
-    'sis_enrolment': metadata.sis_enrolment
+    'sis_enrolment': metadata.sis_enrolment,
+    'gym': metadata.gym,
+    'sis_module_enrolment': metadata.sis_module_enrolment,
+    'sis_course': metadata.sis_course,
+    'sis_credits': metadata.sis_credits,
+    'sis_milestone': metadata.sis_milestone
 }
 """ALSET metadata constructors for each table."""
 
@@ -40,7 +50,12 @@ ALSET_PROCESS_NAME_MAP: Dict[str, str] = {
     'sis_academic_program': 'sis/program_enrolment',
     'sis_plan_offer': 'sis/program_enrolment',
     'sis_academic_plan': 'sis/program_enrolment',
-    'sis_enrolment': 'sis/program_enrolment'
+    'sis_enrolment': 'sis/program_enrolment',
+    'gym': 'sis/gym',
+    'sis_module_enrolment': 'sis/module_enrolment',
+    'sis_course': 'sis/module_enrolment',
+    'sis_credits': 'sis/module_enrolment',
+    'sis_milestone': 'sis/milestone'
 }
 """ALSET source data file names (without extension) for all tables."""
 

@@ -95,6 +95,52 @@ def sis_enrolment(src: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def gym(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    gym.
+    """
+    return src[['student_token', 'venue', 'date', 'check_in_time', 'check_out_time']]\
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+def sis_module_enrolment(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS module_enrolment.
+    """
+    return src[['student_token', 'extract_date', 'academic_career', 'term', 'class_nbr','module_code']]\
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+def sis_course(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS course information.
+    """
+    return src[['module_code', 'course_title']]\
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+def sis_credits(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS student credits in each course.
+    """
+    return src[['student_token', 'module_code','class_group','module_credits','grading_basis']]\
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+def sis_milestone(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS milestone.
+    """
+    return src[['student_token', 'extract_date','milestone_nbr','milestone_completion_date']]\
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+
+
 _code2descr = {
     '00': '',
     '10': 'Semester 1',

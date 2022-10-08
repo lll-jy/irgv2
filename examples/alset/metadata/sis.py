@@ -56,7 +56,7 @@ def sis_academic_program(src: pd.DataFrame) -> Dict[str, Any]:
         'attributes': attributes,
         'primary_keys': ['student_token', 'academic_career', 'academic_program'],
         'foreign_keys': [{
-            'columns': ['student_token', 'academic_career'],
+            'columns': ['student_token'],
             'parent': 'sis_academic_career'
         }, {
             'columns': ['academic_program'],
@@ -121,6 +121,87 @@ def sis_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
         }]
     }
 
+
+def gym(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['student_token']
+    attributes = Table.learn_meta(src, id_cols)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        # 'determinants': [
+        #     ['degree', 'degree_descr'],
+        # ],
+        'primary_keys': ['student_token'],
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'personal_data'
+        }]
+    }
+
+
+def sis_module_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['student_token']
+    attributes = Table.learn_meta(src, id_cols)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        # 'determinants': [
+        #     ['degree', 'degree_descr'],
+        # ],
+        'primary_keys': ['student_token','module_code'],
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'personal_data'
+        }]
+    }
+
+def sis_course(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = []
+    attributes = Table.learn_meta(src, id_cols)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        # 'determinants': [
+        #     ['degree', 'degree_descr'],
+        # ],
+        'primary_keys': ['module_code'],
+        'foreign_keys': [{
+            'columns': ['module_code'],
+            'parent': 'sis_module_enrolment'
+        }]
+    }
+
+def sis_credits(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['student_token']
+    attributes = Table.learn_meta(src, id_cols)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        # 'determinants': [
+        #     ['degree', 'degree_descr'],
+        # ],
+        'primary_keys': ['student_token','module_code'],
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'sis_module_enrolment'
+        }]
+    }
+
+def sis_milestone(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['student_token']
+    attributes = Table.learn_meta(src, id_cols)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        # 'determinants': [
+        #     ['degree', 'degree_descr'],
+        # ],
+        'primary_keys': ['student_token'],
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'personal_data'
+        }]
+    }
 
 def academic_program_offer(src: pd.DataFrame) -> Dict[str, Any]:
     id_cols = ['academic_program']

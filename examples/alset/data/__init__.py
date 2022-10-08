@@ -10,5 +10,10 @@ __all__ = (
     'sis_academic_program',
     'sis_plan_offer',
     'sis_academic_plan',
-    'sis_enrolment'
+    'sis_enrolment',
+    'gym',
+    'sis_module_enrolment',
+    'sis_course',
+    'sis_credits',
+    'sis_milestone'
 )
