@@ -101,7 +101,7 @@ class SyntheticDatabaseEvaluator:
         os.makedirs(self._table_dir, exist_ok=True)
         self._real_tables = self._construct_tables(real, 'real')
 
-        eval_args = defaultdict(lambda: defaultdict(lambda: default_args))
+        eval_args = defaultdict(lambda: defaultdict(lambda: default_args.copy()))
         for type_descr, tables_in_type in tabular_args.items():
             for table_descr, table_args in tables_in_type.items():
                 eval_args[type_descr][table_descr] |= table_args
@@ -253,14 +253,14 @@ class SyntheticDatabaseEvaluator:
                 for type_descr, table_type_res in metric_res.items():
                     per_table_type = pd.DataFrame(table_type_res)
                     if info_level != 'table':
-                        per_table_type = per_table_type.aggregate(lambda x: calculate_mean(x, 'harmonic', 0))
+                        per_table_type = per_table_type.aggregate(lambda x: calculate_mean(x, 'harmonic', 0), axis=1)
                     per_metric_sep[type_descr] = per_table_type
                 if info_level == 'table':
                     per_metric = pd.concat(per_metric_sep, axis=1)
                 else:
                     per_metric = pd.DataFrame(per_metric_sep)
                 if info_level == 'all':
-                    per_metric = per_metric.aggregate(lambda x: calculate_mean(x, 'harmonic', 0))
+                    per_metric = per_metric.aggregate(lambda x: calculate_mean(x, 'harmonic', 0), axis=1)
                 per_metric_type[metric_name] = per_metric
             if info_level == 'all':
                 per_metric_type = pd.DataFrame(per_metric_type)

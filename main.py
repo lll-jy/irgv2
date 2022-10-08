@@ -262,6 +262,7 @@ def _evaluate(args: Namespace):
         if n.endswith('_from_file'):
             with open(v, 'r') as f:
                 v = json.load(f)
+            n = n[-10:]
         constructor_args[n] = v
 
     eval_args = {}

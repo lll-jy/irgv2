@@ -5,7 +5,7 @@ pandas~=1.4.3
 torch~=1.12.0
 tqdm==4.64.0
 DataSynthesizer~=0.1.10
-sdv~=0.16.0
+sdv~=0.17.0
 matplotlib~=3.5.1
 scikit-learn~=1.0.1
 seaborn~=0.11.2
