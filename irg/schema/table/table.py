@@ -828,6 +828,10 @@ class SyntheticTable(Table):
                 recovered = attribute.generate(len(normalized_core))
             recovered_df[col] = recovered
 
+        for x in self.id_cols:
+            if x in self._unknown_cols:
+                recovered_df[x] = self._attributes[x].generate(len(normalized_core))
+
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
         for i, det in enumerate(self._determinants):
             leader = det[0]
