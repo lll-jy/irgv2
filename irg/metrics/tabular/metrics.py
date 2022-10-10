@@ -162,11 +162,11 @@ class StatsMetric(BaseMetric):
         **Args**:
 
         - `metrics` (`Optional[List[str]]`): Metric names (`metrics` argument for `sdv.evaluation.evaluate`).
-          Default is ['CSTest', 'KSTest', 'BNLogLikelihood', 'GMLogLikelihood'].
+          Default is ['CSTest', 'KSComplement', 'BNLogLikelihood', 'GMLogLikelihood'].
         - `kwargs`: Arguments to `BaseMetric`.
         """
         self._metrics = metrics if metrics is not None \
-            else ['CSTest', 'KSTest', 'BNLogLikelihood', 'GMLogLikelihood']
+            else ['CSTest', 'KSComplement', 'BNLogLikelihood', 'GMLogLikelihood']
         super().__init__(**kwargs)
         self._real_df = self._real.data(with_id='none')
         self._real_data = self._construct_sdv_input(self._real)
@@ -212,7 +212,7 @@ class StatsMetric(BaseMetric):
 
     @staticmethod
     def _raw_info_for(subtype: str, name: str) -> Tuple[Tuple[float, float], Literal['min', 'max']]:
-        if subtype in {'CSTest', 'KSTest'}:
+        if subtype in {'CSTest', 'KSComplement'}:
             return (0, 1), 'max'
         elif subtype == 'BNLogLikelihood':
             return (-np.inf, 0), 'max'
@@ -220,7 +220,6 @@ class StatsMetric(BaseMetric):
             return (-np.inf, np.inf), 'max'
         else:
             raise NotImplementedError(f'Statistical metric {name} is not recognized.')
-
 
 class CorrMatMetric(BaseMetric):
     """

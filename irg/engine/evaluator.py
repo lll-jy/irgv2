@@ -70,7 +70,8 @@ def evaluate(real: Union[str, Database],
         )
         for descr, syn_db in synthetic.items()
     }
-    evaluator.compare('table').to_pickle(os.path.join(save_eval_res_to, 'all_tables_compare.pkl'))
+    table_comparison = evaluator.compare('table')
+    table_comparison.to_pickle(os.path.join(save_eval_res_to, 'all_tables_compare.pkl'))
     comparison = evaluator.compare()
     comparison.to_pickle(os.path.join(save_eval_res_to, 'comparison.pkl'))
     _LOGGER.info('Evaluation result:\n', comparison.to_markdown())
