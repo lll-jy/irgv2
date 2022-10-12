@@ -124,6 +124,7 @@ def _parse_eval_args(parser: ArgumentParser):
     constructor_group.add_argument('--all_direct_parent_child', type=bool, default=None)
     constructor_group.add_argument('--queries_from_file', type=str, default=None)
     constructor_group.add_argument('--query_args_from_file', type=str, default=None)
+    constructor_group.add_argument('--save_tables_to', type=str, default=None)
     constructor_group.add_argument('--tabular_args_from_file', type=str, default=None)
     constructor_group.add_argument('--default_args_from_file', type=str, default=None)
 
@@ -138,9 +139,9 @@ def _parse_eval_args(parser: ArgumentParser):
     save_group = parser.add_argument_group('save results path arguments')
     save_group.add_argument('--save_eval_res_to', type=str, default=None)
     save_group.add_argument('--save_complete_result_to', type=str, default=None)
+    save_group.add_argument('--save_synthetic_tables_to', type=str, default=None)
     save_group.add_argument('--save_visualization_to', type=str, default=None)
-    save_group.add_argument('--save_tables_to', type=str, default=None)
-    save_group.add_argument('--save_all_res_to', type=str, default='evaluation.pkl',
+    save_group.add_argument('--save_all_res_to', type=str, default='evaluation',
                             help='Path of directory to save eventual result of the evaluation.')
 
 
@@ -186,11 +187,10 @@ def _cfgfile2argdict(default_path: Optional[str], sep_path: Optional[str], args:
     prefix = f'default_{prefix}_'
     prefix_len = len(prefix)
     for n, v in args.__dict__.items():
-        if n.startswith(prefix) and v is not None and n[prefix_len:] != 'args':
+        if n.startswith(prefix) and v is not None:
             default_args[n[prefix_len:]] = v
 
-    res = defaultdict(lambda: default_args, sep_args)
-    return res
+    return defaultdict(lambda: default_args, sep_args)
 
 
 def _narg2nbdict(default_value: Any, special: List[str], vtype: type) -> DefaultDict:
@@ -256,13 +256,11 @@ def _evaluate(args: Namespace):
             continue
         if n not in {'eval_tables', 'eval_parent_child', 'eval_joined', 'eval_queries', 'tables',
                      'parent_child_pairs_from_file', 'all_direct_parent_child', 'queries_from_file',
-                     'query_args_from_file', 'tabular_args_from_file', 'default_args_from_file',
-                     'visualize_args_from_file'}:
+                     'query_args_from_file', 'save_tables_to', 'tabular_args_from_file', 'default_args_from_file'}:
             continue
         if n.endswith('_from_file'):
             with open(v, 'r') as f:
                 v = json.load(f)
-            n = n[-10:]
         constructor_args[n] = v
 
     eval_args = {}
@@ -272,7 +270,7 @@ def _evaluate(args: Namespace):
     for n, v in args.__dict__.items():
         if v is None:
             continue
-        if n not in {'mean', 'smooth'}:
+        if n not in {'mean', 'smooth', 'visualize_args_from_file'}:
             continue
         if n.endswith('_from_file'):
             with open(v, 'r') as f:
@@ -281,11 +279,12 @@ def _evaluate(args: Namespace):
 
     result = engine.evaluate(
         real=args.real_db_dir, synthetic=synthetic_db,
-        constructor_args=constructor_args, eval_args=eval_args, save_tables_to=args.save_tables_to,
+        constructor_args=constructor_args, eval_args=eval_args,
         save_eval_res_to=args.save_eval_res_to, save_complete_result_to=args.save_complete_result_to,
-        save_visualization_to=args.save_visualization_to
+        save_synthetic_tables_to=args.save_synthetic_tables_to, save_visualization_to=args.save_visualization_to
     )
-    with open(args.save_all_res_to, 'wb') as f:
+    os.makedirs(args.save_all_res_to, exist_ok=True)
+    with open(os.path.join(args.save_all_res_to, 'result.pkl'), 'wb') as f:
         pickle.dump(result, f)
 
 

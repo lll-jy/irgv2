@@ -94,6 +94,7 @@ class CategoricalTransformer(BaseTransformer):
                 transformed.loc[i, f'cat_{cat_id}'] = 1
             else:
                 _LOGGER.warning(f'Categorical value {value} is OOV.')
+                raise ValueError()
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         cat_ids = data.copy().set_axis([*range(data.shape[1])], axis=1).idxmax(axis=1)

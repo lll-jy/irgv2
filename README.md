@@ -5,17 +5,17 @@
 ((need to find some values that produce reasonable results))
 
 Default setting:
-- **batch size:**
-- **epochs:**
-- **learning rate:**
-- **weight decay:**
+- **batch size: 100**
+- **epochs: 50**
+- **learning rate: 0.0005**
+- **weight decay: 0.05**
 
 Default setting for CTGAN:
-- **embedding dimension:**
-- **generator dimension:**
-- **discriminator dimension:**
-- **pac:**
-- **discriminator step:**
+- **embedding dimension: 20**
+- **generator dimension: [64, 64]**
+- **discriminator dimension: [64, 64]**
+- **pac: 20**
+- **discriminator step: 1**
 
 Default setting for TVAE:
 - **embedding dimension:**

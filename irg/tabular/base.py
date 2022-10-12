@@ -38,8 +38,3 @@ class TabularTrainer(Trainer, ABC):
                 return False
             pre = r
         return True
-
-    @property
-    def unknown_dim(self) -> int:
-        """Number of unknown dimensions"""
-        return self._unknown_dim

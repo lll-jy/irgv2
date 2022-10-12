@@ -102,7 +102,8 @@ def gym(src: pd.DataFrame) -> pd.DataFrame:
     gym.
     """
     return src[['student_token', 'venue', 'date', 'check_in_time', 'check_out_time']]\
-        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)\
+        .astype({'date': 'datetime64[ns]','check_in_time': 'datetime64[ns]','check_out_time': 'datetime64[ns]'})
 
 def sis_module_enrolment(src: pd.DataFrame) -> pd.DataFrame:
     """
@@ -111,7 +112,8 @@ def sis_module_enrolment(src: pd.DataFrame) -> pd.DataFrame:
     SIS module_enrolment.
     """
     return src[['student_token', 'extract_date', 'academic_career', 'term', 'class_nbr','module_code']]\
-        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)\
+        .astype({'extract_date': 'datetime64[ns]'})
 
 def sis_course(src: pd.DataFrame) -> pd.DataFrame:
     """
@@ -138,7 +140,8 @@ def sis_milestone(src: pd.DataFrame) -> pd.DataFrame:
     SIS milestone.
     """
     return src[['student_token', 'extract_date','milestone_nbr','milestone_completion_date']]\
-        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)
+        .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)\
+        .astype({'extract_date': 'datetime64[ns]','milestone_completion_date': 'datetime64[ns]'})
 
 
 _code2descr = {

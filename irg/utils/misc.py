@@ -22,7 +22,7 @@ Data2D = Union[pd.DataFrame, np.ndarray, Tensor]
 """2D data type, including `pd.DataFrame`, `np.ndarray`, and `torch.Tensor`."""
 SparseDType = pd.SparseDtype('float32', fill_value=0)
 """Sparse data type for general usage."""
-Data2DName = Literal['pandas', 'numpy', 'torch']
+Data2DName = Literal['pandas', 'numpy', 'tensor']
 """
 2D data type name. Literal of `pandas`, `numpy`, and `tensor`.
 
@@ -98,7 +98,6 @@ def calculate_mean(x: Union[pd.Series, np.ndarray, Tensor], mean: str = 'arithme
     if not 0 <= smooth <= 1:
         raise ValueError(f'Smooth value should be in [0, 1], got {smooth}.')
 
-    x = np.array([y for y in x if not pd.isnull(y)])
     if len(x) == 0:
         return np.nan
 

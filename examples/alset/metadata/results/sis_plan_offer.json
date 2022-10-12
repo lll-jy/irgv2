@@ -1,5 +1,7 @@
 {
-  "id_cols": [],
+  "id_cols": [
+    "academic_plan"
+  ],
   "attributes": {
     "index": {
       "name": "index",
@@ -8,7 +10,7 @@
     },
     "academic_plan": {
       "name": "academic_plan",
-      "type": "categorical"
+      "type": "id"
     },
     "academic_plan_descr": {
       "name": "academic_plan_descr",

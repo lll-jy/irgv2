@@ -1,6 +1,8 @@
 {
   "id_cols": [
-    "student_token"
+    "student_token",
+    "academic_program",
+    "academic_plan"
   ],
   "attributes": {
     "student_token": {
@@ -13,11 +15,11 @@
     },
     "academic_program": {
       "name": "academic_program",
-      "type": "categorical"
+      "type": "id"
     },
     "academic_plan": {
       "name": "academic_plan",
-      "type": "categorical"
+      "type": "id"
     },
     "career_nbr": {
       "name": "career_nbr",

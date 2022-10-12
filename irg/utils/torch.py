@@ -1,15 +1,14 @@
 import math
-from typing import Tuple, Optional, Union
+from typing import Tuple, Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 from ctgan.synthesizers.ctgan import Discriminator as CTGANDiscriminator
 
 
 class _Layer(nn.Module):
-    def __init__(self, in_dim: int, out_dim: int, dropout: float = 0.1, act: str = 'relu'):
+    def __init__(self, in_dim: int, out_dim: int, dropout: float = 0, act: str = 'relu'):
         super().__init__()
         activations = {
             'relu': nn.ReLU,
@@ -30,14 +29,14 @@ class _Layer(nn.Module):
 class MLP(nn.Module):
     """Fundamental MLP structure."""
     def __init__(self, in_dim: int, out_dim: int, hidden_dim: Optional[Tuple[int, ...]] = (100, 100),
-                 dropout: float = 0.1, act: str = 'relu'):
+                 dropout: float = 0, act: str = 'relu'):
         """
         **Args**:
 
         - `in_dim` (`int`): Input dimension.
         - `out_dim` (`int`): Output dimension.
         - `hidden_dim` (`Optional[Tuple[int, ...]]`): Hidden dimensions. Default is (100, 100).
-        - `dropout` (`float`): Dropout rate. Default is 0.1.
+        - `dropout` (`float`): Dropout rate. Default is 0.
         - `act` (`str`): Activation function. Can be "relu", "sigmoid", "tanh", "gelu", "leaky_relu".
         """
         super().__init__()
@@ -56,17 +55,12 @@ class MLP(nn.Module):
 
 
 class Discriminator(CTGANDiscriminator):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.sigmoid = nn.Sigmoid()
-
     def forward(self, input_: torch.Tensor):
         x, y = input_.size()
         size = math.ceil(x / self.pac) * self.pac
         placeholder = torch.zeros(size, y).to(input_.device)
         placeholder[:x, :] = input_
         res = super().forward(placeholder)
-        res = self.sigmoid(res)
         return res[:x]
 
     @staticmethod
@@ -80,35 +74,3 @@ class Discriminator(CTGANDiscriminator):
     def calc_gradient_penalty(self, real_data, fake_data, device='cpu', pac=10, lambda_=10):
         real_data, fake_data = self._reshape(real_data, pac), self._reshape(fake_data, pac)
         return super().calc_gradient_penalty(real_data, fake_data, device, pac, lambda_)
-
-
-class CNNDiscriminator(nn.Module):
-    """
-    Discriminator for GAN that takes in multiple rows as input and passes through a CNN to predict the realness of data.
-    We implement here only a 2-layer CNN.
-    """
-    def __init__(self, row_width: int, num_samples: int, out_channels: int = 16, intermediate_channels: int = 6,
-                 kernel_size: Union[int, Tuple[int, int]] = 5, **kwargs):
-        """
-        **Args**:
-
-        - `row_width` (`int`): Number of dimensions per row in the table. That is, width of input.
-        - `num_samples` (`int`): Number of samples per set of input.
-        - `out_channels` (`int`): Output channels of the second convolutional layer. Default is 16.
-        - `intermediate_channels` (`int`): Output channels of the first convolutional layer. Default is 6.
-        - `kernel_size` (`Union[int, Tuple[int, int]]`): Kernel size of both convolutional layers. Default is 5.
-        - `kwargs`: Other arguments to `MLP`.
-        """
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, intermediate_channels, kernel_size)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(intermediate_channels, out_channels, kernel_size)
-        h, w = num_samples // 2 - 2, row_width // 2 - 2
-        h, w = h // 2 - 2, w // 2 - 2
-        self.fc = MLP(out_channels * h * w, 1, **kwargs)
-
-    def forward(self, x: Tensor):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = torch.flatten(x, 1)
-        return self.fc(x)

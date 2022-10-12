@@ -45,7 +45,6 @@ class Trainer(ABC):
         self._distributed, self._autocast, self._descr, self._ckpt_dir = distributed, autocast, descr, ckpt_dir
         self._device = get_device()
         self._writer = SummaryWriter(log_dir=os.path.join(log_dir, descr))
-        os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
 
     def _make_model_optimizer(self, model: Union[nn.Module, List[nn.Module]], optimizer: str = 'AdamW',
                               scheduler: str = 'StepLR', **kwargs) -> Tuple[
@@ -96,17 +95,16 @@ class Trainer(ABC):
         return model, optimizer, lr_scheduler, scaler
 
     @staticmethod
-    def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler,
-                   retain_graph: bool = False):
+    def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler):
         if grad_scaler is not None:
-            grad_scaler.scale(loss).backward(retain_graph=retain_graph)
+            grad_scaler.scale(loss).backward()
             grad_scaler.unscale_(optimizer)
             grad_scaler.step(optimizer)
             grad_scaler.update()
             lr_scheduler.step()
         else:
             optimizer.zero_grad()
-            loss.backward(retain_graph=retain_graph)
+            loss.backward()
             optimizer.step()
 
     @staticmethod
@@ -167,9 +165,6 @@ class Trainer(ABC):
             barrier()
             if is_main_process():
                 self._save_checkpoint(i+1, 'epoch')
-
-        if is_main_process():
-            self._save_checkpoint(0, 'final')
 
     def _resume_id(self) -> Tuple[int, int]:
         all_ckpt = os.listdir(os.path.join(self._ckpt_dir, self._descr))

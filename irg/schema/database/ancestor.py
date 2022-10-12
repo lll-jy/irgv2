@@ -4,7 +4,6 @@ When generating a table, only tables that this table directly or indirectly refe
 For example, if T1 is referenced by T2 and T3, which are the only foreign keys in the database,
 then when generating T2 and T3, they are not aware of the existence nor content of each other.
 """
-import os
 from typing import Any
 
 import pandas as pd
@@ -31,10 +30,9 @@ class AncestorDescendantDatabase(Database):
         return 'ancestor-descendant'
 
     def augment(self):
-        for name, path in self.tables():
-            table = Table.load(path)
+        for name, table in self.tables:
+            table = Table.load(table)
             self._augment_table(name, table)
-            table.save(path)
 
     def _augment_table(self, name: str, table: Table):
         foreign_keys = self._foreign_keys[name]
@@ -45,7 +43,7 @@ class AncestorDescendantDatabase(Database):
             parent_name = foreign_key.parent
             prefix = f'fk{i}:{parent_name}'
             parent_table = self[parent_name]
-            data, new_ids, new_attr = parent_table.augmented_for_join()
+            data, new_ids, new_attr = parent_table.augmented_for_join
 
             data = pd.concat({prefix: data}, axis=1)
             left = foreign_key.left
@@ -59,7 +57,7 @@ class AncestorDescendantDatabase(Database):
 
         aug_id_cols, deg_id_cols = set(), set()
         aug_attr, deg_attr = {}, {}
-        for attr_name, attr in table.attributes().items():
+        for attr_name, attr in table.attributes.items():
             if attr.atype == 'id':
                 aug_id_cols.add((name, attr_name))
                 if attr_name in fk_cols:
@@ -84,5 +82,6 @@ class SyntheticAncestorDescendantDatabase(AncestorDescendantDatabase, SyntheticD
     Synthetic database for ancestor-descendant augmenting mechanism.
     """
     def degree_known_for(self, table_name: str) -> Tensor:
-        known, _, _ = self._real[table_name].deg_data()
+        self._augment_table(table_name, self[table_name])
+        known, _, _ = self[table_name].deg_data
         return known

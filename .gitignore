@@ -5,9 +5,9 @@ drafts
 dist/
 build/
 **.nosync
-**.temp*
-temp*
+**.temp
 **/out/
 hpc/
 scripts.sh
 log.txt
+data.nosync - 快捷方式.lnk

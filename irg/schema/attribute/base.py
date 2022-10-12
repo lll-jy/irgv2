@@ -3,7 +3,6 @@
 from abc import ABC, abstractmethod
 import logging
 import os
-import pickle
 from typing import Any, Collection, List, Optional, Tuple
 
 import numpy as np
@@ -220,12 +219,6 @@ class BaseTransformer:
 
         **Raise**: `NotFittedError` if the transformer is not yet fitted.
         """
-        nan_indicator, recovered_no_nan = self._inverse_nan_info(data, nan_ratio, nan_thres)
-        recovered_no_nan[nan_indicator] = np.nan
-        return recovered_no_nan
-
-    def _inverse_nan_info(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) -> \
-            Tuple[pd.Series, pd.Series]:
         if not self._fitted:
             raise NotFittedError('Transformer', 'inversely transforming other data')
         self._load_additional_info()
@@ -239,8 +232,9 @@ class BaseTransformer:
                 original = pd.read_pickle(self._data_path)
                 nan_ratio = original.count() / len(original)
             threshold = data['is_nan'].quantile(nan_ratio)
+        recovered_no_nan[data['is_nan'] > threshold] = np.nan
         self._unload_additional_info()
-        return (data['is_nan'] > threshold), recovered_no_nan
+        return recovered_no_nan
 
     @abstractmethod
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
@@ -282,15 +276,8 @@ class BaseAttribute(ABC):
         self._name, self._attr_type, self._temp_cache = name, attr_type, temp_cache
 
         self._transformer: Optional[BaseTransformer] = None
-        if os.path.exists(self._transformer_path):
-            with open(self._transformer_path, 'rb') as f:
-                self._transformer = pickle.load(f)
-        elif values is not None:
+        if values is not None and attr_type != 'id':
             self.fit(values)
-
-    @property
-    def _transformer_path(self) -> str:
-        return os.path.join(self._temp_cache, 'transformer.pkl')
 
     def rename(self, new_name: str, inplace: bool = True) -> Optional["BaseAttribute"]:
         """
@@ -367,14 +354,8 @@ class BaseAttribute(ABC):
         - `force_redo` (`bool`) [default `False`]: Whether to re-fit if the attribute is already fitted.
           Default is `False`.
         """
-        if os.path.exists(self._transformer_path):
-            with open(self._transformer_path, 'rb') as f:
-                self._transformer = pickle.load(f)
-        else:
-            self._create_transformer()
+        self._create_transformer()
         self._transformer.fit(values, force_redo)
-        with open(self._transformer_path, 'wb') as f:
-            pickle.dump(self._transformer, f)
         _LOGGER.debug(f'Fitted attribute {self._name}.')
 
     @abstractmethod

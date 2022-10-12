@@ -389,3 +389,4 @@ The following table shows the variables of the script.
 
 Run with `python3 main.py evaluate` followed by command line arguments. 
 For more details, one can consult `python3 main.py -h`.
+

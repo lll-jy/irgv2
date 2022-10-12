@@ -1,6 +1,8 @@
 {
   "id_cols": [
-    "student_token"
+    "student_token",
+    "academic_program",
+    "dual_academic_program"
   ],
   "attributes": {
     "index": {
@@ -22,11 +24,11 @@
     },
     "academic_program": {
       "name": "academic_program",
-      "type": "categorical"
+      "type": "id"
     },
     "dual_academic_program": {
       "name": "dual_academic_program",
-      "type": "categorical"
+      "type": "id"
     },
     "program_category": {
       "name": "program_category",

@@ -263,6 +263,7 @@ class Database:
         """
         raise NotImplementedError()
 
+    @property
     def tables(self) -> ItemsView[str, str]:
         """Get all table cached paths in list view."""
         return self._table_paths.items()
@@ -279,7 +280,7 @@ class Database:
         """
         return {
             name: Table.load(table).data(**kwargs)
-            for name, table in self.tables()
+            for name, table in self.tables
         }
 
     def query(self, query: str, descr: str = '', **kwargs) -> Table:
@@ -335,7 +336,7 @@ class Database:
             }, f, indent=2)
             _LOGGER.debug(f'Saved config file to {os.path.join(path, "config.json")}.')
 
-        for name, table in self.tables():
+        for name, table in self.tables:
             shutil.copy(table, os.path.join(path, f'{name}.pkl'))
             _LOGGER.debug(f'Saved generated table {name} to {os.path.join(path, f"{name}.pkl")}.')
 
@@ -362,15 +363,15 @@ class Database:
     def all_joined(self) -> Table:
         """All tables joined according to all foreign keys."""
         data, id_cols, attributes, table_cnt = pd.DataFrame(), set(), {}, defaultdict(int)
-        for name, table in self.tables():
+        for name, table in self.tables:
             table = Table.load(table)
-            if data.empty or table.is_independent():
+            if data.empty or table.is_independent:
                 if data.empty:
                     data = pd.concat({f'{name}_0': table.data()}, axis=1)
                 else:
                     data = data.merge(pd.concat({f'{name}_0': table.data()}, axis=1), how='cross')
                 id_cols |= {(f'{name}_0', col) for col in table.id_cols}
-                attributes |= {(f'{name}_0', attr_name): attr for attr_name, attr in table.attributes().items()}
+                attributes |= {(f'{name}_0', attr_name): attr for attr_name, attr in table.attributes.items()}
             else:
                 for foreign_key in self._foreign_keys[name]:
                     for j in range(table_cnt[foreign_key.parent]+1):
@@ -380,7 +381,7 @@ class Database:
                                           how='outer', left_on=left_on, right_on=right_on)
                         id_cols |= {(f'{name}_{table_cnt[name]}', col) for col in table.id_cols}
                         attributes |= {(f'{name}_{table_cnt[name]}', attr_name): attr
-                                       for attr_name, attr in table.attributes().items()}
+                                       for attr_name, attr in table.attributes.items()}
                         table_cnt[name] += 1
 
         joined_table = Table(
@@ -486,7 +487,7 @@ class SyntheticDatabase(Database, ABC):
         """
         if file_format not in {'csv', 'pickle'}:
             raise ValueError(f'File format {file_format} is not recognized.')
-        for name, table in self.tables():
+        for name, table in self.tables:
             table = Table.load(table)
             if file_format == 'csv':
                 table.data().to_csv(os.path.join(self._data_dir, f'{name}.csv'), index=False)
