@@ -221,6 +221,7 @@ class StatsMetric(BaseMetric):
         else:
             raise NotImplementedError(f'Statistical metric {name} is not recognized.')
 
+
 class CorrMatMetric(BaseMetric):
     """
     Metric inspecting the correlation matrices.

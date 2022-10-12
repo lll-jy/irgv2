@@ -15,18 +15,18 @@ class SyntheticTableEvaluator:
     """Evaluator for synthetic table."""
     def __init__(self, real: Table, res_dir: str = 'eval_res',
                  eval_stats: bool = True, statistical_metrics: Optional[List[str]] = None,
-                 eval_corr: bool = True, corr_mean: str = 'arithmetic', corr_smooth: float = 0.1,
-                 eval_invalid_comb: bool = False,
+                 eval_corr: bool = True, corr_mean: str = 'harmonic', corr_smooth: float = 0,
+                 eval_invalid_comb: bool = True,
                  invalid_comb: Optional[Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]]] = None,
                  eval_detect: bool = True, detect_models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
                  detect_test_size: Optional[Union[float, int]] = None,
                  detect_train_size: Optional[Union[float, int]] = None, detect_shuffle: bool = True,
                  eval_clf: bool = True, clf_models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
-                 clf_tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, clf_run_default: bool = True,
-                 clf_mean: str = 'arithmetic', clf_smooth: float = 0.1,
+                 clf_tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, clf_run_default: bool = False,
+                 clf_mean: str = 'harmonic', clf_smooth: float = 0,
                  eval_reg: bool = True, reg_models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
-                 reg_tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, reg_run_default: bool = True,
-                 reg_mean: str = 'arithmetic', reg_smooth: float = 0.1,
+                 reg_tasks: Optional[Dict[str, Tuple[str, List[str]]]] = None, reg_run_default: bool = False,
+                 reg_mean: str = 'harmonic', reg_smooth: float = 0,
                  eval_card: bool = True, scaling: float = 1,
                  eval_degree: bool = True, count_on: Optional[Dict[str, List[str]]] = None,
                  default_degree_scaling: float = 1, degree_scaling: Optional[Dict[str, float]] = None):
@@ -144,7 +144,7 @@ class SyntheticTableEvaluator:
             result[n] = v
         return pd.concat(result)
 
-    def summary(self, mean: str = 'arithmetic', smooth: float = 0.1) -> pd.Series:
+    def summary(self, mean: str = 'harmonic', smooth: float = 0) -> pd.Series:
         """
         Summarize the results with some too-lengthy metrics' results aggregated (averaged).
 
