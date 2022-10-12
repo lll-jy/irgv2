@@ -84,7 +84,7 @@ def sis_enrolment(src: pd.DataFrame) -> pd.DataFrame:
     """
     result = src[[
         'student_token', 'academic_career', 'academic_program', 'academic_plan', 'admit_term', 'admit_term_descr',
-        'career_nbr', 'completion_term', 'department', 'department_descr', 'expected_graduation_term',
+        'completion_term', 'department', 'department_descr', 'expected_graduation_term',
         'primary_program', 'program_action', 'program_reason', 'program_status', 'program_status_descr',
         'requirement_term', 'requirement_term_descr'
     ]].replace({' ': np.nan})
@@ -111,7 +111,7 @@ def sis_module_enrolment(src: pd.DataFrame) -> pd.DataFrame:
 
     SIS module_enrolment.
     """
-    result = src[['student_token', 'extract_date', 'academic_career', 'term', 'class_nbr','module_code']]\
+    result = src[['student_token', 'extract_date', 'academic_career', 'term','module_code']]\
         .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)\
         .astype({'extract_date': 'datetime64[ns]'})
     result = _process_term(result, '')
