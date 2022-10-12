@@ -180,7 +180,6 @@ class CTGANTrainer(TabularTrainer):
                     real_cat, fake_cat, self._device, self._pac
                 ) / (known.shape[1] + self._embedding_dim)
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                # pen = torch.clamp(pen, -1, 1)
                 if self._grad_scaler_d is None:
                     pen.backward(retain_graph=True)
                 else:
@@ -219,6 +218,7 @@ class CTGANTrainer(TabularTrainer):
         fakez = torch.cat([fakez, condvec, known_tensor], dim=1)
         fake = self._generator(fakez)
         fakeact = self._apply_activate(fake)
+        fakeact = self._make_noisy(fakeact)
         fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
         return fake_cat
 
