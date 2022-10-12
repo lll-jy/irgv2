@@ -160,6 +160,9 @@ def sis_module_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
         'foreign_keys': [{
             'columns': ['student_token'],
             'parent': 'personal_data'
+        }, {
+            'columns': ['module_code'],
+            'parent': 'sis_course',
         }]
     }
 
@@ -173,10 +176,6 @@ def sis_course(src: pd.DataFrame) -> Dict[str, Any]:
         #     ['degree', 'degree_descr'],
         # ],
         'primary_keys': ['module_code'],
-        'foreign_keys': [{
-            'columns': ['module_code'],
-            'parent': 'sis_module_enrolment'
-        }]
     }
 
 def sis_credits(src: pd.DataFrame) -> Dict[str, Any]:
@@ -190,7 +189,7 @@ def sis_credits(src: pd.DataFrame) -> Dict[str, Any]:
         # ],
         'primary_keys': ['student_token','module_code'],
         'foreign_keys': [{
-            'columns': ['student_token'],
+            'columns': ['student_token','module_code'],
             'parent': 'sis_module_enrolment'
         }]
     }

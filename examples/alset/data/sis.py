@@ -111,9 +111,11 @@ def sis_module_enrolment(src: pd.DataFrame) -> pd.DataFrame:
 
     SIS module_enrolment.
     """
-    return src[['student_token', 'extract_date', 'academic_career', 'term', 'class_nbr','module_code']]\
+    result = src[['student_token', 'extract_date', 'academic_career', 'term', 'class_nbr','module_code']]\
         .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)\
         .astype({'extract_date': 'datetime64[ns]'})
+    result = _process_term(result, '')
+    return result
 
 def sis_course(src: pd.DataFrame) -> pd.DataFrame:
     """
