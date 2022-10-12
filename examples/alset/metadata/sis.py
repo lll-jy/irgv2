@@ -23,9 +23,11 @@ def sis_academic_career(src: pd.DataFrame) -> Dict[str, Any]:
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        # 'determinants': [
-        #     ['form_of_study', 'form_of_study_descr']
-        # ],
+
+#         'determinants': [
+#             ['form_of_study', 'form_of_study_descr']
+#         ],
+
         'primary_keys': ['student_token', 'academic_career'],
         'foreign_keys': [{
             'columns': ['student_token'],
@@ -41,9 +43,9 @@ def sis_academic_program_offer(src: pd.DataFrame) -> Dict[str, Any]:
         'id_cols': id_cols,
         'attributes': attributes,
         'ttype': 'base',
-        'determinants': [
-            ['academic_program', 'academic_program_descr']
-        ],
+#         'determinants': [
+#             ['academic_program', 'academic_program_descr']
+#         ],
         'primary_keys': ['academic_program']
     }
 
@@ -76,10 +78,12 @@ def sis_plan_offer(src: pd.DataFrame) -> Dict[str, Any]:
         'id_cols': id_cols,
         'attributes': attributes,
         'ttype': 'base',
-        # 'determinants': [
-        #     ['academic_plan', 'academic_plan_descr'],
-        #     ['academic_plan_type', 'academic_plan_type_descr']
-        # ],
+
+#         'determinants': [
+#             ['academic_plan', 'academic_plan_descr'],
+#             ['academic_plan_type', 'academic_plan_type_descr']
+#         ],
+
         'primary_keys': ['academic_plan'],
     }
 
@@ -90,9 +94,11 @@ def sis_academic_plan(src: pd.DataFrame) -> Dict[str, Any]:
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        # 'determinants': [
-        #     ['degree', 'degree_descr'],
-        # ],
+
+#         'determinants': [
+#             ['degree', 'degree_descr'],
+#         ],
+
         'primary_keys': ['student_token', 'academic_career', 'academic_program', 'academic_plan'],
         'foreign_keys': [{
             'columns': ['student_token', 'academic_career', 'academic_program'],
@@ -110,10 +116,12 @@ def sis_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        # 'determinants': [
-        #     ['department', 'department_descr'],
-        #     ['program_status', 'program_status_descr']
-        # ],
+
+#         'determinants': [
+#             ['department', 'department_descr'],
+#             ['program_status', 'program_status_descr']
+#         ],
+
         'primary_keys': ['student_token', 'academic_program', 'academic_plan', 'admit_tyear', 'admit_tsem'],
         'foreign_keys': [{
             'columns': ['student_token', 'academic_career', 'academic_program', 'academic_plan'],
@@ -210,9 +218,9 @@ def academic_program_offer(src: pd.DataFrame) -> Dict[str, Any]:
         'id_cols': id_cols,
         'attributes': attributes,
         'ttype': 'base',
-        'determinants': [
-            ['academic_program', 'academic_program_descr']
-        ],
+#         'determinants': [
+#             ['academic_program', 'academic_program_descr']
+#         ],
         'primary_keys': ['academic_program', 'tyear', 'tsem']
     }
 
@@ -224,10 +232,10 @@ def academic_plan_offer(src: pd.DataFrame) -> Dict[str, Any]:
         'id_cols': id_cols,
         'attributes': attributes,
         'ttype': 'base',
-        'determinants': [
-            ['academic_plan', 'academic_plan_descr'],
-            ['academic_plan_type', 'academic_plan_type_descr'],
-        ],
+#         'determinants': [
+#             ['academic_plan', 'academic_plan_descr'],
+#             ['academic_plan_type', 'academic_plan_type_descr'],
+#         ],
         'primary_keys': ['academic_plan', 'academic_program', 'tyear', 'tsem'],
         'foreign_keys': [{
             'columns': ['academic_program', 'tyear', 'tsem'],
@@ -243,9 +251,9 @@ def academic_subplan_offer(src: pd.DataFrame) -> Dict[str, Any]:
         'id_cols': id_cols,
         'attributes': attributes,
         'ttype': 'base',
-        'determinants': [
-            ['academic_subplan', 'academic_subplan_descr'],
-        ],
+#         'determinants': [
+#             ['academic_subplan', 'academic_subplan_descr'],
+#         ],
         'primary_keys': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'academic_subplan'],
         'foreign_keys': [{
             'columns': ['academic_plan', 'academic_program', 'tyear', 'tsem'],
@@ -262,10 +270,10 @@ def degree_offer(src: pd.DataFrame) -> Dict[str, Any]:
         'id_cols': id_cols,
         'attributes': attributes,
         'ttype': 'base',
-        'determinants': [
-            ['faculty_code', 'faculty_descr'],
-            ['department', 'department_descr']
-        ],
+#         'determinants': [
+#             ['faculty_code', 'faculty_descr'],
+#             ['department', 'department_descr']
+#         ],
         'primary_keys': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'degree', 'department'],
         'foreign_keys': [{
             'columns': ['academic_plan', 'academic_program', 'tyear', 'tsem'],
@@ -283,11 +291,11 @@ def student_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'determinants': [
-            ['attached_to_ri', 'attached_to_ri_descr'],
-            ['form_of_study', 'form_of_study_descr'],
-            ['partner_university', 'partner_university_descr']
-        ],
+#         'determinants': [
+#             ['attached_to_ri', 'attached_to_ri_descr'],
+#             ['form_of_study', 'form_of_study_descr'],
+#             ['partner_university', 'partner_university_descr']
+#         ],
         'primary_keys': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'degree', 'department', 'student_token'],
         'foreign_keys': [{
             'columns': ['academic_plan', 'academic_program', 'tyear', 'tsem', 'degree', 'department'],
