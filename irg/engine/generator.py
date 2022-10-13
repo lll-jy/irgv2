@@ -73,7 +73,7 @@ def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: fl
         -> Table:
     syn_table = SyntheticTable.from_real(table, temp_cache)
     need_rows = round(len(table) * scale)
-    output = trainer.inference(torch.zeros(need_rows, 0), batch_size).output[:, -trainer.unknown_dim:]
+    output = trainer.inference(torch.zeros(need_rows, 0), batch_size).output[:, -trainer.unknown_dim:].cpu()
     syn_table.inverse_transform(output, replace_content=True)
     return syn_table
 
@@ -83,10 +83,10 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularT
         -> SyntheticTable:
     syn_table = SyntheticTable.from_real(table, temp_cache)
     known = syn_db.degree_known_for(table.name)
-    deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:]
+    deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:].cpu()
     degrees = syn_table.inverse_transform_degrees(deg_tensor, scale)
     syn_table.assign_degrees(degrees)
     known_tab, _, _ = syn_table.ptg_data()
-    output = tab_trainer.inference(known_tab, tab_batch_size).output[:, -tab_trainer.unknown_dim:]
+    output = tab_trainer.inference(known_tab, tab_batch_size).output[:, -tab_trainer.unknown_dim:].cpu()
     syn_table.inverse_transform(output, replace_content=True)
     return syn_table

@@ -301,6 +301,7 @@ class CTGANTrainer(TabularTrainer):
         self._generator.eval()
         self._discriminator.eval()
         for step, (known_batch, _) in enumerate(dataloader):
+            known_batch = known_batch.to(self._device)
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
                 fake_cat = self._construct_fake(mean, std, known_batch)
                 y_fake = self._discriminator(fake_cat)
