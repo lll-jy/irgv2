@@ -110,8 +110,6 @@ class Trainer(ABC):
             optimizer.step()
 
     def _collate_fn(self, batch):
-        import pickle
-        pickle.dump()
         all_known, all_unknown = [], []
         for known, unknown in batch:
             all_known.append(known)
