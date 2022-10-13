@@ -56,6 +56,7 @@ class TabularTrainer(Trainer, ABC):
         super().train(known, unknown, epochs, batch_size, shuffle, save_freq, resume)
 
     def _fit_mean_std(self, x: Tensor):
+        x = x.to(self._device)
         self._fitted_mean = x.mean(dim=0)
         self._fitted_std = x.std(dim=0)
         self._total_train = x.shape[0]
