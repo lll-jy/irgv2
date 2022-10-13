@@ -33,7 +33,7 @@ _LOGGER = logging.getLogger()
 class SyntheticDatabaseEvaluator:
     """Evaluator for synthetic database generation on tabular data extracted from the database."""
     def __init__(self, real: Database,
-                 eval_tables: bool = True, eval_parent_child: bool = True, eval_joined: bool = False,
+                 eval_tables: bool = True, eval_parent_child: bool = False, eval_joined: bool = False,
                  eval_queries: bool = True,
                  tables: Optional[List[str]] = None,
                  parent_child_pairs: Optional[List[Union[ForeignKey, Dict[str, Any]]]] = None,

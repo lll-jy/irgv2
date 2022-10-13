@@ -18,6 +18,7 @@ class SyntheticTableEvaluator:
                  eval_corr: bool = True, corr_mean: str = 'harmonic', corr_smooth: float = 0,
                  eval_invalid_comb: bool = True,
                  invalid_comb: Optional[Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]]] = None,
+                 valid_only_comb: Optional[Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]]] = None,
                  eval_detect: bool = True, detect_models: Optional[Dict[str, Tuple[str, Dict[str, Any]]]] = None,
                  detect_test_size: Optional[Union[float, int]] = None,
                  detect_train_size: Optional[Union[float, int]] = None, detect_shuffle: bool = True,
@@ -42,7 +43,8 @@ class SyntheticTableEvaluator:
           [`CorrMatMetric`](./metrics#irg.metrics.tabular.metrics.CorrMatMetric).
         - `eval_invalid_comb` (`bool`): Whether to use
           [`InvalidCombMetric`](./metrics#irg.metrics.tabular.metrics.InvalidCombMetric).
-        - `invalid_comb`: Argument to [`InvalidCombMetric`](./metrics#irg.metrics.tabular.metrics.InvalidCombMetric).
+        - `invalid_comb` and `valid_only_comb`: Arguments to
+          [`InvalidCombMetric`](./metrics#irg.metrics.tabular.metrics.InvalidCombMetric).
         - `eval_detect`: Whether to use [`DetectionMetric`](./metrics#irg.metrics.tabular.metrics.DetectionMetric).
         - `detect_models`, `detect_test_size`, `detect_train_size`, `detect_shuffle`: Arguments (prefixed `detect_`) to
           [`DetectionMetric`](./metrics#irg.metrics.tabular.metrics.DetectionMetric).
@@ -74,7 +76,8 @@ class SyntheticTableEvaluator:
         if eval_invalid_comb:
             self._metrics['comb'] = InvalidCombMetric(
                 real=real, res_dir=os.path.join(res_dir, 'comb'),
-                invalid_combinations=invalid_comb)
+                invalid_combinations=invalid_comb, valid_only_combinations=valid_only_comb
+            )
         if eval_detect:
             self._metrics['detect'] = DetectionMetric(
                 real=real, res_dir=os.path.join(res_dir, 'detect'),

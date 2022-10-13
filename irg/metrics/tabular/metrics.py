@@ -287,7 +287,8 @@ class InvalidCombMetric(BaseMetric):
     The metric values are the ratio of invalid combinations among the entire table.
     The range of the metric values is [0, 1], the smaller the better.
     """
-    def __init__(self, invalid_combinations: Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]], **kwargs):
+    def __init__(self, invalid_combinations: Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]],
+                 valid_only_combinations: Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]], **kwargs):
         """
         **Args**:
         
@@ -296,9 +297,12 @@ class InvalidCombMetric(BaseMetric):
           as the value of the element in this argument. The tuple's first element is the list of columns involved in the
           combination. The tuple's second element is a list of tuples indicating invalid combinations for the columns in
           the corresponding order given in the tuple's first element.
+        - `valid_only_combinations` (`Dict[str, Tuple[List[str], List[Tuple[Any, ...]]]]`): Similar to
+          `invalid_combinations`, but this provides means only the combinations in the list are allowed.
+          Please make sure that the short description names of both combinations settings do not overlap.
         - `kwargs`: Arguments to `BaseMetric`.
         """
-        self._invalid_comb = invalid_combinations
+        self._invalid_comb, self._valid_only_comb = invalid_combinations, valid_only_combinations
         super().__init__(**kwargs)
         self._real_raw = self._evaluate_complete_raw(self._real, os.path.join(self._res_dir, 'real'))
         self._seen_results = {'real': self._normalize_result(self._real_raw)}
@@ -314,6 +318,17 @@ class InvalidCombMetric(BaseMetric):
             for value, df in data.groupby(by=cols, dropna=False, sort=False):
                 total += len(df)
                 if value in invalid_values:
+                    invalid += len(df)
+            res[descr] = {'': invalid / total}
+
+        for descr, (cols, valid_values) in self._valid_only_comb.items():
+            if any(len(li) != len(cols) for li in valid_values):
+                raise ValueError('Dimension for each set of invalid combination should match the size of columns '
+                                 'of the set.')
+            total, invalid = 0, 0
+            for value, df in data.groupby(by=cols, dropna=False, sort=False):
+                total += len(df)
+                if value not in valid_values:
                     invalid += len(df)
             res[descr] = {'': invalid / total}
         return res
