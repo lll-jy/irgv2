@@ -102,16 +102,16 @@ class CTGANTrainer(TabularTrainer):
             embedding_dim=embedding_dim + encoded_dim + self._condvec_dim,
             generator_dim=generator_dim,
             data_dim=encoded_dim
-        )
+        ).to(self._device)
         self._discriminator = Discriminator(
             input_dim=encoded_dim + self._condvec_dim,
             discriminator_dim=discriminator_dim,
             pac=pac
-        )
+        ).to(self._device)
         self._lae = LinearAutoEncoder(
             full_dim=self._known_dim + self._unknown_dim,
             encoded_dim=encoded_dim
-        )
+        ).to(self._device)
         self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g = self._make_model_optimizer(
             self._generator,
             **{n[4:]: v for n, v in kwargs.items() if n.startswith('gen_')}
@@ -152,7 +152,7 @@ class CTGANTrainer(TabularTrainer):
         self._discriminator.load_state_dict(discriminator_dict, strict=True)
         self._optimizer_g.load_state_dict(loaded['generator']['optimizer'])
         self._optimizer_d.load_state_dict(loaded['discriminator']['optimizer'])
-        self._optimizer_l.load_state_dict(loaded['dlae']['optimizer'])
+        self._optimizer_l.load_state_dict(loaded['lae']['optimizer'])
         self._lr_schd_g.load_state_dict(loaded['generator']['lr_scheduler'])
         self._lr_schd_d.load_state_dict(loaded['discriminator']['lr_scheduler'])
         self._lr_schd_l.load_state_dict(loaded['lae']['lr_scheduler'])
@@ -215,10 +215,11 @@ class CTGANTrainer(TabularTrainer):
         reconstructed = self._lae(real_data, 'recon')
         reconstructed = self._apply_activate(reconstructed)
         recon_loss = F.mse_loss(reconstructed, real_data)
-        self._take_step(recon_loss, self._optimizer_l, self._grad_scaler_l, self._lr_schd_l)
-
-        full_encoded = self._lae(real_data, 'enc')
-        context_encoded = self._lae(torch.cat([known, torch.zeros(*unknown.shape).to(self._device)]), 'enc')
+        self._take_step(recon_loss, self._optimizer_l, self._grad_scaler_l, self._lr_schd_l, True)
+        self._lae.eval()
+        with torch.no_grad():
+            full_encoded = self._lae(real_data, 'enc')
+            context_encoded = self._lae(torch.cat([known, torch.zeros(*unknown.shape).to(self._device)], dim=1), 'enc')
 
         for ds in range(self._discriminator_step):
             with torch.cuda.amp.autocast(enabled=enable_autocast):
@@ -276,7 +277,8 @@ class CTGANTrainer(TabularTrainer):
         fakeact = F.sigmoid(fake)
         # fakeact = self._apply_activate(fake)
         # fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
-        fake_cat = self._lae(torch.cat([known_tensor, fakeact], dim=1), 'enc')
+        # fake_cat = self._lae(torch.cat([known_tensor, fakeact], dim=1), 'enc')
+        fake_cat = torch.cat([condvec, fakeact], dim=1)
         return fake_cat
 
     @classmethod
