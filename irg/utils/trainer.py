@@ -50,7 +50,7 @@ class Trainer(ABC):
 
     @classmethod
     def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str) -> "Trainer":
-        base = object()
+        base = _DummyEmptyTrainer()
         base.__class__ = Trainer
         base._distributed, base._autocast, base._descr = distributed, autocast, descr
         base._ckpt_dir, base._log_dir = ckpt_dir, log_dir
@@ -241,3 +241,17 @@ class Trainer(ABC):
         **Return**: Inference result.
         """
         raise NotImplementedError()
+
+
+class _DummyEmptyTrainer(Trainer):
+    def _reload_checkpoint(self, idx: int, by: str):
+        pass
+
+    def _save_checkpoint(self, idx: int, by: str):
+        pass
+
+    def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
+        pass
+
+    def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
+        pass
