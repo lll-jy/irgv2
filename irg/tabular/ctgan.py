@@ -240,14 +240,15 @@ class CTGANTrainer(TabularTrainer):
         return torch.cat(act_data, dim=1)
 
     @staticmethod
-    def _gumbel_softmax(logits: torch.Tensor, tau: float = 1, hard: bool = False, eps: float = 1e-10, dim: int = -1):
+    def _gumbel_softmax(logits: torch.Tensor, tau: float = 1, hard: bool = False,
+                        eps: float = 1e-10):
         if version.parse(torch.__version__) < version.parse('1.2.0'):
             for i in range(10):
-                transformed = F.gumbel_softmax(logits, tau=tau, hard=hard, eps=eps, dim=dim)
+                transformed = F.gumbel_softmax(logits, tau=tau, hard=hard, eps=eps, dim=-1)
                 if not torch.isnan(transformed).any():
                     return transformed
             raise ValueError('gumbel_softmax returning NaN.')
-        return F.gumbel_softmax(logits, tau=tau, hard=hard, eps=eps, dim=dim)
+        return F.gumbel_softmax(logits, tau=tau, hard=hard, eps=eps, dim=-1)
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> CTGANOutput:
