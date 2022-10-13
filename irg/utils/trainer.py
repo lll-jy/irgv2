@@ -109,13 +109,14 @@ class Trainer(ABC):
             loss.backward(retain_graph=retain_graph)
             optimizer.step()
 
-    @staticmethod
-    def _collate_fn(batch):
+    def _collate_fn(self, batch):
+        import pickle
+        pickle.dump()
         all_known, all_unknown = [], []
         for known, unknown in batch:
             all_known.append(known)
             all_unknown.append(unknown)
-        return torch.stack(all_known), torch.stack(all_unknown)
+        return torch.stack(all_known).to(self._device), torch.stack(all_unknown).to(self._device)
 
     def _make_dataloader(self, known: Tensor, unknown: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
         dataset = TensorDataset(known, unknown)
@@ -140,7 +141,7 @@ class Trainer(ABC):
         - `save_freq` (`int`): Save checkpoint frequency (every how many steps). Default is 100.
         - `resume` (`bool`): Whether to resume from trained result (from ckpt_dir).
         """
-        dataloader = self._make_dataloader(known, unknown, batch_size, shuffle)
+        dataloader = self._make_dataloader(known.to(self._device), unknown.to(self._device), batch_size, shuffle)
 
         os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
         epoch, global_step = 0, 0

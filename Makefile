@@ -150,6 +150,12 @@ extract:
 	mkdir ../${EXTRACT_TO}
 	cp *.py ../${EXTRACT_TO}/
 	cp Makefile ../${EXTRACT_TO}/
+	cp alset.makefile ../${EXTRACT_TO}/
 	cp requirements.txt ../${EXTRACT_TO}/
 	cp -r irg ../${EXTRACT_TO}/
-	cp -r examples ../${EXTRACT_TO}/
+	mkdir ../${EXTRACT_TO}/examples
+	cp -r examples/alset ../${EXTRACT_TO}/examples/
+	cp -r examples/rtd ../${EXTRACT_TO}/examples/
+	cp -r examples/*.py ../${EXTRACT_TO}/examples/
+	cp -r examples/data.nosync ../${EXTRACT_TO}/examples/data.nosync
+	cp -r config ../${EXTRACT_TO}/

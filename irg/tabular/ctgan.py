@@ -207,7 +207,7 @@ class CTGANTrainer(TabularTrainer):
                }, fake_cat
 
     def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor) -> Tensor:
-        fakez = torch.normal(mean=mean, std=std)[:known_tensor.shape[0]]
+        fakez = torch.normal(mean=mean, std=std)[:known_tensor.shape[0]].to(self._device)
         if self._condvec_dim > 0:
             sum_cnt = sum(self._condvec_accumulated)
             probabilities = [x / sum_cnt for x in self._condvec_accumulated]
@@ -219,7 +219,7 @@ class CTGANTrainer(TabularTrainer):
         fake = self._generator(fakez)
         fakeact = self._apply_activate(fake)
         fakeact = self._make_noisy(fakeact)
-        fakeact = self._apply_activate(fakeact)
+        fakeact = self._apply_activate(fakeact * 10)
         fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
         return fake_cat
 

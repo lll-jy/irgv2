@@ -67,6 +67,8 @@ def init_process_group(distributed: bool = True, num_processes: int = 200):
     global _pool
     if torch.cuda.is_available() and distributed:
         dist.init_process_group(backend='nccl', init_method='env://', timeout=timedelta(days=1))
+    if torch.cuda.is_available():
+        mp.set_start_method('spawn')
     # _pool = mp.Pool(processes=num_processes)
 
 
