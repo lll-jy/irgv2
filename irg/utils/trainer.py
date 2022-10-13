@@ -123,12 +123,13 @@ class Trainer(ABC):
     def __reduce__(self):
         return self.__class__, (self._distributed, self._autocast, self._log_dir, self._ckpt_dir, self._descr)
 
-    def _collate_fn(self, batch):
+    @staticmethod
+    def _collate_fn(batch):
         all_known, all_unknown = [], []
         for known, unknown in batch:
             all_known.append(known)
             all_unknown.append(unknown)
-        return torch.stack(all_known).to(self._device), torch.stack(all_unknown).to(self._device)
+        return torch.stack(all_known), torch.stack(all_unknown)
 
     def _make_dataloader(self, known: Tensor, unknown: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
         dataset = TensorDataset(known, unknown)
@@ -172,7 +173,7 @@ class Trainer(ABC):
                     continue
                 if base_step == global_step:
                     self._reload_checkpoint(global_step // save_freq, 'step')
-                loss_dict, _ = self.run_step(known_batch, unknown_batch)
+                loss_dict, _ = self.run_step(known_batch.to(self._device), unknown_batch.to(self._device))
                 global_step += 1
                 base_step += 1
                 self._wrap_step(dataloader, loss_dict, f'Epoch[{i}] {self._descr}', global_step, save_freq)
