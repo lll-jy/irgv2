@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Optional, Union
+from typing import Tuple, Optional, Union, Literal
 
 import torch
 import torch.nn as nn
@@ -80,6 +80,32 @@ class Discriminator(CTGANDiscriminator):
     def calc_gradient_penalty(self, real_data, fake_data, device='cpu', pac=10, lambda_=10):
         real_data, fake_data = self._reshape(real_data, pac), self._reshape(fake_data, pac)
         return super().calc_gradient_penalty(real_data, fake_data, device, pac, lambda_)
+
+
+class LinearAutoEncoder(nn.Module):
+    """
+    Simple auto-encoder with both encoder and decoder linear, and a sigmoid layer between encoder and decoder.
+    """
+    def __init__(self, full_dim: int, encoded_dim: int):
+        """
+        **Args**:
+
+        - `full_dim` (`int`): Original data dimension.
+        - `encoded_dim` (`int`): Encoded data dimension.
+        """
+        super().__init__()
+        self.encoder = nn.Linear(full_dim, encoded_dim)
+        self.sigmoid = nn.Sigmoid()
+        self.decoder = nn.Linear(encoded_dim, full_dim)
+
+    def forward(self, x: Tensor, mode: Literal['enc', 'dec', 'recon']) -> Tensor:
+        if mode == 'recon':
+            return self.decoder(self.sigmoid(self.encoder(x)))
+        if mode == 'enc':
+            return self.sigmoid(self.encoder(x))
+        if mode == 'dec':
+            return self.decoder(x)
+        raise NotImplementedError(f'Unrecognized mode {mode}.')
 
 
 class CNNDiscriminator(nn.Module):

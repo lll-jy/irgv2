@@ -76,7 +76,7 @@ class TabularTrainer(Trainer, ABC):
         return self._reconstruct, var + (self._known_dim, self._unknown_dim, self._cat_dims,
                                          self._fitted_mean, self._fitted_std, self._total_train)
 
-    def _make_noisy(self, x: Tensor):
+    def _make_noise(self, x: Tensor):
         if x.shape[0] == 1:
             return x
         x_mean, x_std = x.mean(dim=0), x.std(dim=0)
@@ -85,4 +85,4 @@ class TabularTrainer(Trainer, ABC):
                                 / self._total_train * (self._total_train - 1) * x.shape[0] / (x.shape[0] - 1)
                                 - x_std ** 2).abs()).repeat(x.shape[0]).reshape(-1, x.shape[1])
         noise = torch.normal(noise_mean, noise_std)
-        return x + noise
+        return noise
