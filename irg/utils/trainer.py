@@ -109,6 +109,9 @@ class Trainer(ABC):
             loss.backward(retain_graph=retain_graph)
             optimizer.step()
 
+    def __reduce__(self):
+        return self.__class__, (self._distributed, self._autocast, self._descr, self._ckpt_dir, self._device)
+
     def _collate_fn(self, batch):
         all_known, all_unknown = [], []
         for known, unknown in batch:

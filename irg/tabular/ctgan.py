@@ -223,6 +223,15 @@ class CTGANTrainer(TabularTrainer):
         fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
         return fake_cat
 
+    def __reduce__(self):
+        _, var = super().__reduce__()
+        return self.__class__, var + (
+            self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated,
+            self._generator, self._discriminator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g,
+            self._optimizer_d, self._lr_schd_d, self._grad_scaler_d, self._embedding_dim, self._pac,
+            self._discriminator_step
+        )
+
     def _apply_activate(self, data: Tensor) -> Tensor:
         act_data, ptr, cat_ptr = [], 0, 0
         while ptr < self._unknown_dim:
