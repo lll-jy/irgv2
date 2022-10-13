@@ -219,6 +219,7 @@ class CTGANTrainer(TabularTrainer):
         fake = self._generator(fakez)
         fakeact = self._apply_activate(fake)
         fakeact = self._make_noisy(fakeact)
+        fakeact = self._apply_activate(fakeact)
         fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
         return fake_cat
 
