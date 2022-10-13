@@ -60,10 +60,20 @@ class TabularTrainer(Trainer, ABC):
         self._fitted_std = x.std(dim=0)
         self._total_train = x.shape[0]
 
+    @classmethod
+    def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,
+                     cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int,
+                     fitted_mean: Tensor, fitted_std: Tensor, total_train: int) -> "TabularTrainer":
+        base = super()._reconstruct(distributed, autocast, log_dir, ckpt_dir, descr)
+        base.__class__ = TabularTrainer
+        base._known_dim, base._unknown_dim, base._cat_dims = known_dim, unknown_dim, cat_dims
+        base._fitted_mean, base._fitted_std, base._total_train = fitted_mean, fitted_std, total_train
+        return base
+
     def __reduce__(self):
         _, var = super().__reduce__()
-        return self.__class__, var + (self._known_dim, self._unknown_dim, self._cat_dims, self._fitted_mean,
-                                      self._fitted_std, self._total_train)
+        return self._reconstruct, var + (self._known_dim, self._unknown_dim, self._cat_dims,
+                                         self._fitted_mean, self._fitted_std, self._total_train)
 
     def _make_noisy(self, x: Tensor):
         if x.shape[0] == 1:

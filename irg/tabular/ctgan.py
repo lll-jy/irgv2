@@ -1,13 +1,17 @@
 """Partial CTGAN Training."""
 
 from collections import OrderedDict
-from typing import Tuple, Dict, Optional, Any
+from typing import Tuple, Dict, Optional, Any, List
 import os
 
 import numpy as np
 import torch
 from torch import Tensor
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional as F
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
+from torch.cuda.amp import GradScaler
 from packaging import version
 from ctgan.synthesizers.ctgan import Generator
 from tqdm import tqdm
@@ -223,13 +227,37 @@ class CTGANTrainer(TabularTrainer):
         fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
         return fake_cat
 
+    @classmethod
+    def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,
+                     cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int,
+                     fitted_mean: Tensor, fitted_std: Tensor, total_train: int,
+                     condvec_left: int, condvec_right: int, condvec_dim: int, condvec_accumulated: List[int],
+                     generator: nn.Module, optimizer_g: Optimizer, lr_schd_g: LRScheduler,
+                     grad_scaler_g: Optional[GradScaler], discriminator: nn.Module, optimizer_d: Optimizer,
+                     lr_schd_d: LRScheduler, grad_scaler_d: Optional[GradScaler], embedding_dim: int, pac: int,
+                     discriminator_step: int) -> "CTGANTrainer":
+        base = TabularTrainer._reconstruct(
+            distributed, autocast, log_dir, ckpt_dir, descr,
+            cat_dims, known_dim, unknown_dim, fitted_mean, fitted_std, total_train
+        )
+        base.__class__ = CTGANTrainer
+        base._condvec_left, base._condvec_right, base._condvec_dim, base._condvec_accumulated = (
+            condvec_left, condvec_right, condvec_dim, condvec_accumulated
+        )
+        base._generator, base._optimizer_g, base._lr_schd_g, base._grad_scaler_g = (
+            generator, optimizer_g, lr_schd_g, grad_scaler_g)
+        base._discriminator, base._optimizer_d, base._lr_schd_d, base._grad_scaler_d = (
+            discriminator, optimizer_d, lr_schd_d, grad_scaler_d)
+        base._embedding_dim, base._pac, base._discriminator_step = embedding_dim, pac, discriminator_step
+        return base
+
     def __reduce__(self):
         _, var = super().__reduce__()
-        return self.__class__, var + (
+        return self._reconstruct, var + (
             self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated,
-            self._generator, self._discriminator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g,
-            self._optimizer_d, self._lr_schd_d, self._grad_scaler_d, self._embedding_dim, self._pac,
-            self._discriminator_step
+            self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g,
+            self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d,
+            self._embedding_dim, self._pac, self._discriminator_step
         )
 
     def _apply_activate(self, data: Tensor) -> Tensor:

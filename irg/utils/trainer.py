@@ -42,10 +42,21 @@ class Trainer(ABC):
         - `descr` (`str`): The description of this training.
           Tensorboard files are saved under log_dir/descr/, and checkpoints are saved under ckpt_dir/descr/.
         """
-        self._distributed, self._autocast, self._descr, self._ckpt_dir = distributed, autocast, descr, ckpt_dir
+        self._distributed, self._autocast, self._descr = distributed, autocast, descr
+        self._ckpt_dir, self._log_dir = ckpt_dir, log_dir
         self._device = get_device()
         self._writer = SummaryWriter(log_dir=os.path.join(log_dir, descr))
         os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
+
+    @classmethod
+    def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str) -> "Trainer":
+        base = object()
+        base.__class__ = Trainer
+        base._distributed, base._autocast, base._descr = distributed, autocast, descr
+        base._ckpt_dir, base._log_dir = ckpt_dir, log_dir
+        base._device = get_device()
+        base._writer = None
+        return base
 
     def _make_model_optimizer(self, model: Union[nn.Module, List[nn.Module]], optimizer: str = 'AdamW',
                               scheduler: str = 'StepLR', **kwargs) -> Tuple[
@@ -110,7 +121,7 @@ class Trainer(ABC):
             optimizer.step()
 
     def __reduce__(self):
-        return self.__class__, (self._distributed, self._autocast, self._descr, self._ckpt_dir, self._device)
+        return self.__class__, (self._distributed, self._autocast, self._log_dir, self._ckpt_dir, self._descr)
 
     def _collate_fn(self, batch):
         all_known, all_unknown = [], []
