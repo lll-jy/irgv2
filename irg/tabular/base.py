@@ -32,6 +32,7 @@ class TabularTrainer(Trainer, ABC):
         self._cat_dims = sorted(cat_dims)
         self._fitted_mean: Optional[Tensor] = None
         self._fitted_std: Optional[Tensor] = None
+        self._total_train: int = 0
         if not self._validate_cat_dims(self._cat_dims):
             raise ValueError('Category dimensions should be disjoint.')
 
@@ -57,12 +58,15 @@ class TabularTrainer(Trainer, ABC):
     def _fit_mean_std(self, x: Tensor):
         self._fitted_mean = x.mean(dim=0)
         self._fitted_std = x.std(dim=0)
+        self._total_train = x.shape[0]
 
     def _make_noisy(self, x: Tensor):
         if x.shape[0] == 1:
             return x
         x_mean, x_std = x.mean(dim=0), x.std(dim=0)
         noise_mean = (self._fitted_mean - x_mean).repeat(x.shape[0]).reshape(-1, self._unknown_dim)
-        noise_std = torch.sqrt((self._fitted_std ** 2 - x_std ** 2).abs()).repeat(x.shape[0]).reshape(-1, x.shape[1])
+        noise_std = torch.sqrt((self._fitted_std ** 2
+                                / self._total_train * (self._total_train - 1) * x.shape[0] / (x.shape[0] - 1)
+                                - x_std ** 2).abs()).repeat(x.shape[0]).reshape(-1, x.shape[1])
         noise = torch.normal(noise_mean, noise_std)
         return x + noise
