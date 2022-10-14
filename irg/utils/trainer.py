@@ -50,7 +50,8 @@ class Trainer(ABC):
         os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
 
     @classmethod
-    def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str) -> "Trainer":
+    def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str, **kwargs) ->\
+            "Trainer":
         base = _DummyEmptyTrainer()
         base.__class__ = Trainer
         base._distributed, base._autocast, base._descr = distributed, autocast, descr

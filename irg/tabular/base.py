@@ -5,7 +5,11 @@ from typing import Tuple, List, Optional, Dict, Any
 
 import torch
 from torch import Tensor
+from torch import nn
 from torch.nn import functional as F
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -46,7 +50,6 @@ class TabularTrainer(Trainer, ABC):
         super().__init__(**kwargs)
         self._known_dim, self._unknown_dim = known_dim, unknown_dim
         self._cat_dims = sorted(cat_dims)
-        self._fitted_mean: Optional[Tensor] = None
         self._lae = None if self._known_dim == 0 else LinearAutoEncoder(
             context_dim=self._known_dim,
             full_dim=self._unknown_dim
@@ -75,7 +78,6 @@ class TabularTrainer(Trainer, ABC):
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
-        self._fit_mean_std(unknown)
         (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
         if not self._lae_trained and self._known_dim != 0:
             self._train_lae(dataloader, lae_epochs)
@@ -113,22 +115,14 @@ class TabularTrainer(Trainer, ABC):
             encoded = self._lae(known, 'enc')
         return encoded
 
-    def _fit_mean_std(self, x: Tensor):
-        x = x.to(self._device)
-        self._fitted_mean = x.mean(dim=0)
-        self._fitted_std = x.std(dim=0)
-        self._total_train = x.shape[0]
-
     def _load_content_from(self, loaded: Dict[str, Any]):
         self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._load_state_dict(
             self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae, loaded['lae']
         )
-        self._fitted_mean = loaded['mean']
         self._lae_trained = loaded['lae_trained']
 
     def _construct_content_to_save(self) -> Dict[str, Any]:
         return {
-            'mean': self._fitted_mean,
             'lae': self._full_state_dict(
                 self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae
             ),
@@ -138,26 +132,19 @@ class TabularTrainer(Trainer, ABC):
 
     @classmethod
     def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,
-                     cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int,
-                     fitted_mean: Tensor, fitted_std: Tensor, total_train: int) -> "TabularTrainer":
+                     known_dim: int, unknown_dim: int, cat_dims: List[Tuple[int, int]], lae_trained: bool,
+                     lae: nn.Module, optimizer_lae: Optimizer, lr_schd_lae: LRScheduler,
+                     grad_scaler_lae: Optional[GradScaler], **kwargs) -> "TabularTrainer":
         base = super()._reconstruct(distributed, autocast, log_dir, ckpt_dir, descr)
         base.__class__ = TabularTrainer
         base._known_dim, base._unknown_dim, base._cat_dims = known_dim, unknown_dim, cat_dims
-        base._fitted_mean, base._fitted_std, base._total_train = fitted_mean, fitted_std, total_train
+        base._lae_trained = lae_trained
+        base._lae, base._optimizer_lae, base._lr_schd_lae, base._grad_scaler_lae = (
+            lae, optimizer_lae, lr_schd_lae, grad_scaler_lae)
         return base
 
     def __reduce__(self):
         _, var = super().__reduce__()
-        return self._reconstruct, var + (self._known_dim, self._unknown_dim, self._cat_dims,
-                                         self._fitted_mean, self._fitted_std, self._total_train)
-
-    def _make_noise(self, x: Tensor):
-        if x.shape[0] == 1:
-            return x
-        x_mean, x_std = x.mean(dim=0), x.std(dim=0)
-        noise_mean = (self._fitted_mean - x_mean).repeat(x.shape[0]).reshape(-1, self._unknown_dim)
-        noise_std = torch.sqrt((self._fitted_std ** 2
-                                / self._total_train * (self._total_train - 1) * x.shape[0] / (x.shape[0] - 1)
-                                - x_std ** 2).abs()).repeat(x.shape[0]).reshape(-1, x.shape[1])
-        noise = torch.normal(noise_mean, noise_std)
-        return noise
+        return self._reconstruct, var + (
+            self._known_dim, self._unknown_dim, self._cat_dims, self._lae_trained,
+            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae)

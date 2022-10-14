@@ -163,7 +163,6 @@ class CTGANTrainer(TabularTrainer):
                 distance = F.mse_loss(fake_cat, real_cat, reduction='mean')
             loss_g = -torch.mean(y_fake) + distance
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
-        self._lae.train()
         return {
                    'G loss': loss_g.detach().cpu().item(),
                    'distance': distance.detach().cpu().item(),
@@ -190,8 +189,9 @@ class CTGANTrainer(TabularTrainer):
 
     @classmethod
     def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,
-                     cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int,
-                     fitted_mean: Tensor, fitted_std: Tensor, total_train: int,
+                     known_dim: int, unknown_dim: int, cat_dims: List[Tuple[int, int]], lae_trained: bool,
+                     lae: nn.Module, optimizer_lae: Optimizer, lr_schd_lae: LRScheduler,
+                     grad_scaler_lae: Optional[GradScaler],
                      condvec_left: int, condvec_right: int, condvec_dim: int, condvec_accumulated: List[int],
                      generator: nn.Module, optimizer_g: Optimizer, lr_schd_g: LRScheduler,
                      grad_scaler_g: Optional[GradScaler], discriminator: nn.Module, optimizer_d: Optimizer,
@@ -200,7 +200,8 @@ class CTGANTrainer(TabularTrainer):
                      embedding_dim: int, pac: int, discriminator_step: int, encoded_dim: int) -> "CTGANTrainer":
         base = TabularTrainer._reconstruct(
             distributed, autocast, log_dir, ckpt_dir, descr,
-            cat_dims, known_dim, unknown_dim, fitted_mean, fitted_std, total_train
+            known_dim, unknown_dim, cat_dims, lae_trained,
+            lae, optimizer_lae, lr_schd_lae, grad_scaler_lae
         )
         base.__class__ = CTGANTrainer
         base._condvec_left, base._condvec_right, base._condvec_dim, base._condvec_accumulated = (
@@ -222,7 +223,6 @@ class CTGANTrainer(TabularTrainer):
             self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated,
             self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g,
             self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d,
-            self._lae, self._optimizer_l, self._lr_schd_l, self._grad_scaler_l,
             self._embedding_dim, self._pac, self._discriminator_step, self._encoded_dim
         )
 
@@ -243,9 +243,6 @@ class CTGANTrainer(TabularTrainer):
                 ptr += 1
                 mask.append(torch.zeros(data.shape[0], 1).to(self._device))
         activated = torch.cat(act_data, dim=1)
-        # mask = torch.cat(act_data, dim=1)
-        # noise = self._make_noise(activated)
-        # activated = activated + noise #* mask
         return activated
 
     @staticmethod
@@ -272,19 +269,13 @@ class CTGANTrainer(TabularTrainer):
         fakes, y_fakes = [], []
         self._generator.eval()
         self._discriminator.eval()
-        self._lae.eval()
         for step, (known_batch, _) in enumerate(dataloader):
             known_batch = known_batch.to(self._device)
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
-                context_encoded = self._lae(torch.cat([
-                    known_batch, torch.zeros(known_batch.shape[0], self.unknown_dim)
-                ], dim=1), 'enc')
-                fake_cat = self._construct_fake(mean, std, known_batch, context_encoded)
-                fake_cat = F.sigmoid(fake_cat)
+                known = self._make_context(known_batch)
+                fake_cat = self._construct_fake(mean, std, known)
                 y_fake = self._discriminator(fake_cat)
                 y_fake = y_fake.repeat(self._pac, 1).permute(1, 0).flatten()[:fake_cat.shape[0]]
-                fake_cat = self._lae(fake_cat[:, -self._encoded_dim:], 'dec')
-                # fake_cat = self._apply_activate(fake_cat)
                 fakes.append(fake_cat)
                 y_fakes.append(y_fake)
         self._generator.train()
