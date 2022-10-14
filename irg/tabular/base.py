@@ -1,12 +1,17 @@
 """(Partial) tabular generator training."""
 
 from abc import ABC
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict, Any
 
 import torch
 from torch import Tensor
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from ..utils import Trainer
+from ..utils.torch import LinearAutoEncoder
+from ..utils import dist
 
 
 class TabularTrainer(Trainer, ABC):
@@ -25,14 +30,32 @@ class TabularTrainer(Trainer, ABC):
           in left-closed-right-open manner. In this example, the input should be [(0, 1), (1, 4), (4, 5), (6, 8)].
         - `known_dim` (`int`): Number of dimensions in total for known columns.
         - `unknown_dim` (`int`): Number of dimensions in total for unknown columns.
-        - `kwargs`: Inherited arguments from [`Trainer`](../utils#irg.utils.Trainer).
+        - `kwargs`: It has the following groups:
+            - Inherited arguments from [`Trainer`](../utils#irg.utils.Trainer).
+            - AutoEncoder arguments, all prefixed with "lae_" (for example, argument "arg1" under this group will be
+              named as "lae_arg1").
+                - `optimizer` (`str`): Optimizer type, currently support "SGD", "Adam", and "AdamW" only.
+                  Default is "AdamW".
+                - `scheduler` (`str`): LR scheduler type, currently support "StepLR" and "ConstantLR" only.
+                  Default is "StepLR".
+                - Optimizer constructor arguments, all prefixed with "optim_". (That is, argument "arg1" under this
+                  group will be named as "gen_optim_arg1".
+                - Scheduler constructor arguments, all prefixed with "sched_".
+                - GradScaler constructor arguments, all prefixed with "scaler_".
         """
         super().__init__(**kwargs)
         self._known_dim, self._unknown_dim = known_dim, unknown_dim
         self._cat_dims = sorted(cat_dims)
         self._fitted_mean: Optional[Tensor] = None
-        self._fitted_std: Optional[Tensor] = None
-        self._total_train: int = 0
+        self._lae = None if self._known_dim == 0 else LinearAutoEncoder(
+            context_dim=self._known_dim,
+            full_dim=self._unknown_dim
+        ).to(self._device)
+        self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._make_model_optimizer(
+            self._lae,
+            **{n[4:]: v for n, v in kwargs.items() if n.startswith('lae_')}
+        )
+        self._lae_trained = False
         if not self._validate_cat_dims(self._cat_dims):
             raise ValueError('Category dimensions should be disjoint.')
 
@@ -51,15 +74,67 @@ class TabularTrainer(Trainer, ABC):
         return self._unknown_dim
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
-              save_freq: int = 100, resume: bool = True):
+              save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
         self._fit_mean_std(unknown)
-        super().train(known, unknown, epochs, batch_size, shuffle, save_freq, resume)
+        (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
+        if not self._lae_trained and self._known_dim != 0:
+            self._train_lae(dataloader, lae_epochs)
+        self._run_training(epoch, epochs, global_step, save_freq, dataloader)
+
+    def _train_lae(self, dataloader: DataLoader, epochs: int = 10):
+        self._lae.train()
+        for i in range(epochs):
+            descr = f'Epoch[{i}] {self._descr} LAE'
+            if dist.is_main_process():
+                dataloader = tqdm(dataloader)
+                dataloader.set_description(descr)
+            for step, (known_batch, unknown_batch) in enumerate(dataloader):
+                known, unknown = known_batch.to(self._device), unknown_batch.to(self._device)
+                recon = self._lae(known, 'recon')
+                real = torch.cat([known, unknown], dim=1)
+                loss = F.mse_loss(recon, real)
+                self._take_step(loss, self._optimizer_lae, self._grad_scaler_lae, self._lr_schd_lae)
+                if dist.is_main_process():
+                    dataloader.set_description(f'{descr}: recon_loss: {loss.item():.4f}')
+
+            dist.barrier()
+            if dist.is_main_process():
+                self._save_checkpoint(0, 'final', 0, 0)
+
+        if dist.is_main_process():
+            self._save_checkpoint(0, 'final', 0, 0)
+        self._lae.eval()
+        self._lae_trained = True
+
+    def _make_context(self, known: Tensor):
+        if self._known_dim == 0:
+            return known
+        with torch.no_grad():
+            encoded = self._lae(known, 'enc')
+        return encoded
 
     def _fit_mean_std(self, x: Tensor):
         x = x.to(self._device)
         self._fitted_mean = x.mean(dim=0)
         self._fitted_std = x.std(dim=0)
         self._total_train = x.shape[0]
+
+    def _load_content_from(self, loaded: Dict[str, Any]):
+        self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._load_state_dict(
+            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae, loaded['lae']
+        )
+        self._fitted_mean = loaded['mean']
+        self._lae_trained = loaded['lae_trained']
+
+    def _construct_content_to_save(self) -> Dict[str, Any]:
+        return {
+            'mean': self._fitted_mean,
+            'lae': self._full_state_dict(
+                self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae
+            ),
+            'seed': torch.initial_seed(),
+            'lae_trained': self._lae_trained
+        }
 
     @classmethod
     def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,

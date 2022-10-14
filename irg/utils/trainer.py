@@ -1,6 +1,7 @@
 """PyTorch trainer."""
 
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from itertools import chain
 import os
 from typing import Tuple, Union, Dict, Optional, List, Any
@@ -107,6 +108,30 @@ class Trainer(ABC):
         return model, optimizer, lr_scheduler, scaler
 
     @staticmethod
+    def _load_state_dict(model: nn.Module, optimizer: Optimizer, lr_schd: LRScheduler,
+                         grad_scaler: Optional[GradScaler], loaded: Dict[str, Any]):
+        model_dict = loaded['model']
+        if hasattr(model, 'module'):
+            model_dict = OrderedDict({f'module.{n}': v for n, v in model_dict.items()})
+        model.load_state_dict(model_dict, strict=True)
+        optimizer.load_state_dict(loaded['optimizer'])
+        lr_schd.load_state_dict(loaded['lr_scheduler'])
+        if 'grad_scaler' in loaded:
+            grad_scaler.load_state_dict(loaded['grad_scaler'])
+        else:
+            grad_scaler = None
+        return model, optimizer, lr_schd, grad_scaler
+
+    @staticmethod
+    def _full_state_dict(model: nn.Module, optimizer: Optimizer, lr_schd: LRScheduler,
+                         grad_scaler: Optional[GradScaler]) -> Dict[str, Any]:
+        return {
+            'model': (model.module if hasattr(model, 'module') else model).state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'lr_scheduler': lr_schd.state_dict()
+        } | ({'grad_scaler': grad_scaler.state_dict()} if grad_scaler is not None else {})
+
+    @staticmethod
     def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler,
                    retain_graph: bool = False):
         if grad_scaler is not None:
@@ -139,6 +164,16 @@ class Trainer(ABC):
                                 collate_fn=self._collate_fn)
         return dataloader
 
+    def _prepare_training(self, known: Tensor, unknown: Tensor, batch_size: int = 100, shuffle: bool = True,
+                          resume: bool = True) -> ((int, int), DataLoader):
+        dataloader = self._make_dataloader(known, unknown, batch_size, shuffle)
+        os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
+        if resume:
+            steps, epochs = self._reload_checkpoint(0, 'final')
+        else:
+            steps, epochs = 0, 0
+        return (steps, epochs), dataloader
+
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True):
         """
@@ -154,15 +189,10 @@ class Trainer(ABC):
         - `save_freq` (`int`): Save checkpoint frequency (every how many steps). Default is 100.
         - `resume` (`bool`): Whether to resume from trained result (from ckpt_dir).
         """
-        dataloader = self._make_dataloader(known.to(self._device), unknown.to(self._device), batch_size, shuffle)
+        (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
+        self._run_training(epoch, epochs, global_step, save_freq, dataloader)
 
-        os.makedirs(os.path.join(self._ckpt_dir, self._descr), exist_ok=True)
-        epoch, global_step = 0, 0
-        if resume:
-            epoch, global_step = self._resume_id()
-            global_step *= save_freq
-        self._reload_checkpoint(epoch, 'epoch')
-
+    def _run_training(self, epoch: int, epochs: int, global_step: int, save_freq: int, dataloader: DataLoader):
         for i in range(epoch, epochs, 1):
             if is_main_process():
                 dataloader = tqdm(dataloader)
@@ -176,14 +206,15 @@ class Trainer(ABC):
                 loss_dict, _ = self.run_step(known_batch.to(self._device), unknown_batch.to(self._device))
                 global_step += 1
                 base_step += 1
-                self._wrap_step(dataloader, loss_dict, f'Epoch[{i}] {self._descr}', global_step, save_freq)
+                self._wrap_step(dataloader, loss_dict, f'Epoch[{i}] {self._descr}', global_step, save_freq, epoch)
 
             barrier()
             if is_main_process():
-                self._save_checkpoint(i+1, 'epoch')
+                self._save_checkpoint(i+1, 'epoch', global_step, epoch)
+                self._save_checkpoint(0, 'final', global_step, epoch)
 
         if is_main_process():
-            self._save_checkpoint(0, 'final')
+            self._save_checkpoint(0, 'final', global_step, epoch)
 
     def _resume_id(self) -> Tuple[int, int]:
         all_ckpt = os.listdir(os.path.join(self._ckpt_dir, self._descr))
@@ -197,11 +228,21 @@ class Trainer(ABC):
                 batch_ckpt = max(step_id, batch_ckpt)
         return epoch_ckpt, batch_ckpt
 
+    def _reload_checkpoint(self, idx: int, by: str) -> Tuple[int, int]:
+        path = os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
+        if not os.path.exists(path):
+            return 0, 0
+        loaded = torch.load(path)
+        self._load_content_from(loaded)
+        torch.manual_seed(loaded['seed'])
+        return loaded['steps'], loaded['epochs']
+
     @abstractmethod
-    def _reload_checkpoint(self, idx: int, by: str):
+    def _load_content_from(self, loaded: Dict[str, Any]):
         raise NotImplementedError()
 
-    def _wrap_step(self, dataloader: tqdm, loss_dict: Dict[str, float], prefix: str, global_step: int, save_freq: int):
+    def _wrap_step(self, dataloader: tqdm, loss_dict: Dict[str, float], prefix: str, global_step: int, save_freq: int,
+                   epoch: int):
         if is_main_process():
             loss_descr = [f'{n}={v:.4f}' for n, v in loss_dict.items()]
             dataloader.set_description(f'{prefix}: {",".join(loss_descr)}')
@@ -209,10 +250,16 @@ class Trainer(ABC):
         if global_step % save_freq == 0:
             barrier()
             if is_main_process():
-                self._save_checkpoint(global_step // save_freq, 'step')
+                self._save_checkpoint(global_step // save_freq, 'step', global_step, epoch)
+
+    def _save_checkpoint(self, idx: int, by: str, global_step: int, epoch: int):
+        torch.save(
+            self._construct_content_to_save() | {'steps': global_step, 'epochs': epoch},
+            os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
+        )
 
     @abstractmethod
-    def _save_checkpoint(self, idx: int, by: str):
+    def _construct_content_to_save(self) -> Dict[str, Any]:
         raise NotImplementedError()
 
     @abstractmethod
@@ -245,11 +292,6 @@ class Trainer(ABC):
 
 
 class _DummyEmptyTrainer(Trainer):
-    def _reload_checkpoint(self, idx: int, by: str):
-        pass
-
-    def _save_checkpoint(self, idx: int, by: str):
-        pass
 
     def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
         pass

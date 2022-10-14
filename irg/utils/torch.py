@@ -1,6 +1,7 @@
 import math
 from typing import Tuple, Optional, Union, Literal
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -86,17 +87,27 @@ class LinearAutoEncoder(nn.Module):
     """
     Simple auto-encoder with both encoder and decoder linear, and a sigmoid layer between encoder and decoder.
     """
-    def __init__(self, full_dim: int, encoded_dim: int):
+    def __init__(self, context_dim: int, full_dim: int, encoded_dim: Optional[int] = None):
         """
         **Args**:
 
+        - `context_dime` (`int`): Dimensions of the known part (as context).
         - `full_dim` (`int`): Original data dimension.
-        - `encoded_dim` (`int`): Encoded data dimension.
+        - `encoded_dim` (`Optional[int]`): Encoded data dimension.
+          If not provided, this will be 10xceil(ln(context_dim)).
         """
         super().__init__()
-        self.encoder = nn.Linear(full_dim, encoded_dim)
+        if encoded_dim is None:
+            encoded_dim = 10 * math.ceil(np.log(context_dim))
+        self.encoder = nn.Linear(context_dim, encoded_dim)
         self.sigmoid = nn.Sigmoid()
-        self.decoder = nn.Linear(encoded_dim, full_dim)
+        self.decoder = nn.Linear(encoded_dim, context_dim + full_dim)
+        self._encoded_dim = encoded_dim
+
+    @property
+    def encoded_dim(self) -> int:
+        """Encoded vector dimension."""
+        return self._encoded_dim
 
     def forward(self, x: Tensor, mode: Literal['enc', 'dec', 'recon']) -> Tensor:
         if mode == 'recon':

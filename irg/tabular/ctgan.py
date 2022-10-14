@@ -20,7 +20,7 @@ from tqdm import tqdm
 from .base import TabularTrainer
 from ..utils import InferenceOutput
 from ..utils.dist import is_main_process
-from ..utils.torch import Discriminator, LinearAutoEncoder
+from ..utils.torch import Discriminator
 
 
 class CTGANOutput(InferenceOutput):
@@ -49,17 +49,9 @@ class CTGANTrainer(TabularTrainer):
           [CTGAN](https://sdv.dev/SDV/api_reference/tabular/api/sdv.tabular.ctgan.CTGAN.html#sdv.tabular.ctgan.CTGAN).
         - `kwargs`: It has the following groups:
             - Inherited arguments from [`TabularTrainer`](./base#irg.tabular.base.TabularTrainer).
-            - Generator arguments, all prefixed with "gen_" (for example, argument "arg1" under this group will be
-              named as "gen_arg1").
-                - `optimizer` (`str`): Optimizer type, currently support "SGD", "Adam", and "AdamW" only.
-                  Default is "AdamW".
-                - `scheduler` (`str`): LR scheduler type, currently support "StepLR" and "ConstantLR" only.
-                  Default is "StepLR".
-                - Optimizer constructor arguments, all prefixed with "optim_". (That is, argument "arg1" under this
-                  group will be named as "gen_optim_arg1".
-                - Scheduler constructor arguments, all prefixed with "sched_".
-                - GradScaler constructor arguments, all prefixed with "scaler_".
-            - Discriminator arguments, all prefixed with "disc_". Inner structure (except for the prefix) is the same
+            - Generator arguments, all prefixed with "gen_", and others are the same as arguments for AutoEncoder for
+              the parent class [`TabularTrainer`](./base#irg.tabular.base.TabularTrainer).
+            - Discriminator arguments, all prefixed with "disc_".
               as generator.
         """
         super().__init__(**{
@@ -87,30 +79,16 @@ class CTGANTrainer(TabularTrainer):
             torch.save((self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated),
                        self._aux_info_path)
 
-        # self._generator = Generator(
-        #     embedding_dim=embedding_dim + self._known_dim + self._condvec_dim,
-        #     generator_dim=generator_dim,
-        #     data_dim=self._unknown_dim
-        # ).to(self._device)
-        # self._discriminator = Discriminator(
-        #     input_dim=self._known_dim + self._unknown_dim + self._condvec_dim,
-        #     discriminator_dim=discriminator_dim,
-        #     pac=pac
-        # ).to(self._device)
-        encoded_dim = math.ceil(self._known_dim + self._unknown_dim / 10) # TODO ratio
+        self._encoded_dim = 0 if self._known_dim == 0 else self._lae.encoded_dim
         self._generator = Generator(
-            embedding_dim=embedding_dim + encoded_dim + self._condvec_dim,
+            embedding_dim=embedding_dim + self._encoded_dim + self._condvec_dim,
             generator_dim=generator_dim,
-            data_dim=encoded_dim
+            data_dim=self._unknown_dim
         ).to(self._device)
         self._discriminator = Discriminator(
-            input_dim=encoded_dim + self._condvec_dim,
+            input_dim=self._encoded_dim + self._condvec_dim + self._unknown_dim,
             discriminator_dim=discriminator_dim,
             pac=pac
-        ).to(self._device)
-        self._lae = LinearAutoEncoder(
-            full_dim=self._known_dim + self._unknown_dim,
-            encoded_dim=encoded_dim
         ).to(self._device)
         self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g = self._make_model_optimizer(
             self._generator,
@@ -120,9 +98,6 @@ class CTGANTrainer(TabularTrainer):
             self._discriminator,
             **{n[5:]: v for n, v in kwargs.items() if n.startswith('disc_')}
         )
-        self._lae, self._optimizer_l, self._lr_schd_l, self._grad_scaler_l = self._make_model_optimizer(
-            self._lae # TODO args
-        )
 
         self._embedding_dim, self._pac, self._discriminator_step = embedding_dim, pac, discriminator_step
 
@@ -130,76 +105,26 @@ class CTGANTrainer(TabularTrainer):
     def _aux_info_path(self) -> str:
         return os.path.join(self._ckpt_dir, self._descr, 'info.pt')
 
-    def _reload_checkpoint(self, idx: int, by: str):
-        path = os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
-        if not os.path.exists(path):
-            return
-        loaded = torch.load(path)
-        self._load_content_from(loaded)
-
     def _load_content_from(self, loaded: Dict[str, Any]):
-        generator_dict = loaded['generator']['model']
-        if hasattr(self._generator, 'module'):
-            generator_dict = OrderedDict({f'module.{n}': v for n, v in generator_dict.items()})
-        self._generator.load_state_dict(generator_dict, strict=True)
-        discriminator_dict = loaded['discriminator']['model']
-        if hasattr(self._discriminator, 'module'):
-            discriminator_dict = OrderedDict({f'module.{n}': v for n, v in discriminator_dict.items()})
-        self._discriminator.load_state_dict(discriminator_dict, strict=True)
-        lae_dict = loaded['lae']['model']
-        if hasattr(self._discriminator, 'module'):
-            lae_dict = OrderedDict({f'module.{n}': v for n, v in lae_dict.items()})
-        self._discriminator.load_state_dict(discriminator_dict, strict=True)
-        self._optimizer_g.load_state_dict(loaded['generator']['optimizer'])
-        self._optimizer_d.load_state_dict(loaded['discriminator']['optimizer'])
-        self._optimizer_l.load_state_dict(loaded['lae']['optimizer'])
-        self._lr_schd_g.load_state_dict(loaded['generator']['lr_scheduler'])
-        self._lr_schd_d.load_state_dict(loaded['discriminator']['lr_scheduler'])
-        self._lr_schd_l.load_state_dict(loaded['lae']['lr_scheduler'])
-        if 'grad_scaler' in loaded['generator']:
-            self._grad_scaler_g.load_state_dict(loaded['generator']['grad_scaler'])
-        else:
-            self._grad_scaler_g = None
-        if 'grad_scaler' in loaded['discriminator']:
-            self._grad_scaler_d.load_state_dict(loaded['discriminator']['grad_scaler'])
-        else:
-            self._grad_scaler_d = None
-        if 'grad_scaler' in loaded['lae']:
-            self._grad_scaler_l.load_state_dict(loaded['lae']['grad_scaler'])
-        else:
-            self._grad_scaler_l = None
-        self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim = loaded['condvec']
-        torch.manual_seed(loaded['seed'])
-
-    def _save_checkpoint(self, idx: int, by: str):
-        torch.save(
-            self._construct_content_to_save(),
-            os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
+        super()._load_content_from(loaded)
+        self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g = self._load_state_dict(
+            self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g, loaded['generator']
         )
+        self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d = self._load_state_dict(
+            self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d, loaded['discriminator']
+        )
+        self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim = loaded['condvec']
 
     def _construct_content_to_save(self) -> Dict[str, Any]:
         return {
-            'generator': {
-                'model': (self._generator.module if hasattr(self._generator, 'module')
-                          else self._generator).state_dict(),
-                'optimizer': self._optimizer_g.state_dict(),
-                'lr_scheduler': self._lr_schd_g.state_dict()
-            } | ({'grad_scaler': self._grad_scaler_g.state_dict()} if self._grad_scaler_g is not None else {}),
-            'discriminator': {
-                'model': (self._discriminator.module if hasattr(self._discriminator, 'module')
-                          else self._discriminator).state_dict(),
-                'optimizer': self._optimizer_d.state_dict(),
-                'lr_scheduler': self._lr_schd_d.state_dict()
-            } | ({'grad_scaler': self._grad_scaler_d.state_dict()} if self._grad_scaler_d is not None else {}),
-            'lae': {
-                'model': (self._lae.module if hasattr(self._lae, 'module')
-                          else self._lae).state_dict(),
-                'optimizer': self._optimizer_l.state_dict(),
-                'lr_scheduler': self._lr_schd_l.state_dict()
-            } | ({'grad_scaler': self._grad_scaler_l.state_dict()} if self._grad_scaler_l is not None else {}),
-            'seed': torch.initial_seed(),
+            'generator': self._full_state_dict(
+                self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g
+            ),
+            'discriminator': self._full_state_dict(
+                self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d
+            ),
             'condvec': (self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim)
-        }
+        } | super()._construct_content_to_save()
 
     def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
         mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
@@ -210,28 +135,16 @@ class CTGANTrainer(TabularTrainer):
             conditions = condvec.argmax(dim=1)
             for v in conditions:
                 self._condvec_accumulated[v.item()] += 1
-
-        real_data = torch.cat([known, unknown], dim=1)
-        reconstructed = self._lae(real_data, 'recon')
-        reconstructed = self._apply_activate(reconstructed)
-        recon_loss = F.mse_loss(reconstructed, real_data)
-        self._take_step(recon_loss, self._optimizer_l, self._grad_scaler_l, self._lr_schd_l, True)
-        self._lae.eval()
-        with torch.no_grad():
-            full_encoded = self._lae(real_data, 'enc')
-            context_encoded = self._lae(torch.cat([known, torch.zeros(*unknown.shape).to(self._device)], dim=1), 'enc')
+        known = self._make_context(known)
 
         for ds in range(self._discriminator_step):
             with torch.cuda.amp.autocast(enabled=enable_autocast):
-                # fake_cat = self._construct_fake(mean, std, known)
-                # real_cat = torch.cat([known, condvec, unknown], dim=1)
-                fake_cat = self._construct_fake(mean, std, known, context_encoded)
-                real_cat = torch.cat([condvec, full_encoded], dim=1)
+                fake_cat = self._construct_fake(mean, std, known)
+                real_cat = torch.cat([known, condvec, unknown], dim=1)
                 y_fake, y_real = self._discriminator(fake_cat), self._discriminator(real_cat)
                 pen = self._discriminator.calc_gradient_penalty(
                     real_cat, fake_cat, self._device, self._pac
                 ) / (known.shape[1] + self._embedding_dim)
-                # pen = torch.sigmoid(pen)
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
                 if self._grad_scaler_d is None:
                     pen.backward(retain_graph=True)
@@ -241,10 +154,8 @@ class CTGANTrainer(TabularTrainer):
             # TODO: for param in model.parameters(): param.grad = None
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
-            # fake_cat = self._construct_fake(mean, std, known)
-            fake_cat = self._construct_fake(mean, std, known, context_encoded)
-            # real_cat = torch.cat([known, condvec, unknown], dim=1)
-            real_cat = torch.cat([condvec, full_encoded], dim=1)
+            fake_cat = self._construct_fake(mean, std, known)
+            real_cat = torch.cat([known, condvec, unknown], dim=1)
             y_fake = self._discriminator(fake_cat)
             if known.shape[1] == 0:
                 distance = torch.tensor(0)
@@ -262,8 +173,7 @@ class CTGANTrainer(TabularTrainer):
                    'D lr': self._optimizer_d.param_groups[0]['lr']
                }, fake_cat
 
-    # def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor) -> Tensor:
-    def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor, context_encoded: Tensor) -> Tensor:
+    def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor) -> Tensor:
         fakez = torch.normal(mean=mean, std=std)[:known_tensor.shape[0]].to(self._device)
         if self._condvec_dim > 0:
             sum_cnt = sum(self._condvec_accumulated)
@@ -272,13 +182,10 @@ class CTGANTrainer(TabularTrainer):
             condvec = F.one_hot(torch.from_numpy(conditions).long(), self._condvec_dim).to(self._device)
         else:
             condvec = known_tensor[:, 0:0]
-        fakez = torch.cat([fakez, condvec, context_encoded], dim=1)
+        fakez = torch.cat([fakez, condvec, known_tensor], dim=1)
         fake = self._generator(fakez)
-        fakeact = F.sigmoid(fake)
-        # fakeact = self._apply_activate(fake)
-        # fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
-        # fake_cat = self._lae(torch.cat([known_tensor, fakeact], dim=1), 'enc')
-        fake_cat = torch.cat([condvec, fakeact], dim=1)
+        fakeact = self._apply_activate(fake)
+        fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
         return fake_cat
 
     @classmethod
@@ -290,7 +197,7 @@ class CTGANTrainer(TabularTrainer):
                      grad_scaler_g: Optional[GradScaler], discriminator: nn.Module, optimizer_d: Optimizer,
                      lr_schd_d: LRScheduler, grad_scaler_d: Optional[GradScaler], lae: nn.Module,
                      optimizer_l: Optimizer, lr_schd_l: LRScheduler, grad_scaler_l: Optional[GradScaler],
-                     embedding_dim: int, pac: int, discriminator_step: int) -> "CTGANTrainer":
+                     embedding_dim: int, pac: int, discriminator_step: int, encoded_dim: int) -> "CTGANTrainer":
         base = TabularTrainer._reconstruct(
             distributed, autocast, log_dir, ckpt_dir, descr,
             cat_dims, known_dim, unknown_dim, fitted_mean, fitted_std, total_train
@@ -306,6 +213,7 @@ class CTGANTrainer(TabularTrainer):
         base._lae, base._optimizer_l, base._lr_schd_l, base._grad_scaler_l = (
             lae, optimizer_l, lr_schd_l, grad_scaler_l)
         base._embedding_dim, base._pac, base._discriminator_step = embedding_dim, pac, discriminator_step
+        base._encoded_dim = encoded_dim
         return base
 
     def __reduce__(self):
@@ -315,7 +223,7 @@ class CTGANTrainer(TabularTrainer):
             self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g,
             self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d,
             self._lae, self._optimizer_l, self._lr_schd_l, self._grad_scaler_l,
-            self._embedding_dim, self._pac, self._discriminator_step
+            self._embedding_dim, self._pac, self._discriminator_step, self._encoded_dim
         )
 
     def _apply_activate(self, data: Tensor) -> Tensor:
@@ -372,10 +280,11 @@ class CTGANTrainer(TabularTrainer):
                     known_batch, torch.zeros(known_batch.shape[0], self.unknown_dim)
                 ], dim=1), 'enc')
                 fake_cat = self._construct_fake(mean, std, known_batch, context_encoded)
+                fake_cat = F.sigmoid(fake_cat)
                 y_fake = self._discriminator(fake_cat)
                 y_fake = y_fake.repeat(self._pac, 1).permute(1, 0).flatten()[:fake_cat.shape[0]]
-                fake_cat = self._lae(fake_cat)
-                fake_cat = self._apply_activate(fake_cat)
+                fake_cat = self._lae(fake_cat[:, -self._encoded_dim:], 'dec')
+                # fake_cat = self._apply_activate(fake_cat)
                 fakes.append(fake_cat)
                 y_fakes.append(y_fake)
         self._generator.train()
