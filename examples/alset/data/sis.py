@@ -84,7 +84,7 @@ def sis_enrolment(src: pd.DataFrame) -> pd.DataFrame:
     """
     result = src[[
         'student_token', 'academic_career', 'academic_program', 'academic_plan', 'admit_term', 'admit_term_descr',
-        'completion_term', 'department', 'department_descr', 'expected_graduation_term',
+     'completion_term', 'department', 'department_descr', 'expected_graduation_term',
         'primary_program', 'program_action', 'program_reason', 'program_status', 'program_status_descr',
         'requirement_term', 'requirement_term_descr'
     ]].replace({' ': np.nan})
@@ -141,7 +141,7 @@ def sis_milestone(src: pd.DataFrame) -> pd.DataFrame:
 
     SIS milestone.
     """
-    return src[['student_token', 'extract_date','milestone_nbr','milestone_completion_date']]\
+    return src[['student_token', 'extract_date','milestone_nbr','milestone','milestone_short_descr','milestone_completion_date']]\
         .drop_duplicates().replace({' ': np.nan}).reset_index(drop=False)\
         .astype({'extract_date': 'datetime64[ns]','milestone_completion_date': 'datetime64[ns]'})
 
