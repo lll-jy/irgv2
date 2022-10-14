@@ -3,10 +3,12 @@
     "eval_parent_child": true,
     "eval_joined": false,
     "eval_queries": true,
-    "tables": ["personal_data", "sis_academic_career", "sis_academic_program", "sis_academic_plan", "sis_enrolment", "sis_module_enrolment", "sis_course", "sis_credits", "sis_milestone"],
+    "tables": ["personal_data", "sis_academic_career", "sis_academic_program", "sis_academic_plan", "sis_enrolment", "gym",  "sis_course", "sis_module_enrolment", "sis_credits", "sis_milestone"],
     "all_direct_parent_child": true,
     "queries": {
-      "all": "SELECT * FROM\n(personal_data OUTER JOIN sis_academic_career \nON personal_data.student_token = sis_academic_career.student_token) AS career\nOUTER JOIN\n((sis_academic_program_offer OUTER JOIN sis_academic_program\nON sis_academic_program_offer.academic_program = sis_academic_program.academic_program) AS program1)\nOUTER JOIN sis_academic_program_offer\n ON program1.dual_academic_program = sis_academic_program_offer.academic_program) AS program\nON career.student_token = program.student_token\nOUTER JOIN\n(sis_plan_offer OUTER JOIN sis_academic_plan\nON sis_plan_offer.academic_plan = sis_academic_plan.academic_plan) AS plan\nON career.student_token = plan.student_token AND \ncareer.academic_career = plan.academic_career AND\n   program.academic_program = plan.academic_program\nOUTER JOIN sis_enrolment\nON sis_enrolment.student_token = plan.student_token AND \nsis_enrolment.academic_program = plan.academic_program AND\nsis_enrolment.academic_plan = plan.academic_plan"
+      "program_enrolment": "SELECT * FROM\n(personal_data OUTER JOIN sis_academic_career \nON personal_data.student_token = sis_academic_career.student_token) AS career\nOUTER JOIN\n((sis_academic_program_offer OUTER JOIN sis_academic_program\nON sis_academic_program_offer.academic_program = sis_academic_program.academic_program) AS program1)\nOUTER JOIN sis_academic_program_offer\n ON program1.dual_academic_program = sis_academic_program_offer.academic_program) AS program\nON career.student_token = program.student_token\nOUTER JOIN\n(sis_plan_offer OUTER JOIN sis_academic_plan\nON sis_plan_offer.academic_plan = sis_academic_plan.academic_plan) AS plan\nON career.student_token = plan.student_token AND \ncareer.academic_career = plan.academic_career AND\n   program.academic_program = plan.academic_program\nOUTER JOIN sis_enrolment\nON sis_enrolment.student_token = plan.student_token AND \nsis_enrolment.academic_program = plan.academic_program AND\nsis_enrolment.academic_plan = plan.academic_plan",
+      "gym&milestone": "SELECT * FROM\npersonal_data OUTER JOIN gym \nON personal_data.student_token = gym.student_token\nOUTER JOIN sis_milestone\nON personal_data.student_token = sis_milestone.student_token",
+      "module_enrolment": "SELECT * FROM\npersonal_data OUTER JOIN sis_module_enrolment \nON personal_data.student_token = sis_module_enrolment.student_token \nOUTER JOIN sis_course\nON sis_course.module_code = sis_module_enrolment.module_code\n OUTER JOIN sis_credits\nON sis_credits.student_token = sis_module_enrolment.student_token \nAND sis_credits.module_code = sis_module_enrolment.module_code"
     },
     "tabular_args": {
       "tables": {
@@ -192,7 +194,7 @@
             },
 
             "reg_tasks": {
-                "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
+
             },
 
             "count_on": {
@@ -566,7 +568,6 @@
             ]
           },
           "reg_tasks": {
-            "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
           },
           "count_on": {
             "academic_program": ["academic_program"]
@@ -761,7 +762,7 @@
             ]
           },
           "reg_tasks": {
-            "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
+            "small_reg": ["academic_program", ["academic_load_descr", "program_category", "program_type"]]
           },
           "count_on": {
             "academic_program": ["academic_program"]
@@ -2184,7 +2185,6 @@
             ]
           },
           "reg_tasks": {
-            "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
           },
           "count_on": {
             "academic_plan": ["academic_plan"]
@@ -2477,8 +2477,8 @@
             ]
           }
           },
-          "reg_tasks": {
-            "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
+          "clf_tasks": {
+            "small_reg": ["academic_program", ["academic_plan", "degree"]]
           },
           "count_on": {
             "degree": ["degree"]
@@ -2684,7 +2684,7 @@
             ]
           },
           "reg_tasks": {
-            "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
+            "small_reg": ["completion_term", ["academic_program", "academic_plan", "admit_term"]]
           },
           "count_on": {
             "department": ["department"]
@@ -2696,8 +2696,8 @@
           "invalid_comb": {
 
           },
-          "reg_tasks": {
-            "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
+          "clf_tasks": {
+            "small_reg": ["student_token", ["date", "check_in_time", "venue"]]
           },
           "count_on": {
             "venue": ["venue"]
@@ -2710,7 +2710,6 @@
 
             },
             "reg_tasks": {
-              "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
             },
             "count_on": {
               "module_code": ["module_code"]
@@ -2723,7 +2722,6 @@
 
             },
             "reg_tasks": {
-              "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
             },
             "count_on": {
               "module_code": ["module_code"]
@@ -2735,7 +2733,7 @@
             "invalid_comb": {
             },
             "reg_tasks": {
-              "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
+              "small_reg": ["student_token", ["module_code", "module_credits"]]
             },
             "count_on": {
               "module_code": ["module_code"]
@@ -3041,7 +3039,6 @@
 
             },
             "reg_tasks": {
-              "small_reg": ["month_year_of_birth", ["gender", "residency", "returning_national_serviceman"]]
             },
             "count_on": {
               "milestone_nbr": ["milestone_nbr"]
