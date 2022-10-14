@@ -6,6 +6,7 @@ from typing import Tuple, List, Optional, Dict, Any
 import torch
 from torch import Tensor
 from torch import nn
+from torch import linalg as LA
 from torch.nn import functional as F
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
@@ -148,3 +149,19 @@ class TabularTrainer(Trainer, ABC):
         return self._reconstruct, var + (
             self._known_dim, self._unknown_dim, self._cat_dims, self._lae_trained,
             self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae)
+
+    def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> Tensor:
+        mean_loss = LA.vector_norm(real.mean(dim=0) - fake.mean(dim=0))
+        full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
+        real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
+        fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
+        corr_loss = LA.matrix_norm(torch.fill(real_corr, 0) - torch.fill(fake_corr, 0), ord=2)
+        unified_diff = []
+        for i in range(self.unknown_dim):
+            if real[:, i].unique().shape[0] == 1:
+                ratio = (fake[:, i] != real[:, i]).sum() / fake.shape[0]
+                unified_diff.append(ratio)
+            else:
+                unified_diff.append(torch.zeros(1).to(self._device))
+        uni_loss = LA.vector_norm(torch.stack(unified_diff))
+        return mean_loss + corr_loss + uni_loss

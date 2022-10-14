@@ -161,7 +161,7 @@ class CTGANTrainer(TabularTrainer):
                 distance = torch.tensor(0)
             else:
                 distance = F.mse_loss(fake_cat, real_cat, reduction='mean')
-            loss_g = -torch.mean(y_fake) + distance
+            loss_g = -torch.mean(y_fake) + distance + self._meta_loss(known, unknown, fake_cat[:, -self.unknown_dim:])
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
         return {
                    'G loss': loss_g.detach().cpu().item(),
