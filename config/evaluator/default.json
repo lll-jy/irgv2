@@ -761,7 +761,7 @@
               ]
             ]
           },
-          "reg_tasks": {
+          "clf_tasks": {
             "small_reg": ["academic_program", ["academic_load_descr", "program_category", "program_type"]]
           },
           "count_on": {
