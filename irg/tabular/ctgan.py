@@ -10,7 +10,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
-from torch.utils.data import DataLoader, TensorDataset, DistributedSampler, RandomSampler, SequentialSampler
+from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler
 from packaging import version
 from ctgan.synthesizers.ctgan import Generator
@@ -33,17 +33,12 @@ class CTGANOutput(InferenceOutput):
 
 class CTGANTrainer(TabularTrainer):
     """Trainer for CTGAN."""
-    def __init__(self, cond_cat_range: Tuple[int, int] = (3, 10), embedding_dim: int = 128,
+    def __init__(self, embedding_dim: int = 128,
                  generator_dim: Tuple[int, ...] = (256, 256), discriminator_dim: Tuple[int, ...] = (256, 256),
                  pac: int = 10, discriminator_step: int = 1, **kwargs):
         """
         **Args**:
 
-        - `cond_cat_range` (`Tuple[int, int]`): For known dimension = 0, generation of condvec based on CTGAN,
-          only on categories with number of categories in this range. For example, if there are 3 categorical values
-          with number of categories 2, 5, 20 respectively, and given default value for this parameter (3, 10),
-          the only possible choice on condvec construction is based on the second categorical column. In the case that
-          no categorical column satisfy the range constraint, we do not use any condvec.
         - `embedding_dim` to `discriminator_step`: Arguments for
           [CTGAN](https://sdv.dev/SDV/api_reference/tabular/api/sdv.tabular.ctgan.CTGAN.html#sdv.tabular.ctgan.CTGAN).
         - `kwargs`: It has the following groups:
@@ -80,16 +75,17 @@ class CTGANTrainer(TabularTrainer):
         if os.path.exists(self._aux_info_path):
             self._cond_dist, self._cond_span = torch.load(self._aux_info_path)
         else:
-            self._cond_dist, self._cond_span = [], []
+            self._cond_dist, self._cond_span = [], self._learn_cond_span()
 
         self._encoded_dim = 0 if self._known_dim == 0 else self._lae.encoded_dim
+        context_dim = self._encoded_dim if self._encoded_dim > 0 else self._known_dim if len(self._cond_span) > 0 else 0
         self._generator = Generator(
-            embedding_dim=embedding_dim + self._encoded_dim + self._known_dim,
+            embedding_dim=embedding_dim + context_dim,
             generator_dim=generator_dim,
             data_dim=self._unknown_dim
         ).to(self._device)
         self._discriminator = Discriminator(
-            input_dim=self._encoded_dim + self._known_dim + self._unknown_dim,
+            input_dim=context_dim + self._unknown_dim,
             discriminator_dim=discriminator_dim,
             pac=pac
         ).to(self._device)
@@ -131,19 +127,24 @@ class CTGANTrainer(TabularTrainer):
             # 'condvec': (self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim)
         } | super()._construct_content_to_save()
 
+    def _learn_cond_span(self):
+        if self._known_dim == 0:
+            is_for_num, ptr, cat_ptr = False, 0, 0
+            while ptr < self._unknown_dim:
+                if cat_ptr < len(self._cat_dims) and ptr == self._cat_dims[cat_ptr][0]:
+                    l, r = self._cat_dims[cat_ptr]
+                    cat_ptr += 1
+                    if r - l > 1 and not is_for_num:
+                        self._cond_span.append((l, r))
+                    ptr = r
+                else:
+                    ptr += 1
+
     def _make_dataloader(self, known: Tensor, unknown: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
-        is_for_num, ptr, cat_ptr = False, 0, 0
-        while ptr < self._unknown_dim:
-            if cat_ptr < len(self._cat_dims) and ptr == self._cat_dims[cat_ptr][0]:
-                l, r = self._cat_dims[cat_ptr]
-                cat_ptr += 1
-                if r - l > 1 and not is_for_num:
-                    cat_data = unknown[:, l:r]
-                    self._cond_dist.append(cat_data.sum(dim=0) / cat_data.sum())
-                    self._cond_span.append((l, r))
-                ptr = r
-            else:
-                ptr += 1
+        if self._known_dim == 0:
+            for l, r in self._cond_span:
+                cat_data = unknown[:, l:r]
+                self._cond_dist.append(cat_data.sum(dim=0) / cat_data.sum())
         return super()._make_dataloader(known, unknown, batch_size, shuffle)
 
     def _sample_condvec_from(self, x: Tensor):
@@ -162,7 +163,7 @@ class CTGANTrainer(TabularTrainer):
     def _sample_condvec(self, n: int):
         if len(self._cond_span) == 0:
             return torch.zeros(n, 0)
-        cond_chosen = np.random.choice(range(len(self._cond_span)), x.shape[0], replace=True)
+        cond_chosen = np.random.choice(range(len(self._cond_span)), n, replace=True)
         condvecs = []
         for cond in cond_chosen:
             zeros = torch.zeros(self._unknown_dim)
@@ -263,7 +264,8 @@ class CTGANTrainer(TabularTrainer):
                      known_dim: int, unknown_dim: int, cat_dims: List[Tuple[int, int]], lae_trained: bool,
                      lae: nn.Module, optimizer_lae: Optimizer, lr_schd_lae: LRScheduler,
                      grad_scaler_lae: Optional[GradScaler],
-                     condvec_left: int, condvec_right: int, condvec_dim: int, condvec_accumulated: List[int],
+                     # condvec_left: int, condvec_right: int, condvec_dim: int, condvec_accumulated: List[int],
+                     cond_dist: List[Tensor], cond_span: List[Tuple[int, int]],
                      generator: nn.Module, optimizer_g: Optimizer, lr_schd_g: LRScheduler,
                      grad_scaler_g: Optional[GradScaler], discriminator: nn.Module, optimizer_d: Optimizer,
                      lr_schd_d: LRScheduler, grad_scaler_d: Optional[GradScaler],
@@ -274,9 +276,10 @@ class CTGANTrainer(TabularTrainer):
             lae, optimizer_lae, lr_schd_lae, grad_scaler_lae
         )
         base.__class__ = CTGANTrainer
-        base._condvec_left, base._condvec_right, base._condvec_dim, base._condvec_accumulated = (
-            condvec_left, condvec_right, condvec_dim, condvec_accumulated
-        )
+        base._cond_dist, base._cond_span = cond_dist, cond_span
+        # base._condvec_left, base._condvec_right, base._condvec_dim, base._condvec_accumulated = (
+        #     condvec_left, condvec_right, condvec_dim, condvec_accumulated
+        # )
         base._generator, base._optimizer_g, base._lr_schd_g, base._grad_scaler_g = (
             generator, optimizer_g, lr_schd_g, grad_scaler_g)
         base._discriminator, base._optimizer_d, base._lr_schd_d, base._grad_scaler_d = (
@@ -288,7 +291,8 @@ class CTGANTrainer(TabularTrainer):
     def __reduce__(self):
         _, var = super().__reduce__()
         return self._reconstruct, var + (
-            self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated,
+            self._cond_dist, self._cond_span,
+            # self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated,
             self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g,
             self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d,
             self._embedding_dim, self._pac, self._discriminator_step, self._encoded_dim
@@ -324,8 +328,8 @@ class CTGANTrainer(TabularTrainer):
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> CTGANOutput:
-        mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
-        std = mean + 1
+        # mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
+        # std = mean + 1
 
         dataloader = self._make_dataloader(known, torch.zeros(known.shape[0], self._unknown_dim), batch_size, False)
         if is_main_process():
@@ -335,11 +339,12 @@ class CTGANTrainer(TabularTrainer):
         fakes, y_fakes = [], []
         self._generator.eval()
         self._discriminator.eval()
-        for step, (known_batch, _) in enumerate(dataloader):
+        for step, (known_batch, _, _, condvec, noise, _) in enumerate(dataloader):
             known_batch = known_batch.to(self._device)
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
                 known = self._make_context(known_batch)
-                fake_cat = self._construct_fake(mean, std, known)
+                fake_cat = self._construct_fake(condvec, noise, known)
+                # fake_cat = self._construct_fake(mean, std, known)
                 y_fake = self._discriminator(fake_cat)
                 y_fake = y_fake.repeat(self._pac, 1).permute(1, 0).flatten()[:fake_cat.shape[0]]
                 fakes.append(fake_cat)
