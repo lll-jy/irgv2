@@ -51,14 +51,17 @@ class TabularTrainer(Trainer, ABC):
         super().__init__(**kwargs)
         self._known_dim, self._unknown_dim = known_dim, unknown_dim
         self._cat_dims = sorted(cat_dims)
-        self._lae = None if self._known_dim == 0 else LinearAutoEncoder(
-            context_dim=self._known_dim,
-            full_dim=self._unknown_dim
-        ).to(self._device)
-        self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._make_model_optimizer(
-            self._lae,
-            **{n[4:]: v for n, v in kwargs.items() if n.startswith('lae_')}
-        )
+        if self._known_dim > 0:
+            self._lae = LinearAutoEncoder(
+                context_dim=self._known_dim,
+                full_dim=self._unknown_dim
+            ).to(self._device)
+            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._make_model_optimizer(
+                self._lae,
+                **{n[4:]: v for n, v in kwargs.items() if n.startswith('lae_')}
+            )
+        else:
+            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = None, None, None, None
         self._lae_trained = False
         if not self._validate_cat_dims(self._cat_dims):
             raise ValueError('Category dimensions should be disjoint.')
@@ -117,16 +120,17 @@ class TabularTrainer(Trainer, ABC):
         return encoded
 
     def _load_content_from(self, loaded: Dict[str, Any]):
-        self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._load_state_dict(
-            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae, loaded['lae']
-        )
+        if self._known_dim > 0:
+            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._load_state_dict(
+                self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae, loaded['lae']
+            )
         self._lae_trained = loaded['lae_trained']
 
     def _construct_content_to_save(self) -> Dict[str, Any]:
         return {
             'lae': self._full_state_dict(
                 self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae
-            ),
+            ) if self._known_dim > 0 else None,
             'seed': torch.initial_seed(),
             'lae_trained': self._lae_trained
         }
@@ -155,7 +159,9 @@ class TabularTrainer(Trainer, ABC):
         full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
         real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
         fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
-        corr_loss = LA.matrix_norm(torch.fill(real_corr, 0) - torch.fill(fake_corr, 0), ord=2)
+        corr_loss = LA.matrix_norm(
+            torch.nan_to_num(real_corr) - torch.nan_to_num(fake_corr), ord=2
+        ) / real_corr.shape[0]
         unified_diff = []
         for i in range(self.unknown_dim):
             if real[:, i].unique().shape[0] == 1:
@@ -163,5 +169,5 @@ class TabularTrainer(Trainer, ABC):
                 unified_diff.append(ratio)
             else:
                 unified_diff.append(torch.zeros(1).to(self._device))
-        uni_loss = LA.vector_norm(torch.stack(unified_diff))
+        uni_loss = LA.vector_norm(torch.stack(unified_diff)) / len(unified_diff)
         return mean_loss + corr_loss + uni_loss

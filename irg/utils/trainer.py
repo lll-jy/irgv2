@@ -119,8 +119,6 @@ class Trainer(ABC):
         lr_schd.load_state_dict(loaded['lr_scheduler'])
         if 'grad_scaler' in loaded:
             grad_scaler.load_state_dict(loaded['grad_scaler'])
-        else:
-            grad_scaler = None
         return model, optimizer, lr_schd, grad_scaler
 
     @staticmethod
@@ -149,8 +147,7 @@ class Trainer(ABC):
     def __reduce__(self):
         return self.__class__, (self._distributed, self._autocast, self._log_dir, self._ckpt_dir, self._descr)
 
-    @staticmethod
-    def _collate_fn(batch):
+    def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
         all_known, all_unknown = [], []
         for known, unknown in batch:
             all_known.append(known)
@@ -199,12 +196,13 @@ class Trainer(ABC):
                 dataloader = tqdm(dataloader)
                 dataloader.set_description(f'Epoch[{i}] {self._descr}')
             base_step = i * len(dataloader)
-            for step, (known_batch, unknown_batch) in enumerate(dataloader):
+            for step, batch in enumerate(dataloader):
                 if base_step < global_step:
                     continue
                 if base_step == global_step:
                     self._reload_checkpoint(global_step // save_freq, 'step')
-                loss_dict, _ = self.run_step(known_batch.to(self._device), unknown_batch.to(self._device))
+                batch = tuple(b.to(self._device) for b in batch)
+                loss_dict, _ = self.run_step(*batch)
                 global_step += 1
                 base_step += 1
                 self._wrap_step(dataloader, loss_dict, f'Epoch[{i}] {self._descr}', global_step, save_freq, epoch)
@@ -264,14 +262,14 @@ class Trainer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
+    def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
         """
         Run one step for one batch.
 
         **Args**:
 
-        - `known` (`torch.Tensor`): Known part of the batch as tensor.
-        - `unknown` (`torch.Tensor`): Unknown part of the batch as tensor.
+        - `batch` (`Tuple[Tensor, ...]`): Content of a batch. Typically contains at least a known and unknown
+          part.
 
         **Return**: (Dict of loss name to loss float number, inference result tensor).
         """
@@ -294,7 +292,13 @@ class Trainer(ABC):
 
 class _DummyEmptyTrainer(Trainer):
 
-    def run_step(self, known: Tensor, unknown: Tensor) -> Tuple[Dict[str, float], Optional[Tensor]]:
+    def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
+        pass
+
+    def _load_content_from(self, loaded: Dict[str, Any]):
+        pass
+
+    def _construct_content_to_save(self) -> Dict[str, Any]:
         pass
 
     def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
