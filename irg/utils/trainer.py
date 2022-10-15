@@ -202,7 +202,7 @@ class Trainer(ABC):
                 if base_step == global_step:
                     self._reload_checkpoint(global_step // save_freq, 'step')
                 batch = tuple(b.to(self._device) for b in batch)
-                loss_dict, _ = self.run_step(*batch)
+                loss_dict, _ = self.run_step(batch)
                 global_step += 1
                 base_step += 1
                 self._wrap_step(dataloader, loss_dict, f'Epoch[{i}] {self._descr}', global_step, save_freq, epoch)

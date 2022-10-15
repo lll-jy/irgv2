@@ -54,31 +54,14 @@ class CTGANTrainer(TabularTrainer):
                   'cat_dims', 'known_dim', 'unknown_dim'}
         })
 
-        # if os.path.exists(self._aux_info_path):
-        #     self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated = \
-        #         torch.load(self._aux_info_path)
-        # else:
-        #     self._condvec_left, self._condvec_right = 0, 0
-        #     if self._known_dim == 0:
-        #         rearranged_cat_dims_idx = np.random.choice(range(len(self._cat_dims)), len(self._cat_dims),
-        #                                                    replace=False)
-        #         left, right = cond_cat_range
-        #         for i in rearranged_cat_dims_idx:
-        #             l, r = self._cat_dims[i]
-        #             if left <= r - l <= right:
-        #                 self._condvec_left, self._condvec_right = l, r
-        #                 break
-        #     self._condvec_dim = self._condvec_right - self._condvec_left
-        #     self._condvec_accumulated = [0 for _ in range(self._condvec_dim)]
-        #     torch.save((self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated),
-        #                self._aux_info_path)
         if os.path.exists(self._aux_info_path):
             self._cond_dist, self._cond_span = torch.load(self._aux_info_path)
         else:
-            self._cond_dist, self._cond_span = [], self._learn_cond_span()
+            self._cond_dist, self._cond_span = [], []
+            self._learn_cond_span()
 
         self._encoded_dim = 0 if self._known_dim == 0 else self._lae.encoded_dim
-        context_dim = self._encoded_dim if self._encoded_dim > 0 else self._known_dim if len(self._cond_span) > 0 else 0
+        context_dim = self._encoded_dim if self._encoded_dim > 0 else self._unknown_dim if len(self._cond_span) > 0 else 0
         self._generator = Generator(
             embedding_dim=embedding_dim + context_dim,
             generator_dim=generator_dim,
@@ -113,7 +96,6 @@ class CTGANTrainer(TabularTrainer):
             self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d, loaded['discriminator']
         )
         self._cond_dist, self._cond_span = loaded['condvec']
-        # self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim = loaded['condvec']
 
     def _construct_content_to_save(self) -> Dict[str, Any]:
         return {
@@ -124,7 +106,6 @@ class CTGANTrainer(TabularTrainer):
                 self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d
             ),
             'condvec': (self._cond_dist, self._cond_span)
-            # 'condvec': (self._condvec_accumulated, self._condvec_left, self._condvec_right, self._condvec_dim)
         } | super()._construct_content_to_save()
 
     def _learn_cond_span(self):
@@ -158,41 +139,37 @@ class CTGANTrainer(TabularTrainer):
             zeros[l:r] = 1
             masks.append(zeros)
         masks = torch.stack(masks)
-        return x * masks
+        return x * masks, masks
 
     def _sample_condvec(self, n: int):
         if len(self._cond_span) == 0:
             return torch.zeros(n, 0)
         cond_chosen = np.random.choice(range(len(self._cond_span)), n, replace=True)
-        condvecs = []
+        condvecs, masks = [], []
         for cond in cond_chosen:
-            zeros = torch.zeros(self._unknown_dim)
+            zeros1, zeros2 = torch.zeros(self._unknown_dim), torch.zeros(self._unknown_dim)
             l, r = self._cond_span[cond]
-            opt = np.random.choice(range(r-l), p=self._cond_dist[cond])
-            zeros[l+opt] = 1
-            condvecs.append(zeros)
-        return torch.stack(condvecs)
+            distribution = self._cond_dist[cond].numpy()
+            opt = np.random.choice(range(r-l), p=distribution / distribution.sum())
+            zeros1[l+opt] = 1
+            condvecs.append(zeros1)
+            zeros2[l:r] = 1
+            masks.append(zeros2)
+        return torch.stack(condvecs), torch.stack(masks)
 
     def _collate_fn(self, batch: List[Tuple[Tensor, ...]]):
         known, unknown = super()._collate_fn(batch)
-        condvec = self._sample_condvec_from(unknown)
-        random_condvec = self._sample_condvec(unknown.shape[0])
-        mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
+        condvec, mask = self._sample_condvec_from(unknown)
+        random_condvec, random_mask = self._sample_condvec(unknown.shape[0])
+        mean = torch.zeros(known.shape[0], self._embedding_dim)
         std = mean + 1
         noise1 = torch.normal(mean=mean, std=std)
         noise2 = torch.normal(mean=mean, std=std)
-        return known, unknown, condvec, random_condvec, noise1, noise2
+        return known, unknown, condvec, mask, random_condvec, random_mask, noise1, noise2
 
     def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
-        known, unknown, condvec, random_condvec, noise1, noise2 = batch
-        # mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
-        # std = mean + 1
+        known, unknown, condvec, mask, random_condvec, random_mask, noise1, noise2 = batch
         enable_autocast = torch.cuda.is_available() and self._autocast
-        # condvec = unknown[:, self._condvec_left:self._condvec_right]
-        # if self._condvec_dim > 0:
-        #     conditions = condvec.argmax(dim=1)
-        #     for v in conditions:
-        #         self._condvec_accumulated[v.item()] += 1
         known = self._make_context(known)
 
         for ds in range(self._discriminator_step):
@@ -213,11 +190,7 @@ class CTGANTrainer(TabularTrainer):
             # TODO: for param in model.parameters(): param.grad = None
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
-            # fake_cat = self._construct_fake(mean, std, known)
-            if known.shape[1] == 0:
-                fake_cat = self._construct_fake(random_condvec, noise2, known)
-            else:
-                fake_cat = self._construct_fake(condvec, noise2, known)
+            fake_cat = self._construct_fake(random_condvec, noise2, known)
             real_cat = torch.cat([known, condvec, unknown], dim=1)
             y_fake = self._discriminator(fake_cat)
             if known.shape[1] == 0:
@@ -225,8 +198,17 @@ class CTGANTrainer(TabularTrainer):
             else:
                 distance = F.mse_loss(fake_cat[:, -self._unknown_dim:], real_cat[:, -self._unknown_dim:],
                                       reduction='mean')
+            if condvec.shape[1] == 0:
+                ce = torch.tensor(0)
+            else:
+                ce = torch.tensor(0).to(self._device).float()
+                for i in range(fake_cat.shape[0]):
+                    fake_condvec = fake_cat[i, -self._unknown_dim:][random_mask[i].bool()]
+                    real_idx = random_condvec[i][random_mask[i].bool()].argmax()
+                    ce += F.cross_entropy(fake_condvec, real_idx, reduce=None)
+                ce /= fake_cat.shape[0]
             meta_loss = self._meta_loss(known, unknown, fake_cat[:, -self.unknown_dim:])
-            loss_g = -torch.mean(y_fake) + distance + meta_loss
+            loss_g = -torch.mean(y_fake) + distance + meta_loss + ce
         self._take_step(loss_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
         return {
                    'G loss': loss_g.detach().cpu().item(),
@@ -244,27 +226,11 @@ class CTGANTrainer(TabularTrainer):
         fake_cat = torch.cat([known, condvec, fakeact], dim=1)
         return fake_cat
 
-    # def _construct_fake(self, mean: Tensor, std: Tensor, known_tensor: Tensor) -> Tensor:
-    #     fakez = torch.normal(mean=mean, std=std)[:known_tensor.shape[0]].to(self._device)
-    #     if self._condvec_dim > 0:
-    #         sum_cnt = sum(self._condvec_accumulated)
-    #         probabilities = [x / sum_cnt for x in self._condvec_accumulated]
-    #         conditions = np.random.choice(range(self._condvec_dim), known_tensor.shape[0], p=probabilities)
-    #         condvec = F.one_hot(torch.from_numpy(conditions).long(), self._condvec_dim).to(self._device)
-    #     else:
-    #         condvec = known_tensor[:, 0:0]
-    #     fakez = torch.cat([fakez, condvec, known_tensor], dim=1)
-    #     fake = self._generator(fakez)
-    #     fakeact = self._apply_activate(fake)
-    #     fake_cat = torch.cat([known_tensor, condvec, fakeact], dim=1)
-    #     return fake_cat
-
     @classmethod
     def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,
                      known_dim: int, unknown_dim: int, cat_dims: List[Tuple[int, int]], lae_trained: bool,
                      lae: nn.Module, optimizer_lae: Optimizer, lr_schd_lae: LRScheduler,
                      grad_scaler_lae: Optional[GradScaler],
-                     # condvec_left: int, condvec_right: int, condvec_dim: int, condvec_accumulated: List[int],
                      cond_dist: List[Tensor], cond_span: List[Tuple[int, int]],
                      generator: nn.Module, optimizer_g: Optimizer, lr_schd_g: LRScheduler,
                      grad_scaler_g: Optional[GradScaler], discriminator: nn.Module, optimizer_d: Optimizer,
@@ -277,9 +243,6 @@ class CTGANTrainer(TabularTrainer):
         )
         base.__class__ = CTGANTrainer
         base._cond_dist, base._cond_span = cond_dist, cond_span
-        # base._condvec_left, base._condvec_right, base._condvec_dim, base._condvec_accumulated = (
-        #     condvec_left, condvec_right, condvec_dim, condvec_accumulated
-        # )
         base._generator, base._optimizer_g, base._lr_schd_g, base._grad_scaler_g = (
             generator, optimizer_g, lr_schd_g, grad_scaler_g)
         base._discriminator, base._optimizer_d, base._lr_schd_d, base._grad_scaler_d = (
@@ -292,7 +255,6 @@ class CTGANTrainer(TabularTrainer):
         _, var = super().__reduce__()
         return self._reconstruct, var + (
             self._cond_dist, self._cond_span,
-            # self._condvec_left, self._condvec_right, self._condvec_dim, self._condvec_accumulated,
             self._generator, self._optimizer_g, self._lr_schd_g, self._grad_scaler_g,
             self._discriminator, self._optimizer_d, self._lr_schd_d, self._grad_scaler_d,
             self._embedding_dim, self._pac, self._discriminator_step, self._encoded_dim
@@ -339,12 +301,11 @@ class CTGANTrainer(TabularTrainer):
         fakes, y_fakes = [], []
         self._generator.eval()
         self._discriminator.eval()
-        for step, (known_batch, _, _, condvec, noise, _) in enumerate(dataloader):
-            known_batch = known_batch.to(self._device)
+        for step, (known_batch, _, _, _, condvec, _, noise, _) in enumerate(dataloader):
+            known_batch, condvec, noise = known_batch.to(self._device), condvec.to(self._device), noise.to(self._device)
             with torch.cuda.amp.autocast(enabled=torch.cuda.is_available() and self._autocast):
                 known = self._make_context(known_batch)
                 fake_cat = self._construct_fake(condvec, noise, known)
-                # fake_cat = self._construct_fake(mean, std, known)
                 y_fake = self._discriminator(fake_cat)
                 y_fake = y_fake.repeat(self._pac, 1).permute(1, 0).flatten()[:fake_cat.shape[0]]
                 fakes.append(fake_cat)

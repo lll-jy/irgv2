@@ -154,8 +154,15 @@ class TabularTrainer(Trainer, ABC):
             self._known_dim, self._unknown_dim, self._cat_dims, self._lae_trained,
             self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae)
 
+    @property
+    def _all_cat_cols(self) -> List[int]:
+        res = []
+        for l, r in self._cat_dims:
+            res += [*range(l, r)]
+        return res
+
     def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> Tensor:
-        mean_loss = LA.vector_norm(real.mean(dim=0) - fake.mean(dim=0))
+        mean_loss = LA.vector_norm(real[:, self._all_cat_cols].mean(dim=0) - fake[:, self._all_cat_cols].mean(dim=0))
         full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
         real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
         fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
@@ -168,6 +175,6 @@ class TabularTrainer(Trainer, ABC):
                 ratio = (fake[:, i] != real[:, i]).sum() / fake.shape[0]
                 unified_diff.append(ratio)
             else:
-                unified_diff.append(torch.zeros(1).to(self._device))
+                unified_diff.append(torch.zeros(1).to(self._device)[0])
         uni_loss = LA.vector_norm(torch.stack(unified_diff)) / len(unified_diff)
         return mean_loss + corr_loss + uni_loss
