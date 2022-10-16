@@ -5,6 +5,7 @@ from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
+from rdt.transformers import ClusterBasedNormalizer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.mixture import BayesianGaussianMixture
 
@@ -40,38 +41,49 @@ class NumericalTransformer(BaseTransformer):
         """
         super().__init__(temp_cache)
         self._rounding, self._min_val, self._max_val = rounding, min_val, max_val
-        self._minmax_scaler: Optional[MinMaxScaler] = None
-
-        self._clusters, self._max_clusters = 0, max_clusters
-        self._std_multiplier, self._weight_threshold = std_multiplier, weight_threshold
-
-        self._bgm_transformer: Optional[BayesianGaussianMixture] = None
-        self._valid_component_indicator = None
-        self._component_indicator_transformer = CategoricalTransformer(os.path.join(temp_cache, 'cat'))
+        self._max_clusters = max_clusters
+        self._normalizer: Optional[ClusterBasedNormalizer] = None
+        self._num_components = 0
+        # self._minmax_scaler: Optional[MinMaxScaler] = None
+        #
+        # self._clusters, self._max_clusters = 0, max_clusters
+        # self._std_multiplier, self._weight_threshold = std_multiplier, weight_threshold
+        #
+        # self._bgm_transformer: Optional[BayesianGaussianMixture] = None
+        # self._valid_component_indicator = None
+        # self._component_indicator_transformer = CategoricalTransformer(os.path.join(temp_cache, 'cat'))
 
     def _load_additional_info(self):
         if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
             with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
                 loaded = pickle.load(f)
-            self._minmax_scaler, self._bgm_transformer = loaded['scaler'], loaded['bgm']
+            self._normalizer = loaded['normalizer']
+            self._num_components = loaded['n_component']
+            # self._minmax_scaler, self._bgm_transformer = loaded['scaler'], loaded['bgm']
         else:
-            self._minmax_scaler = MinMaxScaler()
-            self._bgm_transformer = BayesianGaussianMixture(
-                n_components=self._max_clusters,
-                weight_concentration_prior_type='dirichlet_process',
-                weight_concentration_prior=0.001,
-                n_init=1
-            )
+            self._normalizer = ClusterBasedNormalizer(model_missing_values=False, max_clusters=max_clusters)
+            # self._minmax_scaler = MinMaxScaler()
+            # self._bgm_transformer = BayesianGaussianMixture(
+            #     n_components=self._max_clusters,
+            #     weight_concentration_prior_type='dirichlet_process',
+            #     weight_concentration_prior=0.001,
+            #     n_init=1
+            # )
 
     def _unload_additional_info(self):
-        self._minmax_scaler, self._bgm_transformer = None, None
+        self._normalizer = None
+        # self._minmax_scaler, self._bgm_transformer = None, None
 
     def _save_additional_info(self):
         with open(os.path.join(self._temp_cache, 'info.pkl'), 'wb') as f:
             pickle.dump({
-                'scaler': self._minmax_scaler,
-                'bgm': self._bgm_transformer
+                'normalizer': self._normalizer,
+                'n_component': self._num_components
             }, f)
+            # pickle.dump({
+            #     'scaler': self._minmax_scaler,
+            #     'bgm': self._bgm_transformer
+            # }, f)
 
     @property
     def atype(self) -> str:
@@ -87,76 +99,92 @@ class NumericalTransformer(BaseTransformer):
         return val
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
-        minmax_transformed = self._minmax_scaler.fit_transform(nan_info['original'].to_numpy().reshape(-1, 1))
-
-        self._bgm_transformer.fit(minmax_transformed)
-        self._valid_component_indicator = self._bgm_transformer.weights_ > self._weight_threshold
+        # minmax_transformed = self._minmax_scaler.fit_transform(nan_info['original'].to_numpy().reshape(-1, 1))
+        #
+        # self._bgm_transformer.fit(minmax_transformed)
+        # self._valid_component_indicator = self._bgm_transformer.weights_ > self._weight_threshold
+        self._normalizer.fit(nan_info, 'original')
+        self._num_components = sum(self._normalizer.valid_component_indicator)
 
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
         pd_to_pickle(transformed, self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
-        scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))
-        means = self._bgm_transformer.means_.reshape((1, self._max_clusters))
-
-        stds = np.sqrt(self._bgm_transformer.covariances_).reshape((1, self._max_clusters))
-        normalized_values = (scaled - means) / (self._std_multiplier * stds)
-        normalized_values = normalized_values[:, self._valid_component_indicator]
-        component_probs = self._bgm_transformer.predict_proba(scaled)
-        component_probs = component_probs[:, self._valid_component_indicator]
-
-        selected_component = np.zeros(len(scaled), dtype='int')
-        for i in range(len(scaled)):
-            component_prob_t = component_probs[i] + 1e-6
-            component_prob_t = component_prob_t / component_prob_t.sum()
-            selected_component[i] = np.random.choice(
-                np.arange(self._valid_component_indicator.sum()),
-                p=component_prob_t
-            )
-
-        aranged = np.arange(len(scaled))
-        normalized = normalized_values[aranged, selected_component].reshape([-1, 1])
-        normalized = normalized[:, 0]
-
-        selected_component = pd.Series(selected_component, dtype='str')
-        if self._fitted:
-            selected_component = self._component_indicator_transformer.transform(selected_component).iloc[:, 1:]
-        else:
-            self._clusters = self._valid_component_indicator.sum()
-            categories = [str(x) for x in range(self._clusters)]
-            self._component_indicator_transformer.set_categories(categories)
-            self._component_indicator_transformer.fit(selected_component)
-            selected_component = self._component_indicator_transformer.get_original_transformed().iloc[:, 1:]
-
-        rows = [normalized.reshape(len(normalized), 1), selected_component.to_numpy()]
-        col_names = ['value'] + [f'cluster_{i}' for i in range(self._clusters)]
-        result = pd.DataFrame(np.hstack(rows), columns=col_names)
-        result.insert(0, 'is_nan', nan_info['is_nan'])
-        return result.fillna(0).astype('float32')
+        normalized = self._normalizer.transform(nan_info)
+        output = np.zeros((len(normalized), 1 + self._num_components))
+        output[:, 0] = normalized['original.normalized'].to_numpy()
+        index = normalized['normalized.component'].to_numpy().astype(int)
+        output[np.arange(index.size), index + 1] = 1.0
+        return pd.DataFrame(output, ['value'] + [f'cluster_{i}' for i in range(self._num_components)])
+        # scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))
+        # means = self._bgm_transformer.means_.reshape((1, self._max_clusters))
+        #
+        # stds = np.sqrt(self._bgm_transformer.covariances_).reshape((1, self._max_clusters))
+        # normalized_values = (scaled - means) / (self._std_multiplier * stds)
+        # normalized_values = normalized_values[:, self._valid_component_indicator]
+        # component_probs = self._bgm_transformer.predict_proba(scaled)
+        # component_probs = component_probs[:, self._valid_component_indicator]
+        #
+        # selected_component = np.zeros(len(scaled), dtype='int')
+        # for i in range(len(scaled)):
+        #     component_prob_t = component_probs[i] + 1e-6
+        #     component_prob_t = component_prob_t / component_prob_t.sum()
+        #     selected_component[i] = np.random.choice(
+        #         np.arange(self._valid_component_indicator.sum()),
+        #         p=component_prob_t
+        #     )
+        #
+        # aranged = np.arange(len(scaled))
+        # normalized = normalized_values[aranged, selected_component].reshape([-1, 1])
+        # normalized = normalized[:, 0]
+        #
+        # selected_component = pd.Series(selected_component, dtype='str')
+        # if self._fitted:
+        #     selected_component = self._component_indicator_transformer.transform(selected_component).iloc[:, 1:]
+        # else:
+        #     self._clusters = self._valid_component_indicator.sum()
+        #     categories = [str(x) for x in range(self._clusters)]
+        #     self._component_indicator_transformer.set_categories(categories)
+        #     self._component_indicator_transformer.fit(selected_component)
+        #     selected_component = self._component_indicator_transformer.get_original_transformed().iloc[:, 1:]
+        #
+        # rows = [normalized.reshape(len(normalized), 1), selected_component.to_numpy()]
+        # col_names = ['value'] + [f'cluster_{i}' for i in range(self._clusters)]
+        # result = pd.DataFrame(np.hstack(rows), columns=col_names)
+        # result.insert(0, 'is_nan', nan_info['is_nan'])
+        # return result.fillna(0).astype('float32')
 
     def _categorical_dimensions(self) -> List[Tuple[int, int]]:
-        return [(0, 1), (2, self._clusters+2)]
+        return [(0, 1), (2, self._num_components+2)]
+        # return [(0, 1), (2, self._clusters+2)]
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
-        normalized = data.iloc[:, 0]
-        means = self._bgm_transformer.means_.reshape([-1])
-        stds = np.sqrt(self._bgm_transformer.covariances_).reshape([-1])
+        normalized = pd.DataFrame(data[:, :2], columns=list(self._normalizer.get_output_sdtypes()))
+        normalized.iloc[:, 1] = np.argmax(data[:, 1:], axis=1)
+        # if sigmas is not None:
+        #     selected_normalized_value = np.random.normal(data.iloc[:, 0], sigmas[st])
+        #     data.iloc[:, 0] = selected_normalized_value
 
-        selected_component = data.copy()
-        col_names = ['is_nan'] + [f'cat{i}' for i in range(self._clusters)]
-        selected_component = pd.DataFrame(selected_component.values, columns=col_names)
-        selected_component.loc[:, 'is_nan'] = 0
-        selected_component = self._component_indicator_transformer \
-            .inverse_transform(selected_component).astype(int)
-
-        std_t = stds[self._valid_component_indicator][selected_component]
-        mean_t = means[self._valid_component_indicator][selected_component]
-        reversed_data = normalized * self._std_multiplier * std_t + mean_t
-
-        reversed_data = self._minmax_scaler \
-            .inverse_transform(pd.DataFrame(reversed_data.values.reshape(len(reversed_data), 1)))
-        reversed_data = pd.Series(reversed_data[:, 0])
+        reversed_data = pd.Series(self._normalizer.reverse_transform(normalized))
+        # normalized = data.iloc[:, 0]
+        # means = self._bgm_transformer.means_.reshape([-1])
+        # stds = np.sqrt(self._bgm_transformer.covariances_).reshape([-1])
+        #
+        # selected_component = data.copy()
+        # col_names = ['is_nan'] + [f'cat{i}' for i in range(self._clusters)]
+        # selected_component = pd.DataFrame(selected_component.values, columns=col_names)
+        # selected_component.loc[:, 'is_nan'] = 0
+        # selected_component = self._component_indicator_transformer \
+        #     .inverse_transform(selected_component).astype(int)
+        #
+        # std_t = stds[self._valid_component_indicator][selected_component]
+        # mean_t = means[self._valid_component_indicator][selected_component]
+        # reversed_data = normalized * self._std_multiplier * std_t + mean_t
+        #
+        # reversed_data = self._minmax_scaler \
+        #     .inverse_transform(pd.DataFrame(reversed_data.values.reshape(len(reversed_data), 1)))
+        # reversed_data = pd.Series(reversed_data[:, 0])
         return reversed_data.apply(self._round_minmax)
 
     def _round_minmax(self, v):
