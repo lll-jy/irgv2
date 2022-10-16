@@ -166,9 +166,8 @@ class TabularTrainer(Trainer, ABC):
         full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
         real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
         fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
-        corr_loss = LA.matrix_norm(
-            torch.nan_to_num(real_corr) - torch.nan_to_num(fake_corr), ord=2
-        ) / real_corr.shape[0]
+        mask = real_corr.isnan()
+        corr_loss = ((real_corr[~mask] - fake_corr[~mask]) ** 2).sum() / mask.sum()
         unified_diff = []
         for i in range(self.unknown_dim):
             if real[:, i].unique().shape[0] == 1:

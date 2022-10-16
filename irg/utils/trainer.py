@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
-from .dist import is_main_process, get_device, barrier
+from .dist import is_main_process, get_device, barrier, to_device
 
 
 class InferenceOutput(ABC):
@@ -132,7 +132,9 @@ class Trainer(ABC):
 
     @staticmethod
     def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler,
-                   retain_graph: bool = False):
+                   retain_graph: bool = False, do_zero_grad: bool = True):
+        if do_zero_grad:
+            optimizer.zero_grad()
         if grad_scaler is not None:
             grad_scaler.scale(loss).backward(retain_graph=retain_graph)
             grad_scaler.unscale_(optimizer)
@@ -140,7 +142,6 @@ class Trainer(ABC):
             grad_scaler.update()
             lr_scheduler.step()
         else:
-            optimizer.zero_grad()
             loss.backward(retain_graph=retain_graph)
             optimizer.step()
 
@@ -154,12 +155,26 @@ class Trainer(ABC):
             all_unknown.append(unknown)
         return torch.stack(all_known), torch.stack(all_unknown)
 
+    def _collate_fn_infer(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
+        all_known = []
+        for known, in batch:
+            all_known.append(known)
+        return torch.stack(all_known),
+
     def _make_dataloader(self, known: Tensor, unknown: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
         dataset = TensorDataset(known, unknown)
         sampler = DistributedSampler(dataset, shuffle=shuffle) if self._distributed else \
             RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
         dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
                                 collate_fn=self._collate_fn)
+        return dataloader
+
+    def _make_infer_dataloader(self, known: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
+        dataset = TensorDataset(known)
+        sampler = DistributedSampler(dataset, shuffle=shuffle) if self._distributed else \
+            RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
+                                collate_fn=self._collate_fn_infer)
         return dataloader
 
     def _prepare_training(self, known: Tensor, unknown: Tensor, batch_size: int = 100, shuffle: bool = True,
@@ -201,7 +216,7 @@ class Trainer(ABC):
                     continue
                 if base_step == global_step:
                     self._reload_checkpoint(global_step // save_freq, 'step')
-                batch = tuple(b.to(self._device) for b in batch)
+                batch = tuple(to_device(b, self._device) for b in batch)
                 loss_dict, _ = self.run_step(batch)
                 global_step += 1
                 base_step += 1

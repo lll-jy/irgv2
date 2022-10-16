@@ -2,9 +2,10 @@
 from datetime import timedelta
 from functools import partial
 from types import FunctionType
-from typing import Optional, Iterable, Any, Dict, List
+from typing import Optional, Iterable, Any, Dict, List, Collection, Tuple
 
 import torch
+from torch import Tensor
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from tqdm import tqdm
@@ -70,6 +71,31 @@ def init_process_group(distributed: bool = True, num_processes: int = 200):
     if torch.cuda.is_available():
         mp.set_start_method('spawn')
     # _pool = mp.Pool(processes=num_processes)
+
+
+def to_device(obj: object, device: torch.device) -> object:
+    """
+    Move the object onto the device, recursively, including all its elements.
+
+    **Args**:
+
+    - `obj` (`object`): The object to move.
+    - `device` (`torch.device`): The target device.
+
+    **Return**: The object on the target device.
+    """
+    if isinstance(obj, Tensor):
+        return obj.to(device)
+    if isinstance(obj, Dict):
+        return {
+            to_device(n, device): to_device(v, device)
+            for n, v in obj.items()
+        }
+    if isinstance(obj, Tuple):
+        return tuple([to_device(n, device) for n in obj])
+    if isinstance(obj, List) or isinstance(obj, Collection):
+        return [to_device(n, device) for n in obj]
+    return obj
 
 
 def fast_filter(func: FunctionType, iterable: Iterable[Any], total_len: int, **kwargs) -> List[Any]:
