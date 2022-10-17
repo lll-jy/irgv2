@@ -1,6 +1,6 @@
 import logging
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Collection
 
 import numpy as np
 from ctgan.data_sampler import DataSampler as CTGANDataSampler
@@ -10,10 +10,11 @@ from sklearn.neighbors import KNeighborsClassifier
 import torch
 from torch import Tensor
 from torch import nn
+from torch.cuda.amp import GradScaler
 from torch.nn import functional as F
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
-from torch.cuda.amp import GradScaler
+from torch.utils.data import TensorDataset, DistributedSampler, RandomSampler, DataLoader
 from tqdm import tqdm
 from packaging import version
 
@@ -28,6 +29,7 @@ class DataSampler(CTGANDataSampler):
     def __init__(self, data: Tensor, context: Tensor, info: List[List[SpanInfo]]):
         super().__init__(data.numpy(), info, True)
 
+        self._context = context
         self._complete_discrete_col_st = np.zeros(self._n_discrete_columns, dtype='int64')
         st, cat_id = 0, 0
         for column_info in info:
@@ -53,32 +55,44 @@ class DataSampler(CTGANDataSampler):
         else:
             self._knn_context = None
 
-        delattr(self, '_data')
-
     @staticmethod
     def _is_discrete_column(column_info: List[SpanInfo]):
         return (len(column_info) == 1
                 and column_info[0].activation_fn == 'softmax')
 
-    def sample_condvec(self, unknown: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
-        if self._n_discrete_columns == 0:
-            return [torch.zeros(unknown.shape[0], 0) for _ in range(4)]
-        batch = unknown.shape[0]
-        discrete_column_id = torch.from_numpy(np.random.choice(
-            np.arange(self._n_discrete_columns), batch))
+    def sample_data(self, n: int, col: Optional[Collection[int]], opt: Optional[Collection[int]]) -> (Tensor, Tensor):
+        if col is None:
+            idx = np.random.randint(len(self._data), size=n)
+        else:
+            idx = []
+            for c, o in zip(col, opt):
+                idx.append(np.random.choice(self._rid_by_cat_cols[c][o]))
+        return self._context[idx], torch.from_numpy(self._data[idx])
 
-        mask = torch.zeros(batch, self._n_discrete_columns, dtype=torch.float32)
-        mask[np.arange(batch), discrete_column_id] = 1
-        cond = torch.zeros(batch, self._n_categories, dtype=torch.float32)
-        cond_st = self._discrete_column_cond_st[discrete_column_id]
-        st = self._complete_discrete_col_st[discrete_column_id]
-        width = self._discrete_column_n_category[discrete_column_id]
-        category_id_in_col = []
-        for i, row_cond_st, row_st, row_width, unknown_row in zip(range(batch), cond_st, st, width, unknown):
-            cond[i, row_cond_st:row_cond_st+row_width] = unknown_row[row_st:row_st+row_width]
-            category_id_in_col.append(unknown_row[row_st:row_st+row_width].argmax(dim=-1))
-        category_id_in_col = torch.tensor(category_id_in_col)
-        return cond, mask, discrete_column_id, category_id_in_col
+    def sample_condvec(self, batch: int) -> (Tensor, Tensor, Tensor, Tensor):
+        res = super().sample_condvec(batch)
+        if res is None:
+            return [torch.zeros(batch, 0) for _ in range(4)]
+        return tuple(torch.from_numpy(x) for x in res)
+    # def sample_condvec(self, unknown: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
+    #     if self._n_discrete_columns == 0:
+    #         return [torch.zeros(unknown.shape[0], 0) for _ in range(4)]
+    #     batch = unknown.shape[0]
+    #     discrete_column_id = torch.from_numpy(np.random.choice(
+    #         np.arange(self._n_discrete_columns), batch))
+    #
+    #     mask = torch.zeros(batch, self._n_discrete_columns, dtype=torch.float32)
+    #     mask[np.arange(batch), discrete_column_id] = 1
+    #     cond = torch.zeros(batch, self._n_categories, dtype=torch.float32)
+    #     cond_st = self._discrete_column_cond_st[discrete_column_id]
+    #     st = self._complete_discrete_col_st[discrete_column_id]
+    #     width = self._discrete_column_n_category[discrete_column_id]
+    #     category_id_in_col = []
+    #     for i, row_cond_st, row_st, row_width, unknown_row in zip(range(batch), cond_st, st, width, unknown):
+    #         cond[i, row_cond_st:row_cond_st+row_width] = unknown_row[row_st:row_st+row_width]
+    #         category_id_in_col.append(unknown_row[row_st:row_st+row_width].argmax(dim=-1))
+    #     category_id_in_col = torch.tensor(category_id_in_col)
+    #     return cond, mask, discrete_column_id, category_id_in_col
 
     def sample_original_condvec(self, known: Tensor) -> Tensor:
         if self._n_discrete_columns == 0:
@@ -236,30 +250,45 @@ class CTGANTrainer(TabularTrainer):
             info=self._info_list
         )
 
+    def _make_dataloader(self, known: Tensor, unknown: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
+        dataset = TensorDataset(torch.zeros(known.shape[0], 0))
+        sampler = DistributedSampler(dataset) if self._distributed else RandomSampler(dataset)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
+                                collate_fn=self._collate_fn)
+        return dataloader
+
     def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
         batch_size = len(batch)
-        known, unknown = super()._collate_fn(batch)
+        # known, unknown = super()._collate_fn(batch)
         mean = torch.zeros(batch_size, self._embedding_dim)
         std = mean + 1
 
+        disc_in_known, disc_in_unknown = [], []
         disc_in_fakez, disc_in_c, disc_in_perm = [], [], []
         for ds in range(self._discriminator_step):
             fakez = torch.normal(mean=mean, std=std)
-            c1, m1, col, opt = self._sampler.sample_condvec(unknown)
+            c1, m1, col, opt = self._sampler.sample_condvec(batch_size)
             perm = np.arange(batch_size)
             np.random.shuffle(perm)
             perm = torch.from_numpy(perm)
             disc_in_fakez.append(fakez)
             disc_in_c.append(c1)
             disc_in_perm.append(perm)
+            known, unknown = self._sampler.sample_data(batch_size, col, opt)
+            disc_in_known.append(known)
+            disc_in_unknown.append(unknown)
+        disc_in_known = torch.stack(disc_in_known)
+        disc_in_unknown = torch.stack(disc_in_unknown)
         disc_in_fakez = torch.stack(disc_in_fakez)
         disc_in_c = torch.stack(disc_in_c)
         disc_in_perm = torch.stack(disc_in_perm)
 
         gen_in_fakez = torch.normal(mean=mean, std=std)
-        c1, m1, col, opt = self._sampler.sample_condvec(unknown)
+        c1, m1, col, opt = self._sampler.sample_condvec(batch_size)
+        known, unknown = self._sampler.sample_data(batch_size, col, opt)
 
-        return known, unknown, disc_in_fakez, disc_in_c, disc_in_perm, gen_in_fakez, c1, m1
+        return (disc_in_known, disc_in_unknown, disc_in_fakez, disc_in_c, disc_in_perm,
+                known, unknown, gen_in_fakez, c1, m1)
 
     def _collate_fn_infer(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
         batch_size = len(batch)
@@ -278,10 +307,12 @@ class CTGANTrainer(TabularTrainer):
 
     def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
         enable_autocast = torch.cuda.is_available() and self._autocast
-        known, unknown, disc_in_fakez, disc_in_c, disc_in_perm, gen_in_fakez, gen_cond, gen_mask = batch
-        known = self._make_context(known)
+        (disc_in_known, disc_in_unknown, disc_in_fakez, disc_in_c, disc_in_perm,
+         gen_in_known, gen_in_unknown, gen_in_fakez, gen_cond, gen_mask) = batch
 
-        for fakez, c1, perm in zip(disc_in_fakez, disc_in_c, disc_in_perm):
+        for known, unknown, fakez, c1, perm in zip(disc_in_known, disc_in_unknown, disc_in_fakez,
+                                                   disc_in_c, disc_in_perm):
+            known = self._make_context(known)
             with torch.cuda.amp.autocast(enabled=enable_autocast):
                 real_cat = torch.cat([known, c1, unknown], dim=1)[perm]
                 fake = self._generator(torch.cat([fakez, c1, known], dim=1))
@@ -309,13 +340,13 @@ class CTGANTrainer(TabularTrainer):
             self._take_step(loss, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d, do_zero_grad=False)
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
-            real_cat = torch.cat([known, gen_cond, unknown], dim=1)
-            fake = self._generator(torch.cat([gen_in_fakez, gen_cond, known], dim=1))
+            real_cat = torch.cat([gen_in_known, gen_cond, gen_in_unknown], dim=1)
+            fake = self._generator(torch.cat([gen_in_fakez, gen_cond, gen_in_known], dim=1))
             cross_entropy = self._cond_loss(fake, gen_cond, gen_mask)
             fakeact = self._apply_activate(fake)
-            fake_cat = torch.cat([known, gen_cond, fakeact], dim=1)
+            fake_cat = torch.cat([gen_in_known, gen_cond, fakeact], dim=1)
 
-            meta_g = self._meta_loss(known, unknown, fake_cat[:, -self._unknown_dim:])
+            meta_g = self._meta_loss(gen_in_known, gen_in_unknown, fake_cat[:, -self._unknown_dim:])
             mse_g = self._mse_loss(fake_cat, real_cat)
 
             fake_cat = self._make_full_pac(fake_cat)
