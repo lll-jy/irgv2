@@ -593,7 +593,7 @@ class CTGANTrainer(TabularTrainer):
         # mean = torch.zeros(known.shape[0], self._embedding_dim, device=self._device)
         # std = mean + 1
 
-        dataloader = super()._make_infer_dataloader(known, torch.zeros(known.shape[0], self._unknown_dim), batch_size, False)
+        dataloader = super()._make_infer_dataloader(known, batch_size, False)
         if is_main_process():
             dataloader = tqdm(dataloader)
             dataloader.set_description(f'Inference on {self._descr}')
