@@ -13,7 +13,7 @@ from .categorical import CategoricalTransformer
 from ...utils.io import pd_to_pickle
 
 
-# GMM part adatped from https://github.com/sdv-dev/RDT/blob/stable/rdt/transformers/numerical.py
+# GMM part adatpted from https://github.com/sdv-dev/RDT/blob/stable/rdt/transformers/numerical.py
 class NumericalTransformer(BaseTransformer):
     """
     Transformer for numerical data.

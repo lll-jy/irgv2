@@ -143,6 +143,7 @@ class Trainer(ABC):
             lr_scheduler.step()
         else:
             loss.backward(retain_graph=retain_graph)
+            optimizer.step()
             lr_scheduler.step()
 
     def __reduce__(self):
