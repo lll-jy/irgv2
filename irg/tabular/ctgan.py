@@ -244,7 +244,6 @@ class CTGANTrainer(TabularTrainer):
                 cat_ptr += 1
                 if r - l > 1 and not is_for_num:
                     info_list[-1] = [SpanInfo(r-l+1, 'softmax')]
-                    # info_list.append([SpanInfo(r-l, 'softmax')])
                     cond_dim += r - l + 1
                 elif is_for_num:
                     info_list.append([SpanInfo(1, 'tanh'), SpanInfo(r-l, 'softmax')])
@@ -327,15 +326,15 @@ class CTGANTrainer(TabularTrainer):
 
         for known, unknown, fakez, c1, perm in zip(disc_in_known, disc_in_unknown, disc_in_fakez,
                                                    disc_in_c, disc_in_perm):
-            known = self._make_context(known)
             with torch.cuda.amp.autocast(enabled=enable_autocast):
+                known = self._make_context(known)
                 real_cat = torch.cat([known, c1, unknown], dim=1)[perm]
                 fake = self._generator(torch.cat([fakez, c1, known], dim=1))
                 fakeact = self._apply_activate(fake)
                 fake_cat = torch.cat([known, c1, fakeact], dim=1)
 
                 mse_d = self._mse_loss(fake_cat[perm], real_cat)
-                meta_d = self._meta_loss(known, unknown, fake_cat[:, -self._unknown_dim:])
+                meta_d = self._meta_loss(known, unknown, fakeact)
 
                 real_cat = self._make_full_pac(real_cat)
                 fake_cat = self._make_full_pac(fake_cat)
@@ -346,7 +345,7 @@ class CTGANTrainer(TabularTrainer):
                     real_cat, fake_cat, self._device, self._pac
                 )
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                loss = mse_d + loss_d + meta_d
+                loss = mse_d + loss_d #+ meta_d
             self._optimizer_d.zero_grad()
             if self._grad_scaler_d is None:
                 pen.backward(retain_graph=True)
@@ -355,19 +354,20 @@ class CTGANTrainer(TabularTrainer):
             self._take_step(loss, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d, do_zero_grad=False)
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
+            gen_in_known = self._make_context(gen_in_known)
             real_cat = torch.cat([gen_in_known, gen_cond, gen_in_unknown], dim=1)
             fake = self._generator(torch.cat([gen_in_fakez, gen_cond, gen_in_known], dim=1))
-            cross_entropy = self._cond_loss(fake, gen_cond, gen_mask)
             fakeact = self._apply_activate(fake)
             fake_cat = torch.cat([gen_in_known, gen_cond, fakeact], dim=1)
 
+            cross_entropy = self._cond_loss(fake, gen_cond, gen_mask)
             meta_g = self._meta_loss(gen_in_known, gen_in_unknown, fake_cat[:, -self._unknown_dim:])
             mse_g = self._mse_loss(fake_cat, real_cat)
 
             fake_cat = self._make_full_pac(fake_cat)
             y_fake = self._discriminator(fake_cat)
             loss_g = -torch.mean(y_fake)
-            loss = loss_g + cross_entropy + mse_g + meta_g
+            loss = loss_g + cross_entropy + mse_g #+ meta_g
         self._take_step(loss, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
         return {
             'g': loss_g.detach().cpu().item(),
@@ -426,6 +426,7 @@ class CTGANTrainer(TabularTrainer):
         y[:n, :] = x
         y[n:, :] = x[:size-n, :]
         return y
+
     def _apply_activate(self, data: Tensor):
         """Apply proper activation function to the output of the generator."""
         data_t = []
@@ -482,5 +483,6 @@ class CTGANTrainer(TabularTrainer):
                 y_fakes.append(y_fake)
         self._generator.train()
         self._discriminator.train()
+        out_fake = torch.cat(fakes)
 
-        return CTGANOutput(torch.cat(fakes), torch.cat(y_fakes))
+        return CTGANOutput(out_fake, torch.cat(y_fakes))

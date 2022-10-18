@@ -171,7 +171,7 @@ class TabularTrainer(Trainer, ABC):
         feature_mask = ~torch.zeros_like(nan_mask, dtype=torch.bool, device=self._device)
         for l, r in self._cat_dims:
             feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
-        value_mask = real_corr ** 2 < 0.5
+        value_mask = real_corr ** 2 > 0.8
         mask = nan_mask & feature_mask & value_mask
 
         corr_loss = ((real_corr[mask] - fake_corr[mask]) ** 2).sum()# / mask.sum()

@@ -143,9 +143,8 @@ class NumericalTransformer(BaseTransformer):
         means = self._bgm_transformer.means_.reshape([-1])
         stds = np.sqrt(self._bgm_transformer.covariances_).reshape([-1])
 
-        selected_component = data.copy()
         col_names = ['is_nan'] + [f'cat{i}' for i in range(self._clusters)]
-        selected_component = pd.DataFrame(selected_component.values, columns=col_names)
+        selected_component = pd.DataFrame(data.copy().values, columns=col_names)
         selected_component.loc[:, 'is_nan'] = 0
         selected_component = self._component_indicator_transformer \
             .inverse_transform(selected_component).astype(int)
