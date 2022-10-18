@@ -27,6 +27,13 @@ _LOGGER = logging.getLogger()
 
 class DataSampler(CTGANDataSampler):
     def __init__(self, data: Tensor, context: Tensor, info: List[List[SpanInfo]]):
+        """
+        **Args**:
+
+        - `data` (`Tensor`): Unknown part of the data.
+        - `context` (`Tensor`): Context of data.
+        - `info` (`List[List[SpanInfo]]`): Transformer info for CTGAN code implementation.
+        """
         super().__init__(data.numpy(), info, True)
         self._discrete_column_category_prob_plain = np.zeros_like(self._discrete_column_category_prob)
         st = 0
@@ -88,25 +95,6 @@ class DataSampler(CTGANDataSampler):
         if res is None:
             return [torch.zeros(batch, 0) for _ in range(4)]
         return tuple(torch.from_numpy(x) for x in res)
-    # def sample_condvec(self, unknown: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
-    #     if self._n_discrete_columns == 0:
-    #         return [torch.zeros(unknown.shape[0], 0) for _ in range(4)]
-    #     batch = unknown.shape[0]
-    #     discrete_column_id = torch.from_numpy(np.random.choice(
-    #         np.arange(self._n_discrete_columns), batch))
-    #
-    #     mask = torch.zeros(batch, self._n_discrete_columns, dtype=torch.float32)
-    #     mask[np.arange(batch), discrete_column_id] = 1
-    #     cond = torch.zeros(batch, self._n_categories, dtype=torch.float32)
-    #     cond_st = self._discrete_column_cond_st[discrete_column_id]
-    #     st = self._complete_discrete_col_st[discrete_column_id]
-    #     width = self._discrete_column_n_category[discrete_column_id]
-    #     category_id_in_col = []
-    #     for i, row_cond_st, row_st, row_width, unknown_row in zip(range(batch), cond_st, st, width, unknown):
-    #         cond[i, row_cond_st:row_cond_st+row_width] = unknown_row[row_st:row_st+row_width]
-    #         category_id_in_col.append(unknown_row[row_st:row_st+row_width].argmax(dim=-1))
-    #     category_id_in_col = torch.tensor(category_id_in_col)
-    #     return cond, mask, discrete_column_id, category_id_in_col
 
     def sample_original_condvec(self, known: Tensor) -> Tensor:
         if self._n_discrete_columns == 0:
@@ -145,9 +133,22 @@ class CTGANOutput(InferenceOutput):
 
 
 class CTGANTrainer(TabularTrainer):
+    """Trainer for CTGAN."""
     def __init__(self, embedding_dim: int = 128,
                  generator_dim: Tuple[int, ...] = (256, 256), discriminator_dim: Tuple[int, ...] = (256, 256),
                  pac: int = 10, discriminator_step: int = 1, **kwargs):
+        """
+        **Args**:
+
+        - `embedding_dim` to `discriminator_step`: Arguments for
+          [CTGAN](https://sdv.dev/SDV/api_reference/tabular/api/sdv.tabular.ctgan.CTGAN.html#sdv.tabular.ctgan.CTGAN).
+        - `kwargs`: It has the following groups:
+            - Inherited arguments from [`TabularTrainer`](./base#irg.tabular.base.TabularTrainer).
+            - Generator arguments, all prefixed with "gen_", and others are the same as arguments for AutoEncoder for
+              the parent class [`TabularTrainer`](./base#irg.tabular.base.TabularTrainer).
+            - Discriminator arguments, all prefixed with "disc_".
+              as generator.
+        """
         super().__init__(**{
             n: v for n, v in kwargs.items() if
             n in {'distributed', 'autocast', 'log_dir', 'ckpt_dir', 'descr',
@@ -204,15 +205,18 @@ class CTGANTrainer(TabularTrainer):
     def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,
                      known_dim: int, unknown_dim: int, cat_dims: List[Tuple[int, int]], lae_trained: bool,
                      lae: nn.Module, optimizer_lae: Optimizer, lr_schd_lae: LRScheduler,
-                     grad_scaler_lae: Optional[GradScaler], info_list: List[List[SpanInfo]], cond_dim: int,
-                     encoded_dim: int, sampler: CTGANDataSampler, generator: nn.Module, optimizer_g: Optimizer,
-                     lr_schd_g: LRScheduler, grad_scaler_g: Optional[GradScaler], discriminator: nn.Module,
-                     optimizer_d: Optimizer, lr_schd_d: LRScheduler, grad_scaler_d: Optional[GradScaler],
-                     embedding_dim: int, pac: int, discriminator_step: int) -> "CTGANTrainer":
+                     grad_scaler_lae: Optional[GradScaler], corr_mat: Optional[Tensor], corr_mask: Optional[Tensor],
+                     mean: Optional[Tensor],
+                     info_list: List[List[SpanInfo]], cond_dim: int, encoded_dim: int, sampler: CTGANDataSampler,
+                     generator: nn.Module, optimizer_g: Optimizer, lr_schd_g: LRScheduler,
+                     grad_scaler_g: Optional[GradScaler], discriminator: nn.Module, optimizer_d: Optimizer,
+                     lr_schd_d: LRScheduler, grad_scaler_d: Optional[GradScaler], embedding_dim: int, pac: int,
+                     discriminator_step: int) -> "CTGANTrainer":
         base = TabularTrainer._reconstruct(
             distributed, autocast, log_dir, ckpt_dir, descr,
             known_dim, unknown_dim, cat_dims, lae_trained,
-            lae, optimizer_lae, lr_schd_lae, grad_scaler_lae
+            lae, optimizer_lae, lr_schd_lae, grad_scaler_lae,
+            corr_mat, corr_mask, mean
         )
         base.__class__ = CTGANTrainer
         base._info_list, base._cond_dim, base._encoded_dim = info_list, cond_dim, encoded_dim
@@ -345,7 +349,16 @@ class CTGANTrainer(TabularTrainer):
                     real_cat, fake_cat, self._device, self._pac
                 )
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                loss = mse_d + loss_d #+ meta_d
+                loss = mse_d + loss_d + meta_d
+                self._check_nan(real_cat, 'real in d')
+                self._check_nan(fake, 'fake in d')
+                self._check_nan(fakeact, 'fakeact in d'),
+                self._check_nan(y_fake, 'yfake in d')
+                self._check_nan(y_real, 'yreal in d')
+                self._check_nan(pen, 'pen')
+                self._check_nan(loss_d, 'lossd')
+                self._check_nan(mse_d, 'msed')
+                self._check_nan(meta_d, 'metad')
             self._optimizer_d.zero_grad()
             if self._grad_scaler_d is None:
                 pen.backward(retain_graph=True)
@@ -367,7 +380,14 @@ class CTGANTrainer(TabularTrainer):
             fake_cat = self._make_full_pac(fake_cat)
             y_fake = self._discriminator(fake_cat)
             loss_g = -torch.mean(y_fake)
-            loss = loss_g + cross_entropy + mse_g #+ meta_g
+            loss = loss_g + cross_entropy + mse_g + meta_g
+            self._check_nan(fake, 'fake in g')
+            self._check_nan(fakeact, 'fakeact in g')
+            self._check_nan(y_fake, 'yfake in g')
+            self._check_nan(cross_entropy, 'ce')
+            self._check_nan(mse_g, 'mse')
+            self._check_nan(meta_g, 'metag')
+
         self._take_step(loss, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
         return {
             'g': loss_g.detach().cpu().item(),

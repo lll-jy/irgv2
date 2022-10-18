@@ -6,7 +6,6 @@ from typing import Tuple, List, Optional, Dict, Any
 import torch
 from torch import Tensor
 from torch import nn
-from torch import linalg as LA
 from torch.nn import functional as F
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
@@ -63,6 +62,8 @@ class TabularTrainer(Trainer, ABC):
         else:
             self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = None, None, None, None
         self._lae_trained = False
+        self._corr_mat, self._corr_mask = None, None
+        self._mean = None
         if not self._validate_cat_dims(self._cat_dims):
             raise ValueError('Category dimensions should be disjoint.')
 
@@ -80,8 +81,19 @@ class TabularTrainer(Trainer, ABC):
         """Number of unknown dimensions"""
         return self._unknown_dim
 
+    def _calculate_corr(self, known: Tensor, unknown: Tensor):
+        self._corr_mat = torch.corrcoef(torch.cat([known, unknown], dim=1).permute(1, 0))[-self.unknown_dim:]
+        nan_mask = ~self._corr_mat.isnan()
+        feature_mask = ~torch.zeros_like(nan_mask, dtype=torch.bool, device=self._device)
+        for l, r in self._cat_dims:
+            feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
+        value_mask = self._corr_mat ** 2 > 0.8
+        self._corr_mask = nan_mask & feature_mask & value_mask
+        self._mean = unknown.mean(dim=0)
+
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
+        self._calculate_corr(known, unknown)
         (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
         if not self._lae_trained and self._known_dim != 0:
             self._train_lae(dataloader, lae_epochs)
@@ -139,20 +151,24 @@ class TabularTrainer(Trainer, ABC):
     def _reconstruct(cls, distributed: bool, autocast: bool, log_dir: str, ckpt_dir: str, descr: str,
                      known_dim: int, unknown_dim: int, cat_dims: List[Tuple[int, int]], lae_trained: bool,
                      lae: nn.Module, optimizer_lae: Optimizer, lr_schd_lae: LRScheduler,
-                     grad_scaler_lae: Optional[GradScaler], **kwargs) -> "TabularTrainer":
+                     grad_scaler_lae: Optional[GradScaler], corr_mat: Optional[Tensor],
+                     corr_mask: Optional[Tensor], mean: Optional[Tensor], **kwargs) -> "TabularTrainer":
         base = super()._reconstruct(distributed, autocast, log_dir, ckpt_dir, descr)
         base.__class__ = TabularTrainer
         base._known_dim, base._unknown_dim, base._cat_dims = known_dim, unknown_dim, cat_dims
         base._lae_trained = lae_trained
         base._lae, base._optimizer_lae, base._lr_schd_lae, base._grad_scaler_lae = (
             lae, optimizer_lae, lr_schd_lae, grad_scaler_lae)
+        base._corr_mat, base._corr_mask, base._mean = corr_mat, corr_mask, mean
         return base
 
     def __reduce__(self):
         _, var = super().__reduce__()
         return self._reconstruct, var + (
             self._known_dim, self._unknown_dim, self._cat_dims, self._lae_trained,
-            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae)
+            self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae,
+            self._corr_mat, self._corr_mask, self._mean
+        )
 
     @property
     def _all_cat_cols(self) -> List[int]:
@@ -161,26 +177,32 @@ class TabularTrainer(Trainer, ABC):
             res += [*range(l, r)]
         return res
 
+    @staticmethod
+    def _check_nan(tensor: Tensor, descr: str):
+        if tensor.isnan().sum() > 0:
+            print(descr, 'has nan')
+            raise ValueError()
+
     def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> Tensor:
-        mean_loss = LA.vector_norm(real[:, self._all_cat_cols].mean(dim=0) - fake[:, self._all_cat_cols].mean(dim=0))
-        full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
+        fake_mean = fake.mean(dim=0)
+        real_mean = (real.mean(dim=0) + self._mean) / 2
+        mean_diff = real_mean - fake_mean
+        mean_loss = (mean_diff ** 2).sum()
 
-        real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
+        full_fake = torch.cat([known, fake], dim=1)
+        # full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
+
+        # real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
         fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
-        nan_mask = ~real_corr.isnan()
-        feature_mask = ~torch.zeros_like(nan_mask, dtype=torch.bool, device=self._device)
-        for l, r in self._cat_dims:
-            feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
-        value_mask = real_corr ** 2 > 0.8
-        mask = nan_mask & feature_mask & value_mask
-
-        corr_loss = ((real_corr[mask] - fake_corr[mask]) ** 2).sum()# / mask.sum()
-        unified_diff = []
-        for i in range(self.unknown_dim):
-            if real[:, i].unique().shape[0] == 1:
-                ratio = (fake[:, i] != real[:, i]).sum() / fake.shape[0]
-                unified_diff.append(ratio)
-            else:
-                unified_diff.append(torch.zeros(1).to(self._device)[0])
-        uni_loss = LA.vector_norm(torch.stack(unified_diff)) / len(unified_diff)
-        return mean_loss + corr_loss + uni_loss
+        # nan_mask = ~real_corr.isnan()
+        # feature_mask = ~torch.zeros_like(nan_mask, dtype=torch.bool, device=self._device)
+        # for l, r in self._cat_dims:
+        #     feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
+        # value_mask = real_corr ** 2 > 0.8
+        # mask = nan_mask & feature_mask & value_mask
+        # corr_loss = ((real_corr[mask] - fake_corr[mask]) ** 2).sum()
+        mask = self._corr_mask & (~fake_corr.isnan())
+        corr_loss = ((self._corr_mat[mask] - fake_corr[mask]) ** 2).sum()
+        self._check_nan(mean_loss, 'mean loss')
+        self._check_nan(corr_loss, 'cor loss')
+        return mean_loss + corr_loss
