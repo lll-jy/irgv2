@@ -164,10 +164,17 @@ class TabularTrainer(Trainer, ABC):
     def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> Tensor:
         mean_loss = LA.vector_norm(real[:, self._all_cat_cols].mean(dim=0) - fake[:, self._all_cat_cols].mean(dim=0))
         full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
+
         real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
         fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
-        mask = real_corr.isnan()
-        corr_loss = ((real_corr[~mask] - fake_corr[~mask]) ** 2).sum() / mask.sum()
+        nan_mask = ~real_corr.isnan()
+        feature_mask = ~torch.zeros_like(nan_mask, dtype=torch.bool, device=self._device)
+        for l, r in self._cat_dims:
+            feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
+        value_mask = real_corr ** 2 < 0.5
+        mask = nan_mask & feature_mask & value_mask
+
+        corr_loss = ((real_corr[mask] - fake_corr[mask]) ** 2).sum()# / mask.sum()
         unified_diff = []
         for i in range(self.unknown_dim):
             if real[:, i].unique().shape[0] == 1:

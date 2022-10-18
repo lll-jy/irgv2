@@ -28,6 +28,20 @@ _LOGGER = logging.getLogger()
 class DataSampler(CTGANDataSampler):
     def __init__(self, data: Tensor, context: Tensor, info: List[List[SpanInfo]]):
         super().__init__(data.numpy(), info, True)
+        self._discrete_column_category_prob_plain = np.zeros_like(self._discrete_column_category_prob)
+        st = 0
+        current_id = 0
+        for column_info in info:
+            if self._is_discrete_column(column_info):
+                span_info = column_info[0]
+                ed = st + span_info.dim
+                category_freq = np.sum(self._data[:, st:ed], axis=0)
+                category_prob = category_freq / np.sum(category_freq)
+                self._discrete_column_category_prob_plain[current_id, :span_info.dim] = category_prob
+                current_id += 1
+                st = ed
+            else:
+                st += sum([span_info.dim for span_info in column_info])
 
         self._context = context
         self._complete_discrete_col_st = np.zeros(self._n_discrete_columns, dtype='int64')
@@ -113,8 +127,8 @@ class DataSampler(CTGANDataSampler):
     def _choice_index(self, discrete_column_id: int, known_row: Tensor) -> int:
         if not self._has_context:
             n_cat = self._discrete_column_n_category[discrete_column_id]
-            prob = self._discrete_column_category_prob[discrete_column_id][:n_cat]
-            return np.random.choice(range(n_cat), p=prob)
+            prob = self._discrete_column_category_prob_plain[discrete_column_id][:n_cat]
+            return np.random.choice(range(n_cat), p=prob / prob.sum())
         knn: KNeighborsClassifier = self._knn_context[discrete_column_id]
         known = torch.stack([known_row])
         pred = knn.predict(known)
@@ -229,8 +243,9 @@ class CTGANTrainer(TabularTrainer):
                 l, r = self._cat_dims[cat_ptr]
                 cat_ptr += 1
                 if r - l > 1 and not is_for_num:
-                    info_list.append([SpanInfo(r-l, 'softmax')])
-                    cond_dim += r - l
+                    info_list[-1] = [SpanInfo(r-l+1, 'softmax')]
+                    # info_list.append([SpanInfo(r-l, 'softmax')])
+                    cond_dim += r - l + 1
                 elif is_for_num:
                     info_list.append([SpanInfo(1, 'tanh'), SpanInfo(r-l, 'softmax')])
                 else:
