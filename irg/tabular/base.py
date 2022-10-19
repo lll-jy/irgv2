@@ -83,7 +83,6 @@ class TabularTrainer(Trainer, ABC):
 
     def _calculate_corr(self, known: Tensor, unknown: Tensor):
         self._corr_mat = torch.corrcoef(torch.cat([known, unknown], dim=1).permute(1, 0))[-self.unknown_dim:]
-        raw = self._corr_mat
         self._corr_mat = (1 - (1 - self._corr_mat ** 2) * (unknown.shape[0] - 1) / (unknown.shape[0] - 2)) \
                          * torch.sign(self._corr_mat)
         nan_mask = ~self._corr_mat.isnan()
@@ -95,7 +94,6 @@ class TabularTrainer(Trainer, ABC):
         value_mask = self._corr_mat > 0.5
         self._corr_mask = nan_mask & feature_mask & value_mask
         self._mean = unknown.mean(dim=0)
-        print('raw real', raw[self._corr_mask])
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
@@ -191,20 +189,12 @@ class TabularTrainer(Trainer, ABC):
 
         full_fake = torch.cat([known, fake], dim=1)
         fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
-        print('raw fake', fake_corr[self._corr_mask])
         fake_corr = (1 - (1 - fake_corr ** 2) * (fake.shape[0] - 1) / (fake.shape[0] - 2)) \
                     * torch.sign(fake_corr).detach()
         mask = self._corr_mask & (~fake_corr.isnan())
         real_corr = self._corr_mat
         corr_diff = (real_corr[mask] - fake_corr[mask]).abs()
         corr_loss = corr_diff[corr_diff > -0.05].sum() / mask.sum()
-        # corr_loss.backward(retain_graph=True)
-        print('corr loss', corr_loss.item(), corr_loss.grad)
-        print('corr diff', corr_diff, corr_diff[corr_diff > 0.05])
-        print('real corr', real_corr[mask])
-        print('fake corr', fake_corr[mask])
         if len(corr_diff) == 0:
             return mean_loss
-        # if not any(corr_diff > 0.05):
-        #     return mean_loss
         return mean_loss + corr_loss

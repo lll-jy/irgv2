@@ -255,7 +255,6 @@ class Trainer(ABC):
         torch.manual_seed(loaded['seed'])
         steps, epochs = loaded['steps'], loaded['epochs']
         _LOGGER.info(f'Resume at step {steps}, epoch {epochs} from {path}.')
-        print(f'Resume at step {steps}, epoch {epochs} from {path}.')
         return steps, epochs
 
     @abstractmethod

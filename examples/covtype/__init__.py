@@ -1,7 +1,7 @@
 """
 CovType dataset data pre-processing.
 
-The dataset is retrived from http://archive.ics.uci.edu/ml/datasets/covertype.
+The dataset is retrieved from http://archive.ics.uci.edu/ml/datasets/covertype.
 """
 
 import os
