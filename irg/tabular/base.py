@@ -83,11 +83,14 @@ class TabularTrainer(Trainer, ABC):
 
     def _calculate_corr(self, known: Tensor, unknown: Tensor):
         self._corr_mat = torch.corrcoef(torch.cat([known, unknown], dim=1).permute(1, 0))[-self.unknown_dim:]
+        self._corr_mat = 1 - (1 - self._corr_mat) * (unknown.shape[0] - 1) / (unknown.shape[0] - 2)
         nan_mask = ~self._corr_mat.isnan()
         feature_mask = ~torch.zeros_like(nan_mask, dtype=torch.bool, device=self._device)
         for l, r in self._cat_dims:
             feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
-        value_mask = self._corr_mat ** 2 > 0.8
+        for i in range(self._unknown_dim):
+            feature_mask[i, i-self._unknown_dim:] = 0
+        value_mask = self._corr_mat ** 2 > 0.5
         self._corr_mask = nan_mask & feature_mask & value_mask
         self._mean = unknown.mean(dim=0)
 
@@ -177,12 +180,6 @@ class TabularTrainer(Trainer, ABC):
             res += [*range(l, r)]
         return res
 
-    @staticmethod
-    def _check_nan(tensor: Tensor, descr: str):
-        if tensor.isnan().sum() > 0:
-            print(descr, 'has nan')
-            raise ValueError()
-
     def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> Tensor:
         fake_mean = fake.mean(dim=0)
         real_mean = (real.mean(dim=0) + self._mean) / 2
@@ -190,19 +187,13 @@ class TabularTrainer(Trainer, ABC):
         mean_loss = (mean_diff ** 2).sum()
 
         full_fake = torch.cat([known, fake], dim=1)
-        # full_real, full_fake = torch.cat([known, real], dim=1), torch.cat([known, fake], dim=1)
 
-        # real_corr = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
         fake_corr = torch.corrcoef(full_fake.permute(1, 0))[-self.unknown_dim:]
-        # nan_mask = ~real_corr.isnan()
-        # feature_mask = ~torch.zeros_like(nan_mask, dtype=torch.bool, device=self._device)
-        # for l, r in self._cat_dims:
-        #     feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
-        # value_mask = real_corr ** 2 > 0.8
-        # mask = nan_mask & feature_mask & value_mask
-        # corr_loss = ((real_corr[mask] - fake_corr[mask]) ** 2).sum()
-        mask = self._corr_mask & (~fake_corr.isnan())
-        corr_loss = ((self._corr_mat[mask] - fake_corr[mask]) ** 2).sum()
-        self._check_nan(mean_loss, 'mean loss')
-        self._check_nan(corr_loss, 'cor loss')
+        fake_corr = 1 - (1 - fake_corr) * (fake.shape[0] - 1) / (fake.shape[0] - 2)
+        mask = self._corr_mask
+        real_corr = self._corr_mat
+        corr_diff = (real_corr[mask] - fake_corr[mask]) ** 2
+        corr_loss = corr_diff[corr_diff > 0.05].sum()
+        if not any(corr_diff > 0.05):
+            return mean_loss
         return mean_loss + corr_loss

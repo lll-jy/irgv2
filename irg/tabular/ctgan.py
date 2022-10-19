@@ -350,21 +350,14 @@ class CTGANTrainer(TabularTrainer):
                 )
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
                 loss = mse_d + loss_d + meta_d
-                self._check_nan(real_cat, 'real in d')
-                self._check_nan(fake, 'fake in d')
-                self._check_nan(fakeact, 'fakeact in d'),
-                self._check_nan(y_fake, 'yfake in d')
-                self._check_nan(y_real, 'yreal in d')
-                self._check_nan(pen, 'pen')
-                self._check_nan(loss_d, 'lossd')
-                self._check_nan(mse_d, 'msed')
-                self._check_nan(meta_d, 'metad')
             self._optimizer_d.zero_grad()
             if self._grad_scaler_d is None:
                 pen.backward(retain_graph=True)
             else:
                 self._grad_scaler_d.scale(pen).backward(retain_graph=True)
             self._take_step(loss, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d, do_zero_grad=False)
+
+        torch.autograd.set_detect_anomaly(True)
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             gen_in_known = self._make_context(gen_in_known)
@@ -381,14 +374,9 @@ class CTGANTrainer(TabularTrainer):
             y_fake = self._discriminator(fake_cat)
             loss_g = -torch.mean(y_fake)
             loss = loss_g + cross_entropy + mse_g + meta_g
-            self._check_nan(fake, 'fake in g')
-            self._check_nan(fakeact, 'fakeact in g')
-            self._check_nan(y_fake, 'yfake in g')
-            self._check_nan(cross_entropy, 'ce')
-            self._check_nan(mse_g, 'mse')
-            self._check_nan(meta_g, 'metag')
 
         self._take_step(loss, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
+        torch.autograd.set_detect_anomaly(True)
         return {
             'g': loss_g.detach().cpu().item(),
             'd': loss_d.detach().cpu().item(),

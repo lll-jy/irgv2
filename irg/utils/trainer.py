@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from itertools import chain
+import logging
 import os
 from typing import Tuple, Union, Dict, Optional, List, Any
 
@@ -18,6 +19,8 @@ from torch.cuda.amp import GradScaler
 from tqdm import tqdm
 
 from .dist import is_main_process, get_device, barrier, to_device
+
+_LOGGER = logging.getLogger()
 
 
 class InferenceOutput(ABC):
@@ -221,15 +224,15 @@ class Trainer(ABC):
                 loss_dict, _ = self.run_step(batch)
                 global_step += 1
                 base_step += 1
-                self._wrap_step(dataloader, loss_dict, f'Epoch[{i}] {self._descr}', global_step, save_freq, epoch)
+                self._wrap_step(dataloader, loss_dict, f'Epoch[{i}] {self._descr}', global_step, save_freq, i + 1)
 
             barrier()
             if is_main_process():
-                self._save_checkpoint(i+1, 'epoch', global_step, epoch)
-                self._save_checkpoint(0, 'final', global_step, epoch)
+                self._save_checkpoint(i+1, 'epoch', global_step, i + 1)
+                self._save_checkpoint(0, 'final', global_step, i + 1)
 
         if is_main_process():
-            self._save_checkpoint(0, 'final', global_step, epoch)
+            self._save_checkpoint(0, 'final', global_step, epochs)
 
     def _resume_id(self) -> Tuple[int, int]:
         all_ckpt = os.listdir(os.path.join(self._ckpt_dir, self._descr))
@@ -250,7 +253,10 @@ class Trainer(ABC):
         loaded = torch.load(path)
         self._load_content_from(loaded)
         torch.manual_seed(loaded['seed'])
-        return loaded['steps'], loaded['epochs']
+        steps, epochs = loaded['steps'], loaded['epochs']
+        _LOGGER.info(f'Resume at step {steps}, epoch {epochs} from {path}.')
+        print(f'Resume at step {steps}, epoch {epochs} from {path}.')
+        return steps, epochs
 
     @abstractmethod
     def _load_content_from(self, loaded: Dict[str, Any]):
@@ -307,6 +313,8 @@ class Trainer(ABC):
 
 
 class _DummyEmptyTrainer(Trainer):
+    def __init__(self):
+        pass
 
     def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
         pass
