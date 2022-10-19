@@ -1,0 +1,279 @@
+{
+  "attributes": {
+    "elevation": {
+      "name": "elevation",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "aspect": {
+      "name": "aspect",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "slope": {
+      "name": "slope",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hd_hyd": {
+      "name": "hd_hyd",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "vd_hyd": {
+      "name": "vd_hyd",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hd_rw": {
+      "name": "hd_rw",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hill9": {
+      "name": "hill9",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hill_n": {
+      "name": "hill_n",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hill3": {
+      "name": "hill3",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hd_fp": {
+      "name": "hd_fp",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "w0": {
+      "name": "w0",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "w1": {
+      "name": "w1",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "w2": {
+      "name": "w2",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "w3": {
+      "name": "w3",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_00": {
+      "name": "st_00",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_01": {
+      "name": "st_01",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_02": {
+      "name": "st_02",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_03": {
+      "name": "st_03",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_04": {
+      "name": "st_04",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_05": {
+      "name": "st_05",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_06": {
+      "name": "st_06",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_07": {
+      "name": "st_07",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_08": {
+      "name": "st_08",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_09": {
+      "name": "st_09",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_10": {
+      "name": "st_10",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_11": {
+      "name": "st_11",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_12": {
+      "name": "st_12",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_13": {
+      "name": "st_13",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_14": {
+      "name": "st_14",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_15": {
+      "name": "st_15",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_16": {
+      "name": "st_16",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_17": {
+      "name": "st_17",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_18": {
+      "name": "st_18",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_19": {
+      "name": "st_19",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_20": {
+      "name": "st_20",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_21": {
+      "name": "st_21",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_22": {
+      "name": "st_22",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_23": {
+      "name": "st_23",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_24": {
+      "name": "st_24",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_25": {
+      "name": "st_25",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_26": {
+      "name": "st_26",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_27": {
+      "name": "st_27",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_28": {
+      "name": "st_28",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_29": {
+      "name": "st_29",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_30": {
+      "name": "st_30",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_31": {
+      "name": "st_31",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_32": {
+      "name": "st_32",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_33": {
+      "name": "st_33",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_34": {
+      "name": "st_34",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_35": {
+      "name": "st_35",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_36": {
+      "name": "st_36",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_37": {
+      "name": "st_37",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_38": {
+      "name": "st_38",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "st_39": {
+      "name": "st_39",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "label": {
+      "name": "label",
+      "type": "numerical",
+      "rounding": 0
+    }
+  }
+}

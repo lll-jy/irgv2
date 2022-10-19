@@ -13,6 +13,7 @@ DB_VERSION=small
 MTYPE=affecting
 BASE_DIR=examples
 OUT_SUFFIX=.nosync
+SINGLE_NAME=adults
 
 prepare_small_alset:
 	python3.9 process.py database alset \
@@ -47,12 +48,12 @@ prepare_table_alset:
             personal_data \
         --sample 50
 
-prepare_adults:
-	python3.9 process.py database adults \
-		--src_data_dir examples/data${OUT_SUFFIX}/adults \
-		--data_dir ${BASE_DIR}/data${OUT_SUFFIX}/adults/adults \
-		--meta_dir examples/adults/metadata \
-		--out ${BASE_DIR}/data${OUT_SUFFIX}/adults/adults_db_config.json
+prepare_single:
+	python3.9 process.py database ${SINGLE_NAME} \
+		--src_data_dir examples/data${OUT_SUFFIX}/${SINGLE_NAME} \
+		--data_dir ${BASE_DIR}/data${OUT_SUFFIX}/${SINGLE_NAME}/${SINGLE_NAME} \
+		--meta_dir examples/${SINGLE_NAME}/metadata \
+		--out ${BASE_DIR}/data${OUT_SUFFIX}/${SINGLE_NAME}/${SINGLE_NAME}_db_config.json
 
 train:
 	-python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp${OUT_SUFFIX} train_gen \
@@ -210,6 +211,13 @@ do_all: clear_all rm_log train generate
 
 
 do_all_cfg: clear_all rm_log train_cfg generate_cfg
+
+
+do_all_single:
+	make rm_log clear_ckpt clear_gen train_cfg generate_cfg \
+		EXP_NAME=${SINGLE_NAME} DB_NAME=${SINGLE_NAME} DATA_VERSION=${SINGLE_NAME} DB_VERSION=${SINGLE_NAME} USE_SAMPLE= \
+		MTYPE=${MTYPE} TAB_TRAINER_CFG=${TAB_TRAINER_CFG} DEG_TRAINER_CFG=${DEG_TRAINER_CFG} \
+		TAB_TRAIN_CFG=${TAB_TRAIN_CFG} DEG_TRAIN_CFG=${DEG_TRAIN_CFG}
 
 
 alset_all: kill rm_log

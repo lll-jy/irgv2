@@ -17,7 +17,7 @@ def _parse_args() -> Namespace:
     table_parser = subparsers.add_parser('table')
     table_parser.add_argument('mode', type=str, help='Content to process.', choices=['data', 'meta'])
     table_parser.add_argument('database_name', type=str, help='Name of database to process.',
-                              choices=['alset', 'rtd', 'adults'])
+                              choices=['alset', 'rtd', 'adults', 'covtype'])
     table_parser.add_argument('table_name', type=str, help='Name of the table to process.')
     table_parser.add_argument('--src', type=str, required=True, help='Source data file.')
     table_parser.add_argument('--out', type=str, required=True,
@@ -26,7 +26,7 @@ def _parse_args() -> Namespace:
 
     db_parser = subparsers.add_parser('database')
     db_parser.add_argument('database_name', type=str, help='Name of database to process.',
-                           choices=['alset', 'rtd', 'adults'])
+                           choices=['alset', 'rtd', 'adults', 'covtype'])
     db_parser.add_argument('--src_data_dir', type=str, default=None, help='Path to original data.')
     db_parser.add_argument('--data_dir', type=str, default=None, help='Path to directory holding processed data.')
     db_parser.add_argument('--meta_dir', type=str, required=True, help='Path to directory holding metadata files.')
