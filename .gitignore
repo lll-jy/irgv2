@@ -12,3 +12,4 @@ hpc/
 scripts.sh
 log.txt
 tflog/
+arc.makefile

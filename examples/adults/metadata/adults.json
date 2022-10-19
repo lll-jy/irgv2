@@ -1,0 +1,70 @@
+{
+  "attributes": {
+    "age": {
+      "name": "age",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "workclass": {
+      "name": "workclass",
+      "type": "categorical"
+    },
+    "fnlwgt": {
+      "name": "fnlwgt",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "education": {
+      "name": "education",
+      "type": "categorical"
+    },
+    "edu_num": {
+      "name": "edu_num",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "marital": {
+      "name": "marital",
+      "type": "categorical"
+    },
+    "occupation": {
+      "name": "occupation",
+      "type": "categorical"
+    },
+    "relation": {
+      "name": "relation",
+      "type": "categorical"
+    },
+    "race": {
+      "name": "race",
+      "type": "categorical"
+    },
+    "sex": {
+      "name": "sex",
+      "type": "categorical"
+    },
+    "cap_gain": {
+      "name": "cap_gain",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "cap_loss": {
+      "name": "cap_loss",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "hpw": {
+      "name": "hpw",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "native": {
+      "name": "native",
+      "type": "categorical"
+    },
+    "label": {
+      "name": "label",
+      "type": "categorical"
+    }
+  }
+}

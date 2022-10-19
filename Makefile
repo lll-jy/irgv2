@@ -1,161 +1,269 @@
-PORT=1234
-MTYPE=affecting
+DB_NAME=alset
+EXP_NAME=small
+DATA_VERSION=samples
+TAB_TRAINER_CFG=default
+DEG_TRAINER_CFG=default
+TAB_TRAIN_CFG=default
+DEG_TRAIN_CFG=default
 SCALING=1
-EVAL_CONFIG=eval_conf
-DOC_PORT=8080
-PYTHON=python3.9
-DB_NAME=rtd
-SRC_DATA_DIR=src
-LOG_LEVEL=INFO
-TEMP_CACHE=.temp.nosync
-FAKE_DB=
+EVALUATOR_CFG=default
+EVALUATE_CFG=default
+USE_SAMPLE=/samples
+DB_VERSION=small
+MTYPE=affecting
+BASE_DIR=examples
+OUT_SUFFIX=.nosync
 
-DATA_OUTPUT_DIR=data
-MODEL_OUTPUT_DIR=output
-GENERATE_OUTPUT_DIR=generated
-EVAL_OUTPUT_DIR=evaluation
+prepare_small_alset:
+	python3.9 process.py database alset \
+        --src_data_dir examples/data${OUT_SUFFIX}/alset \
+        --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/alset/samples \
+        --meta_dir examples/alset/metadata/results \
+        --out ${BASE_DIR}/data${OUT_SUFFIX}/alset/samples_db_config.json \
+        --redo_meta --redo_data \
+        --tables \
+            personal_data \
+            sis_academic_career \
+            sis_academic_program_offer \
+            sis_academic_program \
+            sis_plan_offer \
+            sis_academic_plan \
+            sis_enrolment \
+        --sample 50
 
-EXTRACT_TO=IRGv2_copy
 
-install:
-	${PYTHON} -m pip install --upgrade pip
-	${PYTHON} -m pip install -r requirements.txt
-	${PYTHON} setup.py install
-	${PYTHON} -m pip install -e .
+prepare_all_alset:
+	echo TODO
 
-update:
-	${PYTHON} setup.py install
-	${PYTHON} -m pip install -e .
 
-docs:
-	pdoc --http localhost:${DOC_PORT} -c latex_math=True irg docs examples
+prepare_table_alset:
+	python3.9 process.py database alset \
+        --src_data_dir examples/data${OUT_SUFFIX}/alset \
+        --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/alset/table \
+        --meta_dir examples/alset/metadata/results \
+        --out ${BASE_DIR}/data${OUT_SUFFIX}/alset/table_db_config.json \
+        --redo_meta --redo_data \
+        --tables \
+            personal_data \
+        --sample 50
 
-prepare:
-	mkdir -p ${DATA_OUTPUT_DIR}
-	${PYTHON} process.py database ${DB_NAME} \
-		--src_data_dir ${SRC_DATA_DIR} \
-		--data_dir ${DATA_OUTPUT_DIR}/data \
-        --meta_dir ${DATA_OUTPUT_DIR}/metadata \
-        --out ${DATA_OUTPUT_DIR}/db_config.json \
-        --redo_meta \
-        --redo_data
+prepare_adults:
+	python3.9 process.py database adults \
+		--src_data_dir examples/data${OUT_SUFFIX}/adults \
+		--data_dir ${BASE_DIR}/data${OUT_SUFFIX}/adults/adults \
+		--meta_dir examples/adults/metadata \
+		--out ${BASE_DIR}/data${OUT_SUFFIX}/adults/adults_db_config.json
 
-train_gpu:
-	mkrit -p ${MODEL_OUTPUT_DIR}
-	${PYTHON} -W ignore -m torch.distributed.launch \
-		--nproc_per_node=${NUM_GPUS} \
-		--master_port=${PORT} \
-		main.py --log_level ${LOG_LEVEL} \
-			--temp_cache ${TEMP_CACHE} \
-			train_gen \
-			--distributed \
-			--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
-			--data_dir ${DATA_OUTPUT_DIR}/data \
-			--mtype ${MTYPE} \
-			--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
-			--aug_resume \
-			--default_tab_trainer_distributed True \
-			--default_deg_trainer_distributed True \
-			--default_tab_trainer_autocast True \
-			--default_deg_trainer_autocast True \
-			--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
-			--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
-			--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
-			--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
-			--skip_generate
+train:
+	-python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp${OUT_SUFFIX} train_gen \
+        --db_config_path ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}_db_config.json \
+        --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
+        --db_dir_path ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
+        --aug_resume \
+        --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
+        --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
+        --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --skip_generate >> log.txt
+	du -sh .temp${OUT_SUFFIX}
+	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
 
-train_cpu:
-	mkdir -p ${MODEL_OUTPUT_DIR}
-	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} --num_processes 10 train_gen \
-		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
-		--data_dir ${DATA_OUTPUT_DIR}/data \
-		--mtype ${MTYPE} \
-		--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
-		--aug_resume \
-		--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
-		--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
-		--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
-		--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
-		--skip_generate
 
-generate_gpu:
-	mkdir -p ${GENERATE_OUTPUT_DIR}
-	${PYTHON} -m torch.distributed.launch \
-		--nproc_per_node=${NUM_GPUS} \
-		--master_port=${PORT} \
-		main.py --log_level ${LOG_LEVEL} train_gen \
-			--distrubted \
-			--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
-			--data_dir ${DATA_OUTPUT_DIR}/data \
-			--mtype ${MTYPE} \
-			--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
-			--aug_resume \
-			--skip_train \
-			--default_tab_train_resume \
-			--default_deg_train_resume \
-			--default_tab_trainer_distributed \
-			--default_deg_trainer_distributed \
-			--default_tab_trainer_autocast \
-			--default_deg_trainer_autocast \
-			--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
-			--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
-			--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
-			--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
-			--save_generated_to ${GENERATE_OUTPUT_DIR}/generated \
-			--default_scaling ${SCALING} \
-			--save_synth_db ${GENERATE_OUTPUT_DIR}/fake_db
+train_cfg:
+	-python3.9 -W ignore main.py --log_level WARN --num_processes 10 --temp_cache .temp${OUT_SUFFIX} train_gen \
+        --db_config_path ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}_db_config.json \
+        --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
+        --db_dir_path ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
+        --mtype ${MTYPE} \
+        --aug_resume \
+        --default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
+        --default_deg_trainer_args config/trainer/${DEG_TRAINER_CFG}.json \
+        --default_tab_train_args config/train/${TAB_TRAIN_CFG}.json \
+        --default_deg_train_args config/train/${DEG_TRAIN_CFG}.json \
+        --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
+        --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
+        --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --skip_generate >> log.txt
+	du -sh .temp${OUT_SUFFIX}
+	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
 
-generate_cpu:
-	mkdir -p ${GENERATE_OUTPUT_DIR}
-	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} --num_processes 10 train_gen \
-		--distrubted \
-		--db_config_path ${DATA_OUTPUT_DIR}/db_config.json \
-		--data_dir ${DATA_OUTPUT_DIR}/data \
-		--mtype ${MTYPE} \
-		--db_dir_path ${MODEL_OUTPUT_DIR}/real_db \
-		--aug_resume \
-		--skip_train \
-		--default_tab_train_resume \
-		--default_deg_train_resume \
-		--default_tab_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/tab \
-		--default_deg_trainer_log_dir ${MODEL_OUTPUT_DIR}/tf/deg \
-		--default_tab_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/tab \
-		--default_deg_trainer_ckpt_dir ${MODEL_OUTPUT_DIR}/ckpt/deg \
-		--save_generated_to ${GENERATE_OUTPUT_DIR}/generated \
-		--default_scaling ${SCALING} \
-		--save_synth_db ${GENERATE_OUTPUT_DIR}/fake_db
+
+generate:
+	-mkdir -p ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 train_gen \
+        --db_config_path ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}_db_config.json \
+        --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
+        --db_dir_path ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
+        --aug_resume \
+        --skip_train \
+        --default_tab_train_resume True \
+        --default_deg_train_resume True \
+        --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
+        --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
+        --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/generated \
+        --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db >> log.txt
+	du -sh .temp${OUT_SUFFIX}
+	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+
+
+generate_cfg:
+	-mkdir -p ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 train_gen \
+        --db_config_path ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}_db_config.json \
+        --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
+        --db_dir_path ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
+        --aug_resume \
+		--default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
+		--default_deg_trainer_args config/trainer/${DEG_TRAINER_CFG}.json \
+		--default_tab_train_args config/train/${TAB_TRAIN_CFG}.json \
+		--default_deg_train_args config/train/${DEG_TRAIN_CFG}.json \
+        --skip_train \
+        --default_tab_train_resume True \
+        --default_deg_train_resume True \
+        --default_scaling ${SCALING} \
+        --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
+        --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
+        --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/generated \
+        --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db >> log.txt
+	du -sh .temp${OUT_SUFFIX}
+	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+
 
 evaluate:
-	mkdir -p ${EVAL_OUTPUT_DIR}
-	mkdir -p ${EVAL_OUTPUT_DIR}/tables
-	${PYTHON} -W ignore main.py --log_level ${LOG_LEVEL} evaluate \
-		--real_db_dir ${MODEL_OUTPUT_DIR}/real_db \
-		--fake_db_dir ${FAKE_DB} \
-		--evaluator_path ${EVAL_CONFIG}/constructor.json \
-		--evaluate_path ${EVAL_CONFIG}/evaluate.json \
-		--save_eval_res_to ${EVAL_OUTPUT_DIR}/trivial \
-		--save_complete_result_to ${EVAL_OUTPUT_DIR}/complete \
-		--save_synthetic_tables_to ${EVAL_OUTPUT_DIR}/tables/synthetic \
-		--save_tables_to ${EVAL_OUTPUT_DIR}/tables/real \
-		--save_visualization_to ${EVAL_OUTPUT_DIR}/visualization \
-		--save_all_res_to ${EVAL_OUTPUT_DIR}/result
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 evaluate \
+		--real_db_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
+		--fake_db_dir ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db \
+		--save_eval_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/results \
+		--save_complete_result_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/complete \
+		--save_tables_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tables \
+		--save_visualization_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/visualization \
+		--save_all_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/result.pkl >> log.txt
+	du -sh .temp${OUT_SUFFIX}
+	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
 
-stop:
-	pkill -9 -f main.py
-	pkill -9 -f multiprocessing.fork
-	pkill -9 -f multiprocessing.spawn
 
-extract:
-	rm -rf ../${EXTRACT_TO}
-	mkdir ../${EXTRACT_TO}
-	cp *.py ../${EXTRACT_TO}/
-	cp Makefile ../${EXTRACT_TO}/
-	cp alset.makefile ../${EXTRACT_TO}/
-	cp requirements.txt ../${EXTRACT_TO}/
-	cp -r irg ../${EXTRACT_TO}/
-	mkdir ../${EXTRACT_TO}/examples
-	cp -r examples/alset ../${EXTRACT_TO}/examples/
-	cp -r examples/rtd ../${EXTRACT_TO}/examples/
-	cp -r examples/*.py ../${EXTRACT_TO}/examples/
-	cp -r examples/data.nosync ../${EXTRACT_TO}/examples/data.nosync
-	cp -r config ../${EXTRACT_TO}/
+evaluate_cfg:
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 evaluate \
+		--real_db_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
+		--fake_db_dir ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db \
+		--evaluator_path config/evaluator/${EVALUATOR_CFG}.json \
+		--evaluate_path config/evaluator/${EVALUATE_CFG}.json \
+		--save_eval_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/results \
+		--save_complete_result_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/complete \
+		--save_tables_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tables \
+		--save_visualization_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/visualization \
+		--save_all_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/result.pkl >> log.txt
+	du -sh .temp${OUT_SUFFIX}
+	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+
+
+kill:
+	-pkill -9 -f main.py
+	-pkill -9 -f torch.multiprocessing.spawn
+	-pkill -9 -f torch.multiprocessing.fork
+
+
+clear: kill
+	-rm -r .temp
+	-rm -r .temp${OUT_SUFFIX}
+	-rm -r ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/
+
+
+clear_ckpt: kill
+	-rm -r ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt
+	-rm -r ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf
+
+
+clear_gen: kill
+	-rm -r ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/
+
+
+clear_eval: kill
+	-rm -r ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/
+
+
+clear_all: clear_eval clear_gen clear_ckpt clear
+
+
+rm_log:
+	-rm log.txt
+
+
+do_all: clear_all rm_log train generate
+
+
+do_all_cfg: clear_all rm_log train_cfg generate_cfg
+
+
+alset_all: kill rm_log
+	make prepare_all_alset
+	make train_cfg generate_cfg EXP_NAME=unrelated \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=ur MTYPE=unrelated \
+		TAB_TRAINER_CFG=ctgan DEG_TRAINER_CFG=mlp TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	make train_cfg generate_cfg EXP_NAME=pc \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=pc MTYPE=parent-child \
+		TAB_TRAINER_CFG=ctgan DEG_TRAINER_CFG=mlp TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	make train_cfg generate_cfg EXP_NAME=ad \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=ad MTYPE=ancestor-descendant \
+		TAB_TRAINER_CFG=ctgan DEG_TRAINER_CFG=mlp TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	make train_cfg generate_cfg EXP_NAME=default \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=af MTYPE=affecting \
+		TAB_TRAINER_CFG=ctgan DEG_TRAINER_CFG=mlp TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	make train_cfg generate_cfg EXP_NAME=tvae_tab \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=af MTYPE=affecting \
+		TAB_TRAINER_CFG=tvae DEG_TRAINER_CFG=mlp TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	make train_cfg generate_cfg EXP_NAME=mlp_tab \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=af MTYPE=affecting \
+		TAB_TRAINER_CFG=mlp DEG_TRAINER_CFG=mlp TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	make train_cfg generate_cfg EXP_NAME=ctgan_deg \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=af MTYPE=affecting \
+		TAB_TRAINER_CFG=ctgan DEG_TRAINER_CFG=ctgan TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	make train_cfg generate_cfg EXP_NAME=rvae_deg \
+		DATA_VERSION=full USE_SAMPLE= DB_VERSION=af MTYPE=affecting \
+		TAB_TRAINER_CFG=ctgan DEG_TRAINER_CFG=tvae TAB_TRAIN_CFG=tab_custom DEG_TRAIN_CFG=deg_custom
+	make kill
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}
+	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}/alaset
+	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 evaluate \
+		--real_db_dir ${BASE_DIR}/model${OUT_SUFFIX}/alset/af/real_db \
+		--fake_db_dir \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/unrelated/fake_db \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/pc/fake_db \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/ad/fake_db \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/default/fake_db \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/tvae_tab/fake_db \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/mlp_tab/fake_db \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/ctgan_deg/fake_db \
+			${BASE_DIR}/generated${OUT_SUFFIX}/alset/tvae_deg/fake_db \
+		--evaluator_path config/evaluator/alset_full.json \
+		--evaluate_path config/evaluator/alset_full.json \
+		--save_eval_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/alset/full/results \
+		--save_complete_result_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/alset/full/complete \
+		--save_tables_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/alset/full/tables \
+		--save_visualization_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/alset/full/visualization \
+		--save_all_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/alset/full/result.pkl >> log.txt
+
