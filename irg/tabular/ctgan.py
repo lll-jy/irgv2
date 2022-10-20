@@ -82,7 +82,7 @@ class DataSampler(CTGANDataSampler):
                 and column_info[0].activation_fn == 'softmax')
 
     def sample_data(self, n: int, col: Optional[Collection[int]], opt: Optional[Collection[int]]) -> (Tensor, Tensor):
-        if col is None or np.prod(*col.shape) == 0:
+        if col is None or not all([*col.shape]):
             idx = np.random.randint(len(self._data), size=n)
         else:
             idx = []
@@ -253,8 +253,10 @@ class CTGANTrainer(TabularTrainer):
                 if r - l > 1 and not is_for_num:
                     info_list[-1] = [SpanInfo(r-l+1, 'softmax')]
                     cond_dim += r - l + 1
-                elif is_for_num:
+                elif is_for_num and r - l > 1:
                     info_list.append([SpanInfo(1, 'tanh'), SpanInfo(r-l, 'softmax')])
+                elif is_for_num:
+                    info_list.append([SpanInfo(1, 'sigmoid'), SpanInfo(1, 'sigmoid')])
                 else:
                     info_list.append([SpanInfo(1, 'sigmoid')])
                 is_for_num = False

@@ -669,15 +669,13 @@ class Table:
             (table, attr) for table, attr in self._degree_attributes
             if table == self._name and attr not in self._known_cols
         ]
+        print('unknown for deg', unknown_cols)
         deg_data = self.data(variant='degree', normalize=True, with_id='none', core_only=True)
         unknown_set = set(unknown_cols)
         known_cols = [col for col in deg_data.columns.droplevel(2) if col not in unknown_set]
         known_data = deg_data[[(a, b, c) for a, b, c in deg_data.columns if (a, b) in known_cols]]
         unknown_data = deg_data[[(a, b, c) for a, b, c in deg_data.columns if (a, b) in unknown_cols]]
-        cat_dims = self._attr2catdim({
-            table: attr for table, attr in self._degree_attributes
-            if table == self._name and attr not in self._known_cols
-        })
+        cat_dims = self._degree_attributes[('', 'degree')].categorical_dimensions()
         return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
 
     def save(self, path: str):
