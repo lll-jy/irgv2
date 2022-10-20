@@ -91,6 +91,19 @@ class TabularTrainer(Trainer, ABC):
             feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
         for i in range(self._unknown_dim):
             feature_mask[i, i-self._unknown_dim:] = 0
+        # is_for_num, ptr, cat_ptr = False, 0, 0
+        # while ptr < self._unknown_dim:
+        #     if cat_ptr < len(self._cat_dims) and ptr == self._cat_dims[cat_ptr][0]:
+        #         l, r = self._cat_dims[cat_ptr]
+        #         cat_ptr += 1
+        #         if is_for_num:
+        #             feature_mask[:, l-self._unknown_dim:r-self._unknown_dim] = 0
+        #             feature_mask[l:r, :] = 0
+        #         is_for_num = False
+        #         ptr = r
+        #     else:
+        #         ptr += 1
+        #         is_for_num = True
         value_mask = self._corr_mat > 0.5
         self._corr_mask = nan_mask & feature_mask & value_mask
         self._mean = unknown.mean(dim=0)
@@ -195,6 +208,14 @@ class TabularTrainer(Trainer, ABC):
         real_corr = self._corr_mat
         corr_diff = (real_corr[mask] - fake_corr[mask]).abs()
         corr_loss = corr_diff[corr_diff > -0.05].sum() / mask.sum()
+        print('corr::')
+        print(self._corr_mat[mask])
+        print(fake_corr[mask])
+        full_real = torch.cat([known, real], dim=1)
+        real_corr_batch = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
+        real_corr_batch = (1 - (1 - real_corr_batch ** 2) * (fake.shape[0] - 1) / (fake.shape[0] - 2)) \
+                          * torch.sign(real_corr_batch).detach()
+        print(real_corr_batch[mask])
         if len(corr_diff) == 0:
             return mean_loss
         return mean_loss + corr_loss

@@ -42,6 +42,13 @@ def download(data_dir: str):
     names = ['elevation', 'aspect', 'slope', 'hd_hyd', 'vd_hyd', 'hd_rw', 'hill9', 'hill_n', 'hill3', 'hd_fp'] + \
             [f'w{i}' for i in range(4)] + [f'st_{i:02d}' for i in range(40)] + ['label']
     data = pd.read_csv('covtype.data', names=names)
+    data['w'] = [f'c{x}' for x in data[[f'w{i}' for i in range(4)]].values.argmax(axis=1)]
+    data['sd'] = [f'c{x}' for x in data[[f'st_{i:02d}' for i in range(40)]].values.argmax(axis=1)]
+    data['label'] = [f'c{x}' for x in data['label']]
+
+    names = ['elevation', 'aspect', 'slope', 'hd_hyd', 'vd_hyd', 'hd_rw', 'hill9', 'hill_n', 'hill3', 'hd_fp',
+             'w', 'sd', 'label']
+    data = data[names]
     train, test = _split_train_test(data, names)
     train.to_csv(os.path.join(data_dir, 'covtype.train.csv'), index=False)
     test.to_csv(os.path.join(data_dir, 'covtype.test.csv'), index=False)
@@ -49,4 +56,4 @@ def download(data_dir: str):
 
 
 if __name__ == '__main__':
-    download('../examples/data/covtype')
+    download('../data/covtype')

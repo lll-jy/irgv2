@@ -1,0 +1,172 @@
+{
+  "attributes": {
+    "age": {
+      "name": "age",
+      "type": "categorical"
+    },
+    "wc": {
+      "name": "wc",
+      "type": "categorical"
+    },
+    "ind": {
+      "name": "ind",
+      "type": "categorical"
+    },
+    "occ": {
+      "name": "occ",
+      "type": "categorical"
+    },
+    "edu": {
+      "name": "edu",
+      "type": "categorical"
+    },
+    "wph": {
+      "name": "wph",
+      "type": "categorical"
+    },
+    "in_edu": {
+      "name": "in_edu",
+      "type": "categorical"
+    },
+    "marital": {
+      "name": "marital",
+      "type": "categorical"
+    },
+    "m_ind": {
+      "name": "m_ind",
+      "type": "categorical"
+    },
+    "m_occ": {
+      "name": "m_occ",
+      "type": "categorical"
+    },
+    "race": {
+      "name": "race",
+      "type": "categorical"
+    },
+    "his": {
+      "name": "his",
+      "type": "categorical"
+    },
+    "sex": {
+      "name": "sex",
+      "type": "categorical"
+    },
+    "lu": {
+      "name": "lu",
+      "type": "categorical"
+    },
+    "unemploy": {
+      "name": "unemploy",
+      "type": "categorical"
+    },
+    "ftpt": {
+      "name": "ftpt",
+      "type": "categorical"
+    },
+    "gain": {
+      "name": "gain",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "loss": {
+      "name": "loss",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "stock": {
+      "name": "stock",
+      "type": "categorical"
+    },
+    "tax": {
+      "name": "tax",
+      "type": "categorical"
+    },
+    "region": {
+      "name": "region",
+      "type": "categorical"
+    },
+    "state": {
+      "name": "state",
+      "type": "categorical"
+    },
+    "household_family": {
+      "name": "household_family",
+      "type": "categorical"
+    },
+    "household": {
+      "name": "household",
+      "type": "categorical"
+    },
+    "change_msa": {
+      "name": "change_msa",
+      "type": "categorical"
+    },
+    "change_reg": {
+      "name": "change_reg",
+      "type": "categorical"
+    },
+    "move_reg": {
+      "name": "move_reg",
+      "type": "categorical"
+    },
+    "yr_ago": {
+      "name": "yr_ago",
+      "type": "categorical"
+    },
+    "mig_prev": {
+      "name": "mig_prev",
+      "type": "categorical"
+    },
+    "n_work": {
+      "name": "n_work",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "n_child": {
+      "name": "n_child",
+      "type": "categorical"
+    },
+    "country_father": {
+      "name": "country_father",
+      "type": "categorical"
+    },
+    "country_mother": {
+      "name": "country_mother",
+      "type": "categorical"
+    },
+    "country": {
+      "name": "country",
+      "type": "categorical"
+    },
+    "citizenship": {
+      "name": "citizenship",
+      "type": "categorical"
+    },
+    "own_business": {
+      "name": "own_business",
+      "type": "categorical"
+    },
+    "veteran_fill": {
+      "name": "veteran_fill",
+      "type": "categorical"
+    },
+    "veteran_benefit": {
+      "name": "veteran_benefit",
+      "type": "categorical"
+    },
+    "wkpy": {
+      "name": "wkpy",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "yr": {
+      "name": "yr",
+      "type": "categorical"
+    },
+    "label": {
+      "name": "label",
+      "type": "categorical"
+    }
+  }
+}

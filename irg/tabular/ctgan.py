@@ -82,12 +82,16 @@ class DataSampler(CTGANDataSampler):
                 and column_info[0].activation_fn == 'softmax')
 
     def sample_data(self, n: int, col: Optional[Collection[int]], opt: Optional[Collection[int]]) -> (Tensor, Tensor):
-        if col is None:
+        if col is None or np.prod(*col.shape) == 0:
             idx = np.random.randint(len(self._data), size=n)
         else:
             idx = []
             for c, o in zip(col, opt):
-                idx.append(np.random.choice(self._rid_by_cat_cols[c][o]))
+                try:
+                    idx.append(np.random.choice(self._rid_by_cat_cols[c][o]))
+                except Exception as e:
+                    print('got', c, o, flush=True)
+                    raise e
         return self._context[idx], torch.from_numpy(self._data[idx])
 
     def sample_condvec(self, batch: int) -> (Tensor, Tensor, Tensor, Tensor):
@@ -283,9 +287,11 @@ class CTGANTrainer(TabularTrainer):
 
         disc_in_known, disc_in_unknown = [], []
         disc_in_fakez, disc_in_c, disc_in_perm = [], [], []
+        print('cat dims', self._info_list)
         for ds in range(self._discriminator_step):
             fakez = torch.normal(mean=mean, std=std)
             c1, m1, col, opt = self._sampler.sample_condvec(batch_size)
+            print('condvec', col[:5], opt[:5])
             perm = np.arange(batch_size)
             np.random.shuffle(perm)
             perm = torch.from_numpy(perm)

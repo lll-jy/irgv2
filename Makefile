@@ -220,6 +220,13 @@ do_all_single:
 		TAB_TRAIN_CFG=${TAB_TRAIN_CFG} DEG_TRAIN_CFG=${DEG_TRAIN_CFG}
 
 
+cont_do_all_single:
+	make rm_log train_cfg generate_cfg \
+		EXP_NAME=${SINGLE_NAME} DB_NAME=${SINGLE_NAME} DATA_VERSION=${SINGLE_NAME} DB_VERSION=${SINGLE_NAME} USE_SAMPLE= \
+		MTYPE=${MTYPE} TAB_TRAINER_CFG=${TAB_TRAINER_CFG} DEG_TRAINER_CFG=${DEG_TRAINER_CFG} \
+		TAB_TRAIN_CFG=${TAB_TRAIN_CFG} DEG_TRAIN_CFG=${DEG_TRAIN_CFG}
+
+
 alset_all: kill rm_log
 	make prepare_all_alset
 	make train_cfg generate_cfg EXP_NAME=unrelated \

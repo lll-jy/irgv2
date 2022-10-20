@@ -16,9 +16,11 @@ COVTYPE_PROCESSORS: Dict[str, Callable[pd.DataFrame, pd.DataFrame]] = {
 }
 """Covtype table data processors."""
 
+
 def _covtype_metadata(src: pd.DataFrame) -> Dict[str, Any]:
     attributes = Table.learn_meta(src)
     return {'attributes': attributes}
+
 
 COVTYPE_META_CONSTRUCTORS: Dict[str, Callable[pd.DataFrame, Dict[str, Any]]] = {
     'covtype': _covtype_metadata
@@ -39,8 +41,7 @@ class CovtypeProcessor(DatabaseProcessor):
 
         Arguments to `DatabaseProcessor`.
         """
-        if tables is None:
-            tables = [*ALSET_PROCESSORS]
+        tables = ['covtype']
         super().__init__('covtype', src_data_dir, data_dir, meta_dir, ['covtype'], out)
 
     @property
