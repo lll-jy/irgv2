@@ -29,6 +29,7 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
     if save_db_to is not None and resume and os.path.exists(save_db_to):
         database = DB_TYPE_BY_NAME[mtype].load_from_dir(save_db_to)
         _LOGGER.info(f'Loaded database from {save_db_to}.')
+        print(f'Loaded database from {save_db_to}.')
     else:
         os.makedirs(temp_cache, exist_ok=True)
         database = create_db(
@@ -40,6 +41,7 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
             mtype=mtype
         )
         _LOGGER.info(f'Created database based on data in {data_dir}.')
+        print(f'Created database based on data in {data_dir}.')
         database.augment()
         _LOGGER.info('Augmented database.')
         if save_db_to is not None:

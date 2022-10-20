@@ -136,7 +136,7 @@ class AffectingDatabase(Database):
             fk_attr |= {l_col: new_attr[r_col] for l_col, r_col in foreign_key.ref}
 
         aug_id_cols, deg_id_cols = set(), set()
-        aug_attr, deg_attr = {}, {}
+        aug_attr, deg_attr = {(name, attr_name): attr for attr_name, attr in table.attributes().items()}, {}
         for attr_name, attr in table.attributes().items():
             if attr.atype == 'id':
                 aug_id_cols.add((name, attr_name))

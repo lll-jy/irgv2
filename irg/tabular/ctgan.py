@@ -264,6 +264,8 @@ class CTGANTrainer(TabularTrainer):
                 is_for_num = True
         self._info_list = info_list
         self._cond_dim = cond_dim
+        print('learned condvec', self._descr, self._ckpt_dir)
+        print(self._info_list)
 
     def _construct_sampler(self, known: Tensor, unknown: Tensor):
         self._sampler = DataSampler(
@@ -287,11 +289,9 @@ class CTGANTrainer(TabularTrainer):
 
         disc_in_known, disc_in_unknown = [], []
         disc_in_fakez, disc_in_c, disc_in_perm = [], [], []
-        print('cat dims', self._info_list)
         for ds in range(self._discriminator_step):
             fakez = torch.normal(mean=mean, std=std)
             c1, m1, col, opt = self._sampler.sample_condvec(batch_size)
-            print('condvec', col[:5], opt[:5])
             perm = np.arange(batch_size)
             np.random.shuffle(perm)
             perm = torch.from_numpy(perm)
@@ -344,7 +344,7 @@ class CTGANTrainer(TabularTrainer):
                 fake_cat = torch.cat([known, c1, fakeact], dim=1)
 
                 mse_d = self._mse_loss(fake_cat[perm], real_cat)
-                meta_d = self._meta_loss(known, unknown, fakeact)
+                mean_d, corr_d = self._meta_loss(known, unknown, fakeact)
 
                 real_cat = self._make_full_pac(real_cat)
                 fake_cat = self._make_full_pac(fake_cat)
@@ -355,15 +355,19 @@ class CTGANTrainer(TabularTrainer):
                     real_cat, fake_cat, self._device, self._pac
                 )
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                loss = mse_d + loss_d + meta_d
-            self._optimizer_d.zero_grad()
-            if self._grad_scaler_d is None:
-                pen.backward(retain_graph=True)
-            else:
-                self._grad_scaler_d.scale(pen).backward(retain_graph=True)
-            self._take_step(loss, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d, do_zero_grad=False)
-
-        torch.autograd.set_detect_anomaly(True)
+                loss = mse_d + loss_d + mean_d
+            self._take_step(pen, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d,
+                            do_zero_grad=True, retain_graph=True, do_step=False)
+            self._take_step(loss, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d,
+                            do_zero_grad=False, retain_graph=True, do_step=False)
+            try:
+                corr_d.backward()
+                torch.autograd.set_detect_anomaly(True)
+            except RuntimeError as re:
+                _LOGGER.warning(f'Detected anomaly {re}. Skip correlation loss.')
+                corr_d = torch.tensor(0)
+            self._take_step(corr_d, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d,
+                            do_zero_grad=False, do_backward=False)
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
             gen_in_known = self._make_context(gen_in_known)
@@ -373,22 +377,29 @@ class CTGANTrainer(TabularTrainer):
             fake_cat = torch.cat([gen_in_known, gen_cond, fakeact], dim=1)
 
             cross_entropy = self._cond_loss(fake, gen_cond, gen_mask)
-            meta_g = self._meta_loss(gen_in_known, gen_in_unknown, fake_cat[:, -self._unknown_dim:])
+            mean_g, corr_g = self._meta_loss(gen_in_known, gen_in_unknown, fake_cat[:, -self._unknown_dim:])
             mse_g = self._mse_loss(fake_cat, real_cat)
 
             fake_cat = self._make_full_pac(fake_cat)
             y_fake = self._discriminator(fake_cat)
             loss_g = -torch.mean(y_fake)
-            loss = loss_g + cross_entropy + mse_g + meta_g
+            loss = loss_g + cross_entropy + mse_g + mean_g
 
-        self._take_step(loss, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g)
-        torch.autograd.set_detect_anomaly(True)
+        self._take_step(loss, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g, retain_graph=True, do_step=False)
+        try:
+            corr_g.backward()
+            torch.autograd.set_detect_anomaly(True)
+        except RuntimeError as re:
+            _LOGGER.warning(f'Detected anomaly {re}. Skip correlation loss.')
+            corr_g = torch.tensor(0)
+        self._take_step(corr_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g,
+                        do_zero_grad=False, do_backward=False)
         return {
             'g': loss_g.detach().cpu().item(),
             'd': loss_d.detach().cpu().item(),
             'ce': cross_entropy.detach().cpu().item(),
-            'mg': meta_g.detach().cpu().item(),
-            'md': meta_d.detach().cpu().item(),
+            'mg': (mean_g + corr_g).detach().cpu().item(),
+            'md': (mean_d + corr_d).detach().cpu().item(),
             'dg': mse_g.detach().cpu().item(),
             'dd': mse_d.detach().cpu().item(),
             'pen': pen.detach().cpu().item(),

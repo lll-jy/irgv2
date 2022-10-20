@@ -194,7 +194,7 @@ class TabularTrainer(Trainer, ABC):
             res += [*range(l, r)]
         return res
 
-    def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> Tensor:
+    def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> (Tensor, Tensor):
         fake_mean = fake.mean(dim=0)
         real_mean = (real.mean(dim=0) + self._mean) / 2
         mean_diff = real_mean - fake_mean
@@ -205,17 +205,10 @@ class TabularTrainer(Trainer, ABC):
         fake_corr = (1 - (1 - fake_corr ** 2) * (fake.shape[0] - 1) / (fake.shape[0] - 2)) \
                     * torch.sign(fake_corr).detach()
         mask = self._corr_mask & (~fake_corr.isnan())
-        real_corr = self._corr_mat
-        corr_diff = (real_corr[mask] - fake_corr[mask]).abs()
-        corr_loss = corr_diff[corr_diff > -0.05].sum() / mask.sum()
-        print('corr::')
-        print(self._corr_mat[mask])
-        print(fake_corr[mask])
-        full_real = torch.cat([known, real], dim=1)
-        real_corr_batch = torch.corrcoef(full_real.permute(1, 0))[-self.unknown_dim:]
-        real_corr_batch = (1 - (1 - real_corr_batch ** 2) * (fake.shape[0] - 1) / (fake.shape[0] - 2)) \
-                          * torch.sign(real_corr_batch).detach()
-        print(real_corr_batch[mask])
+        real_corr = self._corr_mat[mask]
+        corr_diff = (real_corr - fake_corr[mask]).abs()
+        corr_diff = corr_diff[corr_diff * real_corr.abs() > 0.03]
+        corr_loss = corr_diff.sum() / mask.sum()
         if len(corr_diff) == 0:
-            return mean_loss
-        return mean_loss + corr_loss
+            return mean_loss, torch.tensor(0).to(self._device)
+        return mean_loss, corr_loss

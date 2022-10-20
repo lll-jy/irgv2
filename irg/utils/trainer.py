@@ -135,19 +135,24 @@ class Trainer(ABC):
 
     @staticmethod
     def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler,
-                   retain_graph: bool = False, do_zero_grad: bool = True):
+                   retain_graph: bool = False, do_zero_grad: bool = True,
+                   do_backward: bool = True, do_step: bool = True):
         if do_zero_grad:
             optimizer.zero_grad()
         if grad_scaler is not None:
-            grad_scaler.scale(loss).backward(retain_graph=retain_graph)
-            grad_scaler.unscale_(optimizer)
-            grad_scaler.step(optimizer)
-            grad_scaler.update()
-            lr_scheduler.step()
+            if do_backward:
+                grad_scaler.scale(loss).backward(retain_graph=retain_graph)
+            if do_step:
+                grad_scaler.unscale_(optimizer)
+                grad_scaler.step(optimizer)
+                grad_scaler.update()
+                lr_scheduler.step()
         else:
-            loss.backward(retain_graph=retain_graph)
-            optimizer.step()
-            lr_scheduler.step()
+            if do_backward:
+                loss.backward(retain_graph=retain_graph)
+            if do_step:
+                optimizer.step()
+                lr_scheduler.step()
 
     def __reduce__(self):
         return self.__class__, (self._distributed, self._autocast, self._log_dir, self._ckpt_dir, self._descr)

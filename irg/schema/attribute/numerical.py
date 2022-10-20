@@ -88,6 +88,16 @@ class NumericalTransformer(BaseTransformer):
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         minmax_transformed = self._minmax_scaler.fit_transform(nan_info['original'].to_numpy().reshape(-1, 1))
+        print('transformed shape', minmax_transformed.shape)
+        val_cnt = len({*minmax_transformed[:, 0]})
+        if val_cnt < self._max_clusters:
+            self._bgm_transformer = BayesianGaussianMixture(
+                n_components=val_cnt,
+                weight_concentration_prior_type='dirichlet_process',
+                weight_concentration_prior=0.001,
+                n_init=1
+            )
+            self._max_clusters = val_cnt
 
         self._bgm_transformer.fit(minmax_transformed)
         self._valid_component_indicator = self._bgm_transformer.weights_ > self._weight_threshold
