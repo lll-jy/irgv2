@@ -161,7 +161,7 @@ class CTGANTrainer(TabularTrainer):
 
         self._info_list, self._cond_dim = [], 0
         self._learn_condvec_info()
-        self._encoded_dim = 0 if self._known_dim == 0 else self._lae.encoded_dim
+        self._encoded_dim = self._known_dim if self._lae is None else self._lae.encoded_dim
 
         self._sampler: Optional[DataSampler] = None
         self._generator = Generator(

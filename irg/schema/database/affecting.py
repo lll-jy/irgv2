@@ -136,7 +136,7 @@ class AffectingDatabase(Database):
             fk_attr |= {l_col: new_attr[r_col] for l_col, r_col in foreign_key.ref}
 
         aug_id_cols, deg_id_cols = set(), set()
-        aug_attr, deg_attr = {(name, attr_name): attr for attr_name, attr in table.attributes().items()}, {}
+        aug_attr, deg_attr = {}, {}
         for attr_name, attr in table.attributes().items():
             if attr.atype == 'id':
                 aug_id_cols.add((name, attr_name))
@@ -147,9 +147,6 @@ class AffectingDatabase(Database):
             else:
                 aug_attr[(name, attr_name)] = fk_attr[attr_name]
                 deg_attr[(name, attr_name)] = fk_attr[attr_name]
-            # aug_attr[(name, attr_name)] = attr
-            # if attr_name in fk_cols:
-            #     deg_attr[(name, attr_name)] = attr
         table.augment(
             augmented=augmented,
             degree=degree.drop(columns=[(name, col) for col in table.columns if col not in fk_cols]),

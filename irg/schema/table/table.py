@@ -238,7 +238,6 @@ class Table:
         - `new_data` (`pd.DataFrame`): New data to fill in the table.
         """
         new_data.to_pickle(self._data_path())
-        print('replace data', self._name)
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._attributes,
@@ -247,7 +246,6 @@ class Table:
 
     def _replace_data_by_attr(self, n: Union[str, TwoLevelName], attr: BaseAttribute, new_data: pd.DataFrame,
                               variant: Variant = 'original') -> int:
-        print('replace', n, self._name)
         transformed = attr.transform(new_data[n])
         path_by_variant = {
             'original': self._normalized_path,
@@ -364,7 +362,6 @@ class Table:
         for n, v in right._attributes.items():
             result._attributes[f'{right._name}/{n}'] = v.rename(f'{right._name}/{v.name}', inplace=False)
 
-        print('in join')
         fast_map_dict(
             func=result._replace_data_by_attr,
             dictionary=result._attributes,
@@ -426,15 +423,11 @@ class Table:
                 temp_cache=self._degree_attr_path()
             )
 
-        print('to augment', self._name)
-        print(augmented.columns.to_list())
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._augmented_attributes,
             func_kwargs=dict(new_data=augmented, variant='augmented')
         )
-        print('to augment degree')
-        print(degree.columns.to_list())
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._degree_attributes,
@@ -655,22 +648,11 @@ class Table:
             known_cols = [col for col in aug_data.columns.droplevel(2) if col not in unknown_set]
             known_data = aug_data[[(a, b, c) for a, b, c in aug_data.columns if (a, b) in known_cols]]
             unknown_data = aug_data[[(a, b, c) for a, b, c in aug_data.columns if (a, b) in unknown_cols]]
-            print('for ', self.name, {(a, b) for a, b, c in unknown_data.columns.to_numpy()}, 'is unknown')
-            print({(a, b) for a, b, c in known_data.columns.to_numpy()}, 'are known')
-            print('saved known', self._known_cols)
-            print('saved unknown', self._unknown_cols)
-            my_attr = {
-                table: attr for (table, attr_name), attr in self._augmented_attributes.items()
-                if table == self._name
-            }
             unknown_attr = {
-                table: attr for (table, attr_name), attr in self._augmented_attributes.items()
+                (table, attr_name): attr for (table, attr_name), attr in self._augmented_attributes.items()
                 if table == self._name and attr_name not in self._known_cols
             }
-            print('augmented unknown attr', [*unknown_attr], [*my_attr])
             cat_dims = self._attr2catdim(unknown_attr)
-            print('get cat dims', cat_dims)
-            print('---')
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)

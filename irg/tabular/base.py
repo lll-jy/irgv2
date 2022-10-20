@@ -20,7 +20,8 @@ from ..utils import dist
 
 class TabularTrainer(Trainer, ABC):
     """Trainer for tabular models."""
-    def __init__(self, cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int, **kwargs):
+    def __init__(self, cat_dims: List[Tuple[int, int]], known_dim: int, unknown_dim: int, use_lae: bool = False,
+                 **kwargs):
         """
         **Args**:
 
@@ -34,6 +35,7 @@ class TabularTrainer(Trainer, ABC):
           in left-closed-right-open manner. In this example, the input should be [(0, 1), (1, 4), (4, 5), (6, 8)].
         - `known_dim` (`int`): Number of dimensions in total for known columns.
         - `unknown_dim` (`int`): Number of dimensions in total for unknown columns.
+        - `use_lae` (`int`): Whether to use Linear AutoEncoder to reduce dimensions.
         - `kwargs`: It has the following groups:
             - Inherited arguments from [`Trainer`](../utils#irg.utils.Trainer).
             - AutoEncoder arguments, all prefixed with "lae_" (for example, argument "arg1" under this group will be
@@ -50,7 +52,7 @@ class TabularTrainer(Trainer, ABC):
         super().__init__(**kwargs)
         self._known_dim, self._unknown_dim = known_dim, unknown_dim
         self._cat_dims = sorted(cat_dims)
-        if self._known_dim > 0:
+        if self._known_dim > 0 and use_lae:
             self._lae = LinearAutoEncoder(
                 context_dim=self._known_dim,
                 full_dim=self._unknown_dim
@@ -91,29 +93,20 @@ class TabularTrainer(Trainer, ABC):
             feature_mask[l:r, l-self._unknown_dim:r-self._unknown_dim] = 0
         for i in range(self._unknown_dim):
             feature_mask[i, i-self._unknown_dim:] = 0
-        # is_for_num, ptr, cat_ptr = False, 0, 0
-        # while ptr < self._unknown_dim:
-        #     if cat_ptr < len(self._cat_dims) and ptr == self._cat_dims[cat_ptr][0]:
-        #         l, r = self._cat_dims[cat_ptr]
-        #         cat_ptr += 1
-        #         if is_for_num:
-        #             feature_mask[:, l-self._unknown_dim:r-self._unknown_dim] = 0
-        #             feature_mask[l:r, :] = 0
-        #         is_for_num = False
-        #         ptr = r
-        #     else:
-        #         ptr += 1
-        #         is_for_num = True
         value_mask = self._corr_mat > 0.5
         self._corr_mask = nan_mask & feature_mask & value_mask
         self._mean = unknown.mean(dim=0)
+
+    def _lae_dataloader(self, known: Tensor, unknown: Tensor, batch_size: int, shuffle: bool = True) -> DataLoader:
+        return super()._make_dataloader(known, unknown, batch_size, shuffle)
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
         self._calculate_corr(known, unknown)
         (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
-        if not self._lae_trained and self._known_dim != 0:
-            self._train_lae(dataloader, lae_epochs)
+        if not self._lae_trained and self._known_dim != 0 and self._lae is not None:
+            lae_dataloader = self._lae_dataloader(known, unknown, batch_size, shuffle)
+            self._train_lae(lae_dataloader, lae_epochs)
         self._run_training(epoch, epochs, global_step, save_freq, dataloader)
 
     def _train_lae(self, dataloader: DataLoader, epochs: int = 10):
@@ -142,24 +135,24 @@ class TabularTrainer(Trainer, ABC):
         self._lae_trained = True
 
     def _make_context(self, known: Tensor):
-        if self._known_dim == 0:
+        if not self._lae_trained:
             return known
         with torch.no_grad():
             encoded = self._lae(known, 'enc')
         return encoded
 
     def _load_content_from(self, loaded: Dict[str, Any]):
-        if self._known_dim > 0:
+        self._lae_trained = loaded['lae_trained']
+        if self._known_dim > 0 and self._lae_trained:
             self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae = self._load_state_dict(
                 self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae, loaded['lae']
             )
-        self._lae_trained = loaded['lae_trained']
 
     def _construct_content_to_save(self) -> Dict[str, Any]:
         return {
             'lae': self._full_state_dict(
                 self._lae, self._optimizer_lae, self._lr_schd_lae, self._grad_scaler_lae
-            ) if self._known_dim > 0 else None,
+            ) if self._lae is not None else None,
             'seed': torch.initial_seed(),
             'lae_trained': self._lae_trained
         }
