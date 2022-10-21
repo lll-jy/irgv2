@@ -2,84 +2,88 @@
   "attributes": {
     "age": {
       "name": "age",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "class_of_worker": {
+      "name": "class_of_worker",
       "type": "categorical"
     },
-    "wc": {
-      "name": "wc",
+    "industry": {
+      "name": "industry",
       "type": "categorical"
     },
-    "ind": {
-      "name": "ind",
+    "occupation": {
+      "name": "occupation",
       "type": "categorical"
     },
-    "occ": {
-      "name": "occ",
-      "type": "categorical"
-    },
-    "edu": {
-      "name": "edu",
-      "type": "categorical"
+    "education": {
+      "name": "education",
+      "type": "numerical",
+      "rounding": 0
     },
     "wph": {
       "name": "wph",
-      "type": "categorical"
+      "type": "numerical",
+      "rounding": 0
     },
-    "in_edu": {
-      "name": "in_edu",
+    "enrol_last_wk": {
+      "name": "enrol_last_wk",
       "type": "categorical"
     },
     "marital": {
       "name": "marital",
       "type": "categorical"
     },
-    "m_ind": {
-      "name": "m_ind",
+    "major_industry": {
+      "name": "major_industry",
       "type": "categorical"
     },
-    "m_occ": {
-      "name": "m_occ",
+    "major_occupation": {
+      "name": "major_occupation",
       "type": "categorical"
     },
     "race": {
       "name": "race",
       "type": "categorical"
     },
-    "his": {
-      "name": "his",
+    "hisp": {
+      "name": "hisp",
       "type": "categorical"
     },
     "sex": {
       "name": "sex",
       "type": "categorical"
     },
-    "lu": {
-      "name": "lu",
+    "member_labor_union": {
+      "name": "member_labor_union",
       "type": "categorical"
     },
-    "unemploy": {
-      "name": "unemploy",
+    "reason_unemploy": {
+      "name": "reason_unemploy",
       "type": "categorical"
     },
     "ftpt": {
       "name": "ftpt",
       "type": "categorical"
     },
-    "gain": {
-      "name": "gain",
+    "cap_gain": {
+      "name": "cap_gain",
       "type": "numerical",
       "rounding": 0
     },
-    "loss": {
-      "name": "loss",
+    "cap_loss": {
+      "name": "cap_loss",
       "type": "numerical",
       "rounding": 0
     },
-    "stock": {
-      "name": "stock",
-      "type": "categorical"
+    "div_stock": {
+      "name": "div_stock",
+      "type": "numerical",
+      "rounding": 0
     },
-    "tax": {
-      "name": "tax",
+    "taxfiler": {
+      "name": "taxfiler",
       "type": "categorical"
     },
     "region": {
@@ -90,13 +94,18 @@
       "name": "state",
       "type": "categorical"
     },
-    "household_family": {
-      "name": "household_family",
+    "householder": {
+      "name": "householder",
       "type": "categorical"
     },
-    "household": {
-      "name": "household",
+    "householder_summary": {
+      "name": "householder_summary",
       "type": "categorical"
+    },
+    "instance_weight": {
+      "name": "instance_weight",
+      "type": "numerical",
+      "rounding": 2
     },
     "change_msa": {
       "name": "change_msa",
@@ -114,8 +123,8 @@
       "name": "yr_ago",
       "type": "categorical"
     },
-    "mig_prev": {
-      "name": "mig_prev",
+    "mig_prev_sunbelt": {
+      "name": "mig_prev_sunbelt",
       "type": "categorical"
     },
     "n_work": {
@@ -123,8 +132,8 @@
       "type": "numerical",
       "rounding": 0
     },
-    "n_child": {
-      "name": "n_child",
+    "parent_present": {
+      "name": "parent_present",
       "type": "categorical"
     },
     "country_father": {
@@ -155,13 +164,13 @@
       "name": "veteran_benefit",
       "type": "categorical"
     },
-    "wkpy": {
-      "name": "wkpy",
+    "wk_per_year": {
+      "name": "wk_per_year",
       "type": "numerical",
       "rounding": 0
     },
-    "yr": {
-      "name": "yr",
+    "year": {
+      "name": "year",
       "type": "categorical"
     },
     "label": {

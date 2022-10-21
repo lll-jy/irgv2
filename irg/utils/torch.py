@@ -42,8 +42,8 @@ class MLP(nn.Module):
         - `act` (`str`): Activation function. Can be "relu", "sigmoid", "tanh", "gelu", "leaky_relu".
         """
         super().__init__()
-        input_dim = (in_dim,) + hidden_dim
-        output_dim = hidden_dim + (out_dim,)
+        input_dim = (in_dim,) + tuple(hidden_dim)
+        output_dim = tuple(hidden_dim) + (out_dim,)
         self.hidden = nn.ModuleList()
         self.hidden.append(nn.Linear(input_dim[0], output_dim[0]))
         for i, o in zip(input_dim[1:], output_dim[1:]):

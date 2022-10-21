@@ -17,7 +17,7 @@ from tqdm import tqdm
 from DataSynthesizer.DataDescriber import DataDescriber
 from DataSynthesizer.DataGenerator import DataGenerator
 
-from ..attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute
+from ..attribute import learn_meta, create as create_attribute, BaseAttribute, SerialIDAttribute, RawAttribute
 from ...utils.misc import Data2D, Data2DName, convert_data_as, inverse_convert_data
 from ...utils.errors import NoPartiallyKnownError, NotFittedError
 from ...utils.dist import fast_map_dict, fast_map
@@ -623,7 +623,15 @@ class Table:
         return res
 
     def augmented_for_join(self) -> Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
-        """Augmented information for joining, including augmented table, set of ID column names, and attributes."""
+        """
+        Get the augmented information for joining.
+
+        **Args**:
+
+        - `normalized` (`bool`): Whether to return the normalized. Default is `False`.
+
+        **Return**: Augmented table, set of ID column names, and attributes.
+        """
         if self.is_independent():
             return self.data(), self._id_cols, self._attributes
 
@@ -669,7 +677,6 @@ class Table:
             (table, attr) for table, attr in self._degree_attributes
             if table == self._name and attr not in self._known_cols
         ]
-        print('unknown for deg', unknown_cols)
         deg_data = self.data(variant='degree', normalize=True, with_id='none', core_only=True)
         unknown_set = set(unknown_cols)
         known_cols = [col for col in deg_data.columns.droplevel(2) if col not in unknown_set]

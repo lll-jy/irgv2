@@ -37,7 +37,8 @@ SYN_DB_TYPE_BY_NAME: Dict[str, SyntheticDatabase.__class__] = {
     'ancestor-descendant': SyntheticAncestorDescendantDatabase,
     'affecting': SyntheticAffectingDatabase
 }
-"""Synthetic database Type by name. Currently support 'unrelated', 'parent-child', 'ancestor-descendant', and 'affecting'."""
+"""Synthetic database Type by name. Currently support 'unrelated', 'parent-child', 'ancestor-descendant', 
+and 'affecting'."""
 
 
 def create(schema: Optional[OrderedDict] = None, file_path: Optional[str] = None, engine: Optional[str] = None,

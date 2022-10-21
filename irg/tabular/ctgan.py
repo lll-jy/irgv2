@@ -6,7 +6,6 @@ import numpy as np
 from ctgan.data_sampler import DataSampler as CTGANDataSampler
 from ctgan.data_transformer import SpanInfo
 from ctgan.synthesizers.ctgan import Generator, Discriminator
-from sklearn.neighbors import KNeighborsClassifier
 import torch
 from torch import Tensor
 from torch import nn
@@ -64,17 +63,6 @@ class DataSampler(CTGANDataSampler):
                 st += sum([span_info.dim for span_info in column_info])
 
         self._has_context = context.shape[1] > 0
-        if self._has_context:
-            self._knn_context = []
-            for i in range(self._n_discrete_columns):
-                st = self._complete_discrete_col_st[i]
-                width = self._discrete_column_n_category[i]
-                y = data[:, st:st+width].argmax(axis=1)
-                knn = KNeighborsClassifier()
-                knn.fit(context, y)
-                self._knn_context.append(knn)
-        else:
-            self._knn_context = None
 
     @staticmethod
     def _is_discrete_column(column_info: List[SpanInfo]):
@@ -87,11 +75,7 @@ class DataSampler(CTGANDataSampler):
         else:
             idx = []
             for c, o in zip(col, opt):
-                try:
-                    idx.append(np.random.choice(self._rid_by_cat_cols[c][o]))
-                except Exception as e:
-                    print('got', c, o, flush=True)
-                    raise e
+                idx.append(np.random.choice(self._rid_by_cat_cols[c][o]))
         return self._context[idx], torch.from_numpy(self._data[idx])
 
     def sample_condvec(self, batch: int) -> (Tensor, Tensor, Tensor, Tensor):
@@ -102,7 +86,7 @@ class DataSampler(CTGANDataSampler):
 
     def sample_original_condvec(self, known: Tensor) -> Tensor:
         if self._n_discrete_columns == 0:
-            return torch.zeros(*known.shape)
+            return torch.zeros(known.shape[0], 0)
         cond = torch.zeros(known.shape[0], self._n_categories, dtype=torch.float32)
         discrete_column_id = torch.from_numpy(np.random.choice(
             np.arange(self._n_discrete_columns), known.shape[0]))
@@ -121,10 +105,13 @@ class DataSampler(CTGANDataSampler):
             n_cat = self._discrete_column_n_category[discrete_column_id]
             prob = self._discrete_column_category_prob_plain[discrete_column_id][:n_cat]
             return np.random.choice(range(n_cat), p=prob / prob.sum())
-        knn: KNeighborsClassifier = self._knn_context[discrete_column_id]
-        known = torch.stack([known_row])
-        pred = knn.predict(known)
-        return pred[0]
+        distance = ((known_row - self._context) ** 2).sum(dim=1)
+        indices = torch.topk(distance, 5, largest=False).indices  # TODO: as input
+        st = self._complete_discrete_col_st[discrete_column_id]
+        width = self._discrete_column_n_category[discrete_column_id]
+        votes = torch.argmax(torch.from_numpy(self._data[indices, st:st+width]), dim=1)
+        opt, cnt = torch.unique(votes, return_counts=True)
+        return opt[cnt.argmax()]
 
 
 class CTGANOutput(InferenceOutput):
@@ -266,8 +253,6 @@ class CTGANTrainer(TabularTrainer):
                 is_for_num = True
         self._info_list = info_list
         self._cond_dim = cond_dim
-        print('learned condvec', self._descr, self._ckpt_dir)
-        print(self._info_list)
 
     def _construct_sampler(self, known: Tensor, unknown: Tensor):
         self._sampler = DataSampler(
@@ -285,7 +270,6 @@ class CTGANTrainer(TabularTrainer):
 
     def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
         batch_size = len(batch)
-        # known, unknown = super()._collate_fn(batch)
         mean = torch.zeros(batch_size, self._embedding_dim)
         std = mean + 1
 

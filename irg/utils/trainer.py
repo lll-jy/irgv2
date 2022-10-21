@@ -158,7 +158,6 @@ class Trainer(ABC):
         return self.__class__, (self._distributed, self._autocast, self._log_dir, self._ckpt_dir, self._descr)
 
     def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
-        print('use this collate fn')
         all_known, all_unknown = [], []
         for known, unknown in batch:
             all_known.append(known)

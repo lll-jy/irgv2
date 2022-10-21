@@ -3,16 +3,20 @@ Affecting relation based augmenting mechanism.
 All tables affecting the table are taken into account when generating it.
 Please refer to [the paper](TODO: link) for detailed definition of `affect`.
 """
+import logging
 from collections import defaultdict
 from typing import Any, DefaultDict, List, Set, Tuple, Dict, Optional
 from types import FunctionType
 
 import pandas as pd
+from sklearn.decomposition import PCA
 from torch import Tensor
 
 from ..table import Table
 from ..attribute import BaseAttribute, RawAttribute
 from .base import Database, SyntheticDatabase, ForeignKey
+
+_LOGGER = logging.getLogger()
 
 
 def _q5(x):
@@ -88,10 +92,12 @@ class AffectingDatabase(Database):
     """
     Database with joining mechanism involving all relevant tables.
     """
-    def __init__(self, agg_func: Optional[List[str]] = None, **kwargs):
+    def __init__(self, max_context: int = 500, agg_func: Optional[List[str]] = None, **kwargs):
         """
         **Args**:
 
+        - `max_context` (`int`): Maximum number of columns for context. Default is 500.
+          It is suggested not to allow too wide context tables because of execution time and potential OOM.
         - `agg_func` (`Optional[List[str]]`): List aggregate functions in augmenting involving non-ancestor-descendant
           tables. Supported functions include the following (default is [mean, std, min, max, q25, q50, q75]):
             - mean, std, min, max: mean, standard deviation, minimum, and maximum values.
@@ -101,6 +107,8 @@ class AffectingDatabase(Database):
         self._descendants: DefaultDict[str, List[ForeignKey]] = defaultdict(list)
         self._agg_func = agg_func if agg_func is not None else ['mean', 'std', 'min', 'max', 'q25', 'q50', 'q75']
         self._agg_func = [(_quantile_func[f] if f in _quantile_func else f) for f in self._agg_func]
+        self._max_context = max_context
+        print('????? assign max context')
         super().__init__(**kwargs)
 
     @property
@@ -153,11 +161,16 @@ class AffectingDatabase(Database):
             augmented_ids=aug_id_cols | id_cols, degree_ids=deg_id_cols | id_cols,
             augmented_attributes=aug_attr | attributes, degree_attributes=deg_attr | attributes
         )
+        print('---------- augmented', augmented.shape, name)
+        print(augmented.columns.to_list())
 
     def _descendant_joined(self, curr_name: str, parent_name: str) -> \
             Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
-        data, new_ids, new_attr = self[parent_name].augmented_for_join()
+        data, new_ids, all_attr = self[parent_name].augmented_for_join()
+        original_cols = data.columns
+        new_attr = {}
         for i, foreign_key in enumerate(self._descendants[parent_name]):
+            print(f'???? get descendant of {parent_name}: {foreign_key.child}, {foreign_key.ref}')
             if foreign_key.child == curr_name:
                 continue
             desc_data, desc_ids, desc_attr = self._descendant_joined(curr_name, foreign_key.child)
@@ -174,6 +187,16 @@ class AffectingDatabase(Database):
 
             desc_agg = desc_normalized.groupby(by=col_to_join, dropna=False, sort=False)\
                 .aggregate(func=self._agg_func).reset_index()
+            print('aggregated:', desc_agg.columns.to_list())
+            if len(desc_agg.columns) - len(col_to_join) > self._max_context:
+                pca = PCA(self._max_context)
+                desc_agg_reduced = pca.fit_transform(desc_agg.drop(columns=col_to_join))
+                desc_agg_reduced = pd.DataFrame(desc_agg_reduced,
+                                                columns=[f'reduced{i}' for i in range(self._max_context)])
+                desc_agg_reduced[col_to_join] = desc_agg[col_to_join]
+                desc_agg = desc_agg_reduced
+                _LOGGER.info(f'Fitted PCA to reduce dimension for context from descendant of {parent_name}.')
+                print('------ fitted PCA', foreign_key.child, 'joined to parent', foreign_key.parent)
             desc_agg.set_axis([f'desc{i}:{foreign_key.child}/{c}' for c in desc_agg.columns], axis=1)
             col_to_join = [f'desc{i}:{foreign_key.child}/{c}' for c in col_to_join]
             data = data.merge(desc_agg, how='inner',
@@ -185,7 +208,19 @@ class AffectingDatabase(Database):
                 if col not in col_to_join:
                     new_attr[col] = RawAttribute(col, desc_agg[col])
 
-        return data, new_ids, new_attr
+        if len(data.columns) - len(original_cols) > self._max_context:
+            pca = PCA(self._max_context)
+            reduced = pca.fit_transform(data.drop(columns=original_cols))
+            new_attr = {
+                f'desc:reduce_{i}': RawAttribute(f'desc:reduce_{i}', reduced[:, i])
+                for i in range(self._max_context)
+            }
+            reduced = pd.DataFrame(reduced, columns=[*new_attr])
+            reduced[original_cols] = data[original_cols]
+            data = reduced
+            print('------- fitted PCA end', parent_name)
+        all_attr.update(new_attr)
+        return data, new_ids, all_attr
 
     @staticmethod
     def _update_cls(item: Any):
@@ -194,6 +229,7 @@ class AffectingDatabase(Database):
         # item._agg_func = agg_func if agg_func is not None else  # TODO: as input
         item._agg_func = ['mean', 'std', 'min', 'max', 'q25', 'q50', 'q75']
         item._agg_func = [_quantile_func[f] if f in _quantile_func else f for f in item._agg_func]
+        item._max_context = 500
 
 
 class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):

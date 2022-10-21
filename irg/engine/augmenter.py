@@ -41,7 +41,7 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
             mtype=mtype
         )
         _LOGGER.info(f'Created database based on data in {data_dir}.')
-        print(f'Created database based on data in {data_dir}.')
+        print(f'Created database based on data in {data_dir}.:: {mtype}')
         database.augment()
         _LOGGER.info('Augmented database.')
         if save_db_to is not None:
