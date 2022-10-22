@@ -82,19 +82,31 @@ class Table:
         os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'attributes'), exist_ok=True)
 
+        print('before fitting attr')
         if attributes is None:
+            print('learning meta')
             if data is None:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
             attributes = self.learn_meta(data, id_cols)
             _LOGGER.debug(f'Learned metadata for table {self._name}.')
+        print('done learning')
         self._length = None
         self._attr_meta, self._id_cols = attributes, id_cols
+        self._attributes = {}
+        print('start??', self._name, len(self._attr_meta))
+        # for attr_name, attr_meta in self._attr_meta.items():
+        # for attr_name, attr_meta in tqdm(self._attr_meta.items(),
+        #                                  desc=f'Construct attribute for {self._name}', total=len(self._attr_meta)):
+        #     print('prepare', attr_name, flush=True)
+        #     self._attributes[attr_name] = self._create_attribute(attr_name, attr_meta, need_fit, data)
+        #     print('done', attr_name, flush=True)
         self._attributes: Dict[str, BaseAttribute] = fast_map_dict(
             func=self._create_attribute,
             dictionary=self._attr_meta,
             verbose_descr=f'Construct attribute for {self._name}',
             func_kwargs=dict(need_fit=need_fit, data=data)
         )
+        print('fitted attr', flush=True)
 
         det_child_cols = {col for det in self._determinants for col in det[1:]}
         self._core_cols = [
@@ -106,6 +118,7 @@ class Table:
         if need_fit and data is not None:
             self.fit(data, **kwargs)
 
+        print('fitted everything', flush=True)
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
         self._augmented_attributes: Dict[TwoLevelName, BaseAttribute] = {}
         self._degree_attributes: Dict[TwoLevelName, BaseAttribute] = {}
@@ -143,6 +156,7 @@ class Table:
 
     def _create_attribute(self, attr_name: str, meta: Dict[str, Any],
                           need_fit: bool = True, data: Optional[pd.DataFrame] = None) -> BaseAttribute:
+        print('create attr', attr_name, need_fit)
         res = create_attribute(
             meta=meta,
             values=data[attr_name] if need_fit and data is not None else None,
@@ -229,25 +243,30 @@ class Table:
         return learn_meta(col_data, attr_name in id_cols, attr_name) | \
                {'name': attr_name} if attr_name not in force_cat else {'name': attr_name, 'type': 'categorical'}
 
-    def replace_data(self, new_data: pd.DataFrame):
+    def replace_data(self, new_data: pd.DataFrame, replace_attr: bool = True):
         """
         Replace the data content in the table.
 
         **Args**:
 
         - `new_data` (`pd.DataFrame`): New data to fill in the table.
+        - `replace_attr` (`bool`): Whether to replace attribute content.
         """
         new_data.to_pickle(self._data_path())
+        print('saved to pickle', flush=True)
         self._length = len(new_data)
-        fast_map_dict(
-            func=self._replace_data_by_attr,
-            dictionary=self._attributes,
-            func_kwargs=dict(new_data=new_data)
-        )
+        if replace_attr:
+            fast_map_dict(
+                func=self._replace_data_by_attr,
+                dictionary=self._attributes,
+                func_kwargs=dict(new_data=new_data)
+            )
+        print('replaced by attr', flush=True)
 
     def _replace_data_by_attr(self, n: Union[str, TwoLevelName], attr: BaseAttribute, new_data: pd.DataFrame,
                               variant: Variant = 'original') -> int:
         if n in new_data:
+            print('replacing', n, flush=True)
             transformed = attr.transform(new_data[n])
             path_by_variant = {
                 'original': self._normalized_path,
@@ -407,34 +426,50 @@ class Table:
         - `degree_attributes` (`Dict[TwoLevelName, BaseAttribute]`): Attributes (typically fitted) of the degree
           table.
         """
+        print('!!!! augment', flush=True)
         self._known_cols = [col for (table, col) in degree_attributes if table == self._name]
         self._unknown_cols = [col for col in self._unknown_cols if col not in self._known_cols]
-        if len(self._known_cols) > 0:
+        if len(self._known_cols) > 0 and augmented_attributes:
             groupby_cols = [(self._name, col) for col in self._known_cols]
             sizes = degree.loc[:, groupby_cols].groupby(groupby_cols).size()
             degree = degree.merge(pd.DataFrame({('', 'degree'): sizes}), on=groupby_cols)
 
+        print('done perpaer', flush=True)
         augmented.to_pickle(self._augmented_path())
         degree.to_pickle(self._degree_path())
+        print('saved to pickle', augmented.shape, degree.shape, flush=True)
         self._augmented_ids, self._degree_ids = augmented_ids, degree_ids
         self._augmented_attributes, self._degree_attributes = augmented_attributes, degree_attributes
+        print('copied attr', flush=True)
         if len(self._known_cols) > 0:
+            print('before create', flush=True)
+            deg_meta = {
+                'type': 'numerical',
+                'rounding': 0,
+                'min_val': 0,
+                'name': 'degree'
+            }
             self._degree_attributes[('', 'degree')] = create_attribute(
-                learn_meta(degree.loc[:, ('', 'degree')], name='degree'),
+                deg_meta,
                 values=degree.loc[:, ('', 'degree')],
                 temp_cache=self._degree_attr_path()
             )
+            print('done create', flush=True)
+        print('done attributes', flush=True)
 
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._augmented_attributes,
-            func_kwargs=dict(new_data=augmented, variant='augmented')
+            func_kwargs=dict(new_data=augmented, variant='augmented'),
+            verbose_descr=f'Replacing augmented {self._name}'
         )
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._degree_attributes,
-            func_kwargs=dict(new_data=degree, variant='degree')
+            func_kwargs=dict(new_data=degree, variant='degree'),
+            verbose_descr=f'Replacing degree {self._name}'
         )
+        print('updated attribute', flush=True)
         _LOGGER.debug(f'Augmented {self._name} has columns {augmented.columns.values}. '
                       f'The augmented table has {len(augmented)} rows, and degree table has {len(degree)} rows.')
         self._augment_fitted = True
@@ -787,15 +822,16 @@ class SyntheticTable(Table):
 
         **Return**: The constructed synthetic table.
         """
+        print('before')
         synthetic = SyntheticTable(name=table._name, ttype=table._ttype, need_fit=False,
                                    id_cols={*table._id_cols}, attributes=table._attr_meta,
                                    determinants=table._determinants, formulas=table._formulas,
                                    temp_cache=temp_cache if temp_cache is not None else table._temp_cache)
+        print('end, then copy', flush=True)
         synthetic._fitted, synthetic._augment_fitted = table._fitted, table._augment_fitted
         synthetic._attributes = table._attributes
         synthetic._real_cache = table._temp_cache
         synthetic._known_cols, synthetic._unknown_cols = table._known_cols, table._unknown_cols
-        print('synthetic', table._name, 'has known', synthetic._known_cols)
         synthetic._augmented_attributes = table._augmented_attributes
         synthetic._degree_attributes = table._degree_attributes
         synthetic._augmented_ids, synthetic._degree_ids = table._augmented_ids, table._degree_ids

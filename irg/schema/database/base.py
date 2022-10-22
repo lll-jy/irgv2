@@ -476,7 +476,6 @@ class SyntheticDatabase(Database, ABC):
         value.save(file_path)
         self._table_paths[key] = file_path
 
-
     def save_synthetic_data(self, file_format: str = 'csv'):
         """
         Save synthetic data to directory as files.
