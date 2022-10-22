@@ -238,6 +238,7 @@ class Table:
         - `new_data` (`pd.DataFrame`): New data to fill in the table.
         """
         new_data.to_pickle(self._data_path())
+        self._length = len(new_data)
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._attributes,
@@ -246,17 +247,18 @@ class Table:
 
     def _replace_data_by_attr(self, n: Union[str, TwoLevelName], attr: BaseAttribute, new_data: pd.DataFrame,
                               variant: Variant = 'original') -> int:
-        transformed = attr.transform(new_data[n])
-        path_by_variant = {
-            'original': self._normalized_path,
-            'augmented': self._augmented_normalized_path,
-            'degree': self._degree_normalized_path
-        }
-        if isinstance(n, str):
-            n = n.replace('/', ':')
-        else:
-            n = n[0].replace('/', ':'), n[1].replace('/', ':')
-        pd_to_pickle(transformed, path_by_variant[variant](n))
+        if n in new_data:
+            transformed = attr.transform(new_data[n])
+            path_by_variant = {
+                'original': self._normalized_path,
+                'augmented': self._augmented_normalized_path,
+                'degree': self._degree_normalized_path
+            }
+            if isinstance(n, str):
+                n = n.replace('/', ':')
+            else:
+                n = n[0].replace('/', ':'), n[1].replace('/', ':')
+            pd_to_pickle(transformed, path_by_variant[variant](n))
         return 0
 
     def replace_attributes(self, new_attributes: Dict[str, BaseAttribute]):
@@ -436,6 +438,9 @@ class Table:
         _LOGGER.debug(f'Augmented {self._name} has columns {augmented.columns.values}. '
                       f'The augmented table has {len(augmented)} rows, and degree table has {len(degree)} rows.')
         self._augment_fitted = True
+        self._fitted = True
+        if self._length is None:
+            self._length = len(augmented)
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         """
@@ -638,6 +643,8 @@ class Table:
         data = self.data(variant='augmented')
         flattened, attributes = {}, {n: v for n, v in self._attributes.items()}
         for (table, col), group_df in data.groupby(level=[0, 1], axis=1):
+            if table == '':
+                continue
             col_name = col if table == self.name else f'{table}/{col}'
             attributes[col_name] = self._augmented_attributes[(table, col)]
             flattened[col_name] = group_df[(table, col)]
@@ -788,6 +795,7 @@ class SyntheticTable(Table):
         synthetic._attributes = table._attributes
         synthetic._real_cache = table._temp_cache
         synthetic._known_cols, synthetic._unknown_cols = table._known_cols, table._unknown_cols
+        print('synthetic', table._name, 'has known', synthetic._known_cols)
         synthetic._augmented_attributes = table._augmented_attributes
         synthetic._degree_attributes = table._degree_attributes
         synthetic._augmented_ids, synthetic._degree_ids = table._augmented_ids, table._degree_ids
@@ -825,10 +833,13 @@ class SyntheticTable(Table):
         for col in self._core_cols:
             attribute = self._attributes[col]
             if col in normalized_core:
+                print('directly inverse', col, self._name)
                 recovered = attribute.inverse_transform(normalized_core[col])
             elif col in self._known_cols:
+                print('directly get from augmented', col, self._name)
                 recovered = augmented_df[(self._name, col)]
             else:
+                print('generate', col, self._name)
                 assert isinstance(attribute, SerialIDAttribute), f'Column cannot be recovered directly must be IDs. ' \
                                                                  f'Got {type(attribute)}.'
                 recovered = attribute.generate(len(normalized_core))
@@ -879,6 +890,9 @@ class SyntheticTable(Table):
                     )
             self._length = len(recovered_df)
 
+        if 'student_token' in recovered_df:
+            print('recovered student token:')
+            print(recovered_df['student_token'].head())
         return recovered_df
 
     def assign_degrees(self, degrees: pd.Series):
@@ -889,7 +903,9 @@ class SyntheticTable(Table):
 
         - `degrees` (`pd.Series`): The degrees to be assigned.
         """
-        degree_df = pd.read_pickle(self._degree_known_path())
+        degree_df = pd.read_pickle(self._degree_path())
+        print('======== assigned degrees has degree known', degree_df.columns)
+        print(degree_df.head())
         degree_df[('', 'degree')] = degrees
         pd_to_pickle(
             self._degree_attributes[('', 'degree')].transform(degrees),
@@ -906,9 +922,6 @@ class SyntheticTable(Table):
         self._fitted = True
         self._length = len(augmented)
 
-    def _degree_known_path(self) -> str:
-        return os.path.join(self._real_cache, 'deg.pkl')
-
     def inverse_transform_degrees(self, degree_tensor: Tensor, scale: float = 1) -> pd.Series:
         """
         Inversely transform degree predictions to a series of integers.
@@ -923,3 +936,19 @@ class SyntheticTable(Table):
         degrees = self._degree_attributes[('', 'degree')].inverse_transform(degree_tensor)
         degrees = degrees.apply(lambda x: max(0, round(x * scale)))
         return degrees
+
+    def update_deg_and_aug(self):
+        """
+        Update degree and augmented table after a new table is generated.
+        """
+        degree_df = pd.read_pickle(self._degree_path())
+        augmented_df = pd.read_pickle(self._augmented_path())
+        data = pd.concat({self._name: self.data()}, axis=1)
+        print('^^ self data', data.columns.tolist())
+        print('^^ gere deg', degree_df.columns.tolist())
+        print('^^ here aug', degree_df.columns.tolist())
+        degree_df = data.merge(degree_df, how='outer')
+        augmented_df = data.merge(augmented_df.drop(columns=[('', 'degree')]), how='left')
+        degree_df.to_pickle(self._degree_path())
+        augmented_df.to_pickle(self._augmented_path())
+        print('&&&&& updated aug', self._name, augmented_df.columns.tolist())

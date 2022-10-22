@@ -44,6 +44,7 @@ class IdentityTransformer(BaseTransformer):
 
     def inverse_transform(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) \
             -> pd.Series:
+        print('in for id inverse', data.columns)
         nan_indicator, _ = self._inverse_nan_info(data, nan_ratio, nan_thres)
         return nan_indicator
 
@@ -82,7 +83,9 @@ class SerialIDAttribute(BaseAttribute):
 
     def inverse_transform(self, data: Data2D) -> pd.Series:
         nan_res = self._transformer.inverse_transform(data)
+        print('result from transformer ID', nan_res.head())
         no_nan = self.generate(len(data))
+        print('generated is', no_nan.head())
         return no_nan[nan_res]
 
     def generate(self, n: int) -> pd.Series:

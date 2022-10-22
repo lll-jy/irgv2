@@ -12,7 +12,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from torch import Tensor
 
-from ..table import Table
+from ..table import Table, SyntheticTable
 from ..attribute import BaseAttribute, RawAttribute
 from .base import Database, SyntheticDatabase, ForeignKey
 
@@ -123,8 +123,11 @@ class AffectingDatabase(Database):
 
     def _augment_table(self, name: str, table: Table):
         foreign_keys = self._foreign_keys[name]
+        print('augmenting', name)
         augmented = pd.concat({name: table.data()}, axis=1)
         degree = augmented.copy()
+        # print('start aug', augmented[(name, 'student_token')].head())
+        # print(' this table ', name, 'knows', table._known_cols, self[name]._known_cols)
         id_cols, attributes, fk_cols, fk_attr = set(), {}, set(), {}
         for i, foreign_key in enumerate(foreign_keys):
             parent_name = foreign_key.parent
@@ -135,6 +138,12 @@ class AffectingDatabase(Database):
             data = pd.concat({prefix: data}, axis=1)
             left = foreign_key.left
             right = [(prefix, col) for _, col in foreign_key.right]
+            print('before joining augmented', augmented.columns.tolist(), left)
+            print('data is', data.columns.tolist(), right)
+            augmented[left] = augmented[left].astype({
+                ln: dt for ln, (rn, dt) in
+                zip(left, (data[right].dtypes.items()))
+            })
             augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
             degree = degree.merge(data, how='outer', left_on=left, right_on=right)
 
@@ -155,18 +164,26 @@ class AffectingDatabase(Database):
             else:
                 aug_attr[(name, attr_name)] = fk_attr[attr_name]
                 deg_attr[(name, attr_name)] = fk_attr[attr_name]
+        print('aug partial fake', [*aug_attr])
+        print('deg partial fake', [*deg_attr])
+        print('drop', [(name, col) for col in table.columns if col not in fk_cols])
+        degree_to_drop = [
+            (name, col) for col in table.columns
+            if col not in fk_cols and (name, col) in degree
+        ]
         table.augment(
             augmented=augmented,
-            degree=degree.drop(columns=[(name, col) for col in table.columns if col not in fk_cols]),
+            degree=degree.drop(columns=degree_to_drop),
             augmented_ids=aug_id_cols | id_cols, degree_ids=deg_id_cols | id_cols,
             augmented_attributes=aug_attr | attributes, degree_attributes=deg_attr | attributes
         )
-        print('---------- augmented', augmented.shape, name)
-        print(augmented.columns.to_list())
 
     def _descendant_joined(self, curr_name: str, parent_name: str) -> \
             Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
         data, new_ids, all_attr = self[parent_name].augmented_for_join()
+        print('augmented for join', data.columns)
+        if 'student_token' in data:
+            print('here student token', data['student_token'].head())
         original_cols = data.columns
         new_attr = {}
         for i, foreign_key in enumerate(self._descendants[parent_name]):
@@ -237,5 +254,35 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
     Synthetic database for affecting augmenting mechanism.
     """
     def degree_known_for(self, table_name: str) -> Tensor:
-        known, _, _ = self._real[table_name].deg_data()
-        return known
+        table = self[table_name]
+        print('degree col::', [*table._degree_attributes])
+        foreign_keys = self._foreign_keys[table_name]
+
+        df = pd.DataFrame()
+        for fk in foreign_keys:
+            print('-----', {n:v for n, v in fk.ref})
+            new_df = self[fk.parent].data()[[col for _, col in fk.ref]]\
+                .rename(columns={pc: mc for mc, pc in fk.ref})
+            print('so new df has',
+                  self[fk.parent].data()[[col for _, col in fk.ref]].columns.tolist(),
+                  new_df.columns.tolist())
+            print('renamed', {pc: mc for mc, pc in fk.ref})
+            if df.empty:
+                df = new_df
+            else:
+                df = df.merge(new_df, how='cross')
+                # print('!!! join', fk.dict, set(df.columns), set(new_df.columns))
+                # if set(df.columns) & set(new_df.columns):
+                #     df = df.merge(new_df, how='outer')
+                # else:
+                #     df = df.merge(new_df, how='cross')
+        if 'student_token' in df:
+            print(df['student_token'].head())
+        table.augment(df, df, set(), set(), {}, {})
+        table.replace_data(df)
+        self._augment_table(table_name, table)
+        deg, _, _ = table.deg_data()
+        print('so I have degrees', [*table._degree_attributes])
+        print('*** degshape', deg.shape)
+        return deg
+

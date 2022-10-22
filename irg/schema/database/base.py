@@ -1,8 +1,8 @@
 """Database schema definition."""
 
 from abc import ABC, abstractmethod
-from collections import OrderedDict, defaultdict
-from typing import OrderedDict as OrderedDictT, List, Optional, ItemsView, Any, Tuple, Dict
+from collections import defaultdict
+from typing import List, Optional, ItemsView, Any, Tuple, Dict
 import os
 import json
 import logging
@@ -109,11 +109,11 @@ class Database:
         'additionalProperties': False
     }
 
-    def __init__(self, schema: OrderedDictT, data_dir: str = '.', temp_cache: str = '.temp'):
+    def __init__(self, schema: Dict, data_dir: str = '.', temp_cache: str = '.temp'):
         """
         **Args**:
 
-        - `schema` (`OrderedDict`): Schema described as OrderedDict. Every table in the database corresponds to one
+        - `schema` (`Dict`): Schema described as `Dict`. Every table in the database corresponds to one
           entry in the dict, where the order of the dict is the order the tables are to be processed.
           Every table is described with key being its name, and value being another dict describing it, including the
           following content (all are optional but need to give enough information for constructing a
@@ -143,7 +143,7 @@ class Database:
         - [`ValidationError`](https://python-jsonschema.readthedocs.io/en/stable/errors/) if the provided schema is of
           invalid format.
         """
-        self._table_paths: OrderedDictT[str, str] = OrderedDict({})
+        self._table_paths: Dict[str, str] = {}
         self._table_columns: Dict[str, List[str]] = {}
         self._primary_keys: Dict[str, List[str]] = {}
         self._foreign_keys: Dict[str, List[ForeignKey]] = {}
@@ -245,7 +245,7 @@ class Database:
         - `data_dir` and `temp_cache`: Argument for [constructor](#irg.schema.database.base.Database).
         """
         schema = load_from(file_path, engine)
-        result = Database(OrderedDict(schema), data_dir, temp_cache)
+        result = Database(schema, data_dir, temp_cache)
         cls._update_cls(result)
         _LOGGER.debug(f'Loaded database using config file {file_path} and data directory {data_dir}.')
         return result
@@ -404,7 +404,7 @@ class Database:
 
         **Return**: Loaded database.
         """
-        database = Database(OrderedDict({}))
+        database = Database({})
 
         with open(os.path.join(path, 'config.json'), 'r') as f:
             content = json.load(f)
@@ -452,7 +452,7 @@ class SyntheticDatabase(Database, ABC):
         """
         temp_cache = os.path.join(real_db._temp_cache, 'synthetic_db')
         os.makedirs(temp_cache, exist_ok=True)
-        syn_db = cls(real=real_db, schema=OrderedDict({}), temp_cache=temp_cache)
+        syn_db = cls(real=real_db, schema={}, temp_cache=temp_cache)
         syn_db._primary_keys, syn_db._foreign_keys = real_db._primary_keys, real_db._foreign_keys
         syn_db._data_dir = save_to
         os.makedirs(save_to, exist_ok=True)
@@ -475,6 +475,7 @@ class SyntheticDatabase(Database, ABC):
         file_path = os.path.join(self._temp_cache, f'{key}.pkl')
         value.save(file_path)
         self._table_paths[key] = file_path
+
 
     def save_synthetic_data(self, file_format: str = 'csv'):
         """

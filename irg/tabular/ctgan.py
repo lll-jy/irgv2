@@ -434,8 +434,9 @@ class CTGANTrainer(TabularTrainer):
         n, m = x.shape
         size = math.ceil(n / self._pac) * self._pac
         y = torch.zeros(size, m).to(x.device)
-        y[:n, :] = x
-        y[n:, :] = x[:size-n, :]
+        for i in range(0, size-n, n):
+            y[i:i+n, :] = x
+        y[i+n:, :] = x[:size-i-n, :]
         return y
 
     def _apply_activate(self, data: Tensor):

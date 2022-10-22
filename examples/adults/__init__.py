@@ -29,7 +29,7 @@ def download(data_dir: str):
 
     - `data_dir` (`str`): Target directory to save the data.
     """
-    os.makedirs(data_dir)
+    os.makedirs(data_dir, exist_ok=True)
     os.system('wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data')
     os.system('wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test')
     names = ['age', 'workclass', 'fnlwgt', 'education', 'edu_num', 'marital', 'occupation', 'relation', 'race',
