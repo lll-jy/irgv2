@@ -1,0 +1,39 @@
+{
+  "id_cols": [
+    "student_token"
+  ],
+  "attributes": {
+    "student_token": {
+      "name": "student_token",
+      "type": "id"
+    },
+    "venue": {
+      "name": "venue",
+      "type": "categorical"
+    },
+    "pass_type": {
+      "name": "pass_type",
+      "type": "categorical"
+    },
+    "date": {
+      "name": "date",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "check_in_time": {
+      "name": "check_in_time",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+    },
+    "check_out_time": {
+      "name": "check_out_time",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+    }
+  },
+  "primary_keys": [
+    "student_token",
+    "date",
+    "check_in_time"
+  ]
+}

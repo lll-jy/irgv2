@@ -1,0 +1,79 @@
+{
+  "id_cols": [
+    "student_token"
+  ],
+  "attributes": {
+    "student_token": {
+      "name": "student_token",
+      "type": "id"
+    },
+    "extract_date": {
+      "name": "extract_date",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+    },
+    "academic_career": {
+      "name": "academic_career",
+      "type": "categorical"
+    },
+    "academic_program": {
+      "name": "academic_program",
+      "type": "categorical"
+    },
+    "effective_date": {
+      "name": "effective_date",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "milestone_nbr": {
+      "name": "milestone_nbr",
+      "type": "categorical"
+    },
+    "milestone": {
+      "name": "milestone",
+      "type": "categorical"
+    },
+    "milestone_short_descr": {
+      "name": "milestone_short_descr",
+      "type": "categorical"
+    },
+    "milestone_formal_descr": {
+      "name": "milestone_formal_descr",
+      "type": "categorical"
+    },
+    "milestone_level": {
+      "name": "milestone_level",
+      "type": "categorical"
+    },
+    "milestone_status": {
+      "name": "milestone_status",
+      "type": "categorical"
+    },
+    "milestone_completion_mode": {
+      "name": "milestone_completion_mode",
+      "type": "categorical"
+    },
+    "milestone_completion_date": {
+      "name": "milestone_completion_date",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "milestone_attempt_nbr": {
+      "name": "milestone_attempt_nbr",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "milestone_attempt_status": {
+      "name": "milestone_attempt_status",
+      "type": "categorical"
+    }
+  },
+  "foreign_keys": [
+    {
+      "columns": [
+        "student_token"
+      ],
+      "parent": "personal_data"
+    }
+  ]
+}

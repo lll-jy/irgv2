@@ -93,20 +93,20 @@ class AffectingDatabase(Database):
     """
     Database with joining mechanism involving all relevant tables.
     """
-    def __init__(self, max_context: int = 500, agg_func: Optional[List[str]] = None, **kwargs):
+    def __init__(self, max_context: int = np.inf, agg_func: Optional[List[str]] = None, **kwargs):
         """
         **Args**:
 
         - `max_context` (`int`): Maximum number of columns for context. Default is 500.
           It is suggested not to allow too wide context tables because of execution time and potential OOM.
         - `agg_func` (`Optional[List[str]]`): List aggregate functions in augmenting involving non-ancestor-descendant
-          tables. Supported functions include the following (default is [mean, std, min, max, q25, q50, q75]):
+          tables. Supported functions include the following (default is [mean]):
             - mean, std, min, max: mean, standard deviation, minimum, and maximum values.
             - q5, q10, q20, q25, q30, q40, q50, q60, q70, q75, q80, q90, q95: quantile values.
         - `kwargs`: Arguments for [`Database`](./base#irg.schema.database.base.Database).
         """
         self._descendants: DefaultDict[str, List[ForeignKey]] = defaultdict(list)
-        self._agg_func = agg_func if agg_func is not None else ['mean', 'std', 'min', 'max', 'q25', 'q50', 'q75']
+        self._agg_func = agg_func if agg_func is not None else ['mean']
         self._agg_func = [(_quantile_func[f] if f in _quantile_func else f) for f in self._agg_func]
         self._max_context = max_context
         print('????? assign max context')
@@ -191,7 +191,7 @@ class AffectingDatabase(Database):
         original_cols = data.columns
         new_attr = {}
         for i, foreign_key in enumerate(self._descendants[parent_name]):
-            print(f'???? get descendant of {parent_name}: {foreign_key.child}, {foreign_key.ref}')
+            print(f'???? get descendant of {parent_name}: {foreign_key.child}, {foreign_key.ref}', flush=True)
             if foreign_key.child == curr_name:
                 continue
             desc_data, desc_ids, desc_attr = self._descendant_joined(curr_name, foreign_key.child)
@@ -206,9 +206,11 @@ class AffectingDatabase(Database):
             desc_normalized = pd.concat(desc_normalized, axis=1)
             desc_normalized[col_to_join] = desc_data[col_to_join]
 
+            print('before agg', desc_normalized.columns.tolist(), flush=True)
+            print(col_to_join, flush=True)
             desc_agg = desc_normalized.groupby(by=col_to_join, dropna=False, sort=False)\
                 .aggregate(func=self._agg_func).reset_index()
-            print('aggregated:', desc_agg.columns.to_list())
+            print('aggregated:', desc_agg.columns.to_list(), flush=True)
             if len(desc_agg.columns) - len(col_to_join) > self._max_context:
                 pca = PCA(self._max_context)
                 desc_agg_reduced = pca.fit_transform(desc_agg.drop(columns=col_to_join))
@@ -248,9 +250,9 @@ class AffectingDatabase(Database):
         item.__class__ = AffectingDatabase
         item._descendants = defaultdict(list)
         # item._agg_func = agg_func if agg_func is not None else  # TODO: as input
-        item._agg_func = ['mean', 'std', 'min', 'max', 'q25', 'q50', 'q75']
+        item._agg_func = ['mean']
         item._agg_func = [_quantile_func[f] if f in _quantile_func else f for f in item._agg_func]
-        item._max_context = 500
+        item._max_context = np.inf
 
 
 class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):

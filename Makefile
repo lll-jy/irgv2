@@ -33,6 +33,22 @@ prepare_small_alset:
         --sample 50
 
 
+prepare_model_compare:
+	python3.9 process.py database alset \
+		--src_data_dir examples/data${OUT_SUFFIX}/alset \
+		--data_dir ${BASE_DIR}/data${OUT_SUFFIX}/alset/model_compare \
+		--meta_dir examples/alset/metadata/results \
+		--out ${BASE_DIR}/data${OUT_SUFFIX}/alset/model_compare_db_config.json \
+		--redo_meta --redo_data \
+		--tables \
+			personal_data \
+			sis_milestone \
+			module_offer \
+			module_enrolment \
+			uci_gym \
+		--sample 5000
+
+
 prepare_all_alset:
 	echo TODO
 

@@ -122,6 +122,20 @@ def sis_enrolment(src: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
+def sis_milestone(src: pd.DataFrame) -> Dict[str, Any]:
+    id_cols = ['student_token']
+    num_cat = ['milestone_nbr']
+    attributes = Table.learn_meta(src, id_cols, num_cat)
+    return {
+        'id_cols': id_cols,
+        'attributes': attributes,
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'personal_data'
+        }]
+    }
+
+
 def academic_program_offer(src: pd.DataFrame) -> Dict[str, Any]:
     id_cols = ['academic_program']
     attributes = Table.learn_meta(src, id_cols)

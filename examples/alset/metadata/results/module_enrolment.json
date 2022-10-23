@@ -1,0 +1,53 @@
+{
+  "id_cols": [
+    "module_code",
+    "student_token"
+  ],
+  "attributes": {
+    "student_token": {
+      "name": "student_token",
+      "type": "id"
+    },
+    "module_code": {
+      "name": "module_code",
+      "type": "id"
+    },
+    "academic_career": {
+      "name": "academic_career",
+      "type": "categorical"
+    },
+    "requirement_designation": {
+      "name": "requirement_designation",
+      "type": "categorical"
+    },
+    "tyear": {
+      "name": "tyear",
+      "type": "datetime",
+      "date_format": "%Y"
+    },
+    "tsem": {
+      "name": "tsem",
+      "type": "categorical"
+    }
+  },
+  "primary_keys": [
+    "module_code",
+    "student_token",
+    "year",
+    "sem"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "student_token"
+      ],
+      "parent": "personal_data"
+    },
+    {
+      "columns": [
+        "module_code"
+      ],
+      "parent": "module_offer"
+    }
+  ]
+}

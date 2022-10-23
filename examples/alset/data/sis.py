@@ -95,6 +95,19 @@ def sis_enrolment(src: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def sis_milestone(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    SIS milestones record.
+    """
+    return src.astype({
+        'extract_date': 'datetime64[ns]',
+        'milestone_completion_date': 'datetime64[ns]',
+        'effective_date': 'datetime64[ns]'
+    }).drop(columns=['academic_plan'])
+
+
 _code2descr = {
     '00': '',
     '10': 'Semester 1',
