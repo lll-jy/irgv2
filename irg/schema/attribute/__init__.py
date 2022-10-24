@@ -227,9 +227,9 @@ def _learn_property(dtype: str, data: pd.Series, attr_meta: dict):
             'y': '%Y',
             'm': '-%m',
             'd': '-%d',
-            'h': ' HH',
-            'min': ':mm',
-            's': ':ss',
+            'h': ' %H',
+            'min': ':%M',
+            's': ':%S',
         }
         format_str = ''
         for u, format_suffix in units_to_format.items():

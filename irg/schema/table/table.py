@@ -89,11 +89,9 @@ class Table:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
             attributes = self.learn_meta(data, id_cols)
             _LOGGER.debug(f'Learned metadata for table {self._name}.')
-        print('done learning')
         self._length = None
         self._attr_meta, self._id_cols = attributes, id_cols
         self._attributes = {}
-        print('start??', self._name, len(self._attr_meta))
         # for attr_name, attr_meta in self._attr_meta.items():
         # for attr_name, attr_meta in tqdm(self._attr_meta.items(),
         #                                  desc=f'Construct attribute for {self._name}', total=len(self._attr_meta)):
@@ -106,7 +104,6 @@ class Table:
             verbose_descr=f'Construct attribute for {self._name}',
             func_kwargs=dict(need_fit=need_fit, data=data)
         )
-        print('fitted attr', flush=True)
 
         det_child_cols = {col for det in self._determinants for col in det[1:]}
         self._core_cols = [
@@ -156,7 +153,6 @@ class Table:
 
     def _create_attribute(self, attr_name: str, meta: Dict[str, Any],
                           need_fit: bool = True, data: Optional[pd.DataFrame] = None) -> BaseAttribute:
-        print('create attr', attr_name, need_fit)
         res = create_attribute(
             meta=meta,
             values=data[attr_name] if need_fit and data is not None else None,

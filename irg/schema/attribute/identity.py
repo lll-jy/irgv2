@@ -1,10 +1,11 @@
 """Handler for ID attributes."""
 from typing import Optional, List, Tuple, Collection
 
+import numpy as np
 import pandas as pd
 
 from .base import BaseAttribute, BaseTransformer
-from ...utils.misc import Data2D
+from ...utils.misc import Data2D, Data2DName, convert_data_as
 from ...utils.io import pd_to_pickle
 
 
@@ -44,7 +45,6 @@ class IdentityTransformer(BaseTransformer):
 
     def inverse_transform(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) \
             -> pd.Series:
-        print('in for id inverse', data.columns)
         nan_indicator, _ = self._inverse_nan_info(data, nan_ratio, nan_thres)
         return nan_indicator
 
@@ -83,9 +83,7 @@ class SerialIDAttribute(BaseAttribute):
 
     def inverse_transform(self, data: Data2D) -> pd.Series:
         nan_res = self._transformer.inverse_transform(data)
-        print('result from transformer ID', nan_res.head())
         no_nan = self.generate(len(data))
-        print('generated is', no_nan.head())
         return no_nan[nan_res]
 
     def generate(self, n: int) -> pd.Series:
@@ -119,6 +117,18 @@ class RawTransformer(IdentityTransformer):
     @property
     def transformed_columns(self) -> Collection[str]:
         return ['data']
+
+    def fit(self, data: pd.Series, force_redo: bool = False):
+        pass
+
+    def transform(self, data: pd.Series, return_as: Data2DName = 'pandas') -> pd.DataFrame:
+        return convert_data_as(pd.DataFrame({'value': data}), return_as)
+
+    def inverse_transform(self, data: Data2D, nan_ratio: Optional[float] = None, nan_thres: Optional[float] = None) \
+            -> pd.Series:
+        if isinstance(data, pd.DataFrame):
+            return data.iloc[:, 0]
+        return data[:, 0]
 
 
 class RawAttribute(BaseAttribute):

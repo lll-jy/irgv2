@@ -109,7 +109,6 @@ class AffectingDatabase(Database):
         self._agg_func = agg_func if agg_func is not None else ['mean']
         self._agg_func = [(_quantile_func[f] if f in _quantile_func else f) for f in self._agg_func]
         self._max_context = max_context
-        print('????? assign max context')
         super().__init__(**kwargs)
 
     @property
@@ -124,7 +123,6 @@ class AffectingDatabase(Database):
 
     def _augment_table(self, name: str, table: Table):
         foreign_keys = self._foreign_keys[name]
-        print('augmenting', name, flush=True)
         augmented = pd.concat({name: table.data()}, axis=1)
         degree = augmented.copy()
         # print('start aug', augmented[(name, 'student_token')].head())
@@ -145,14 +143,18 @@ class AffectingDatabase(Database):
             #     ln: dt for ln, (rn, dt) in
             #     zip(left, (data[right].dtypes.items()))
             # })
+            print('shapes are', augmented.shape, data.shape, flush=True)
+            print(augmented[left].head(), flush=True)
+            print('just keys can join?', augmented[left].merge(data[right], how='left', left_on=left, right_on=right).head(), flush=True)
             augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
             degree = degree.merge(data, how='outer', left_on=left, right_on=right)
+            print('both merged', flush=True)
 
             id_cols |= {(prefix, col) for col in new_ids}
             attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
             fk_cols |= {col for _, col in foreign_key.left}
             fk_attr |= {l_col: new_attr[r_col] for l_col, r_col in foreign_key.ref}
-            print('new augmented, deg', augmented.shape, degree.shape, flush=True)
+            print(name, 'new augmented, deg', augmented.shape, degree.shape, flush=True)
 
         aug_id_cols, deg_id_cols = set(), set()
         aug_attr, deg_attr = {}, {}
@@ -201,7 +203,7 @@ class AffectingDatabase(Database):
             for col in desc_data.columns:
                 if col not in col_to_join:
                     col_normalized = desc_attr[col].transform(desc_data[col])
-                    col_normalized.set_axis([f'{col}:{nc}' for nc in col_normalized.columns], axis=1)
+                    col_normalized = col_normalized.set_axis([f'{col}:{nc}' for nc in col_normalized.columns], axis=1)
                     desc_normalized.append(col_normalized)
             desc_normalized = pd.concat(desc_normalized, axis=1)
             desc_normalized[col_to_join] = desc_data[col_to_join]
@@ -220,8 +222,10 @@ class AffectingDatabase(Database):
                 desc_agg = desc_agg_reduced
                 _LOGGER.info(f'Fitted PCA to reduce dimension for context from descendant of {parent_name}.')
                 print('------ fitted PCA', foreign_key.child, 'joined to parent', foreign_key.parent)
-            desc_agg.set_axis([f'desc{i}:{foreign_key.child}/{c}' for c in desc_agg.columns], axis=1)
+            desc_agg = desc_agg.set_axis([f'desc{i}:{foreign_key.child}/{c}{":" if n else ""}{n}' for c, n in desc_agg.columns], axis=1)
+            print('after rest', desc_agg.columns.tolist(), flush=True)
             col_to_join = [f'desc{i}:{foreign_key.child}/{c}' for c in col_to_join]
+            print('data cols', data.columns.tolist(), flush=True)
             data = data.merge(desc_agg, how='inner',
                               left_on=[col for _, col in foreign_key.right],
                               right_on=col_to_join).drop(columns=col_to_join)

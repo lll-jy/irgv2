@@ -311,6 +311,9 @@ class CTGANTrainer(TabularTrainer):
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
+        for i in range(known.shape[1]):
+            col = known[:, i]
+            known[:, i] = col.nan_to_num(col[~col.isnan()].mean())
         self._construct_sampler(known, unknown)
         _LOGGER.debug(f'Constructed data sampler for {self._descr}.')
         super().train(known, unknown, epochs, batch_size, shuffle, save_freq, resume, lae_epochs)
@@ -322,6 +325,7 @@ class CTGANTrainer(TabularTrainer):
 
         for known, unknown, fakez, c1, perm in zip(disc_in_known, disc_in_unknown, disc_in_fakez,
                                                    disc_in_c, disc_in_perm):
+            print('is nan??', known.isnan().sum(), unknown.isnan().sum())
             with torch.cuda.amp.autocast(enabled=enable_autocast):
                 known = self._make_context(known)
                 real_cat = torch.cat([known, c1, unknown], dim=1)[perm]
@@ -434,6 +438,7 @@ class CTGANTrainer(TabularTrainer):
         n, m = x.shape
         size = math.ceil(n / self._pac) * self._pac
         y = torch.zeros(size, m).to(x.device)
+        i = 0
         for i in range(0, size-n, n):
             y[i:i+n, :] = x
         y[i+n:, :] = x[:size-i-n, :]

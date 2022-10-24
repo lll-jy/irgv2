@@ -1,6 +1,6 @@
 {
   "trainer_type": "CTGAN",
-  "embedding_dim": 20,
+  "embedding_dim": 50,
   "generator_dim": [256, 256],
   "discriminator_dim": [256, 256],
   "pac": 10,
@@ -9,8 +9,8 @@
   "gen_scheduler": "ConstantLR",
   "disc_optimizer": "Adam",
   "disc_scheduler": "ConstantLR",
-  "gen_optim_lr": 2e-4,
-  "disc_optim_lr": 2e-4,
+  "gen_optim_lr": 2e-3,
+  "disc_optim_lr": 2e-3,
   "gen_optim_betas": [0.5, 0.9],
   "disc_optim_betas": [0.5, 0.9],
   "gen_optim_weight_decay": 1e-6,
