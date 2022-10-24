@@ -263,7 +263,13 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
     """
     Synthetic database for affecting augmenting mechanism.
     """
-    def degree_known_for(self, table_name: str) -> Tensor:
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._used = False
+
+    def degree_known_for(self, table_name: str) -> Optional[Tensor]:
+        if self._used:
+            return None
         table = self[table_name]
         print('degree col::', [*table._degree_attributes], flush=True)
         foreign_keys = self._foreign_keys[table_name]
@@ -301,5 +307,6 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
         deg, _, _ = table.deg_data()
         print('so I have degrees', [*table._degree_attributes])
         print('*** degshape', deg.shape, flush=True)
+        self._used = True
         return deg
 
