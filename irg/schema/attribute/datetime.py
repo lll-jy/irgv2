@@ -64,19 +64,14 @@ class DatetimeTransformer(NumericalTransformer):
                 return x
             return datetime.strftime(x, self._format)
         except Exception as e:
-            print('!!! wrong', x, self._format, flush=True)
             raise ValueError(f'????? {e}')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         numerical_result = super()._inverse_transform(data)
         datetime_result = numerical_result.apply(lambda x: x if pd.isnull(x) else datetime.fromordinal(int(x)))
-        datetime_result = datetime_result.apply(lambda x: #self._datetime_round(x)
-                                                x if pd.isnull(x) else x.strftime(self._format))
-        print(self._format, datetime_result.head())
-        return datetime_result.replace({'2022-08-25 HH:mm:ss.000000': '2022-08-25'}).astype('datetime64[ns]')
-        # return datetime_result.apply(lambda x: self._datetime_round(x)
-        #                              # x if pd.isnull(x) else x.strftime(self._format))\
-        #                              ).astype('datetime64[ns]')
+        return datetime_result.apply(lambda x:
+                                     x if pd.isnull(x) else x.strftime(self._format))\
+                                     .astype('datetime64[ns]')
 
 
 class DatetimeAttribute(BaseAttribute):

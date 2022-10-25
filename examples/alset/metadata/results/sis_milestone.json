@@ -10,7 +10,7 @@
     "extract_date": {
       "name": "extract_date",
       "type": "datetime",
-      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+      "date_format": "%Y-%m-%d %H:%M:%S.%f"
     },
     "academic_career": {
       "name": "academic_career",

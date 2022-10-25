@@ -23,12 +23,12 @@
     "check_in_time": {
       "name": "check_in_time",
       "type": "datetime",
-      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+      "date_format": "%Y-%m-%d %H:%M:%S"
     },
     "check_out_time": {
       "name": "check_out_time",
       "type": "datetime",
-      "date_format": "%Y-%m-%d HH:mm:ss.%f"
+      "date_format": "%Y-%m-%d %H:%M:%S"
     }
   },
   "primary_keys": [

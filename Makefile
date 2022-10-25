@@ -46,7 +46,7 @@ prepare_model_compare:
 			module_offer \
 			module_enrolment \
 			uci_gym \
-		--sample 5000
+		--sample 1000
 
 
 prepare_all_alset:

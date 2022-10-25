@@ -95,7 +95,10 @@ class ALSETProcessor(DatabaseProcessor):
             os.makedirs(output_dir, exist_ok=True)
             personal_data = pd.read_pickle(os.path.join(self._data_dir, 'personal_data.pkl'))
             selected_students = personal_data['student_token'].sample(sample)
-            if os.path.exists(os.path.join(self._data_dir, 'module_offer.pkl')):
+            if os.path.exists(os.path.join(self._data_dir, 'module_enrolment.pkl')):
+                module_enrolment = pd.read_pickle(os.path.join(self._data_dir, 'module_enrolment.pkl'))
+                selected_modules = module_enrolment['module_code'].drop_duplicates().sample(sample)
+            elif os.path.exists(os.path.join(self._data_dir, 'module_offer.pkl')):
                 module_offer = pd.read_pickle(os.path.join(self._data_dir, 'module_offer.pkl'))
                 selected_modules = module_offer['module_code'].sample(sample)
             for table_name in self._tables:

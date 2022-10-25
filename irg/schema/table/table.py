@@ -82,9 +82,7 @@ class Table:
         os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'attributes'), exist_ok=True)
 
-        print('before fitting attr')
         if attributes is None:
-            print('learning meta')
             if data is None:
                 raise ValueError('Data and attributes cannot both be `None` to create a table.')
             attributes = self.learn_meta(data, id_cols)
@@ -92,12 +90,6 @@ class Table:
         self._length = None
         self._attr_meta, self._id_cols = attributes, id_cols
         self._attributes = {}
-        # for attr_name, attr_meta in self._attr_meta.items():
-        # for attr_name, attr_meta in tqdm(self._attr_meta.items(),
-        #                                  desc=f'Construct attribute for {self._name}', total=len(self._attr_meta)):
-        #     print('prepare', attr_name, flush=True)
-        #     self._attributes[attr_name] = self._create_attribute(attr_name, attr_meta, need_fit, data)
-        #     print('done', attr_name, flush=True)
         self._attributes: Dict[str, BaseAttribute] = fast_map_dict(
             func=self._create_attribute,
             dictionary=self._attr_meta,
@@ -115,7 +107,6 @@ class Table:
         if need_fit and data is not None:
             self.fit(data, **kwargs)
 
-        print('fitted everything', flush=True)
         self._known_cols, self._unknown_cols, self._augment_fitted = [], [*self._attributes.keys()], False
         self._augmented_attributes: Dict[TwoLevelName, BaseAttribute] = {}
         self._degree_attributes: Dict[TwoLevelName, BaseAttribute] = {}
@@ -249,7 +240,6 @@ class Table:
         - `replace_attr` (`bool`): Whether to replace attribute content.
         """
         new_data.to_pickle(self._data_path())
-        print('saved to pickle', flush=True)
         self._length = len(new_data)
         if replace_attr:
             fast_map_dict(
@@ -257,12 +247,10 @@ class Table:
                 dictionary=self._attributes,
                 func_kwargs=dict(new_data=new_data)
             )
-        print('replaced by attr', flush=True)
 
     def _replace_data_by_attr(self, n: Union[str, TwoLevelName], attr: BaseAttribute, new_data: pd.DataFrame,
                               variant: Variant = 'original') -> int:
         if n in new_data:
-            print('replacing', n, flush=True)
             transformed = attr.transform(new_data[n])
             path_by_variant = {
                 'original': self._normalized_path,
@@ -422,7 +410,6 @@ class Table:
         - `degree_attributes` (`Dict[TwoLevelName, BaseAttribute]`): Attributes (typically fitted) of the degree
           table.
         """
-        print('!!!! augment', flush=True)
         self._known_cols = [col for (table, col) in degree_attributes if table == self._name]
         self._unknown_cols = [col for col in self._unknown_cols if col not in self._known_cols]
         if len(self._known_cols) > 0 and augmented_attributes:
@@ -430,15 +417,11 @@ class Table:
             sizes = degree.loc[:, groupby_cols].groupby(groupby_cols).size()
             degree = degree.merge(pd.DataFrame({('', 'degree'): sizes}), on=groupby_cols)
 
-        print('done perpaer', flush=True)
         augmented.to_pickle(self._augmented_path())
         degree.to_pickle(self._degree_path())
-        print('saved to pickle', augmented.shape, degree.shape, flush=True)
         self._augmented_ids, self._degree_ids = augmented_ids, degree_ids
         self._augmented_attributes, self._degree_attributes = augmented_attributes, degree_attributes
-        print('copied attr', flush=True)
         if len(self._known_cols) > 0:
-            print('before create', flush=True)
             deg_meta = {
                 'type': 'numerical',
                 'rounding': 0,
@@ -943,7 +926,8 @@ class SyntheticTable(Table):
             self._degree_attributes[('', 'degree')].transform(degrees),
             self._degree_normalized_path(('', 'degree'))
         )
-        augmented = degree_df.loc[degree_df.index.repeat(degree_df[('', 'degree')])]\
+        augmented = degree_df.loc[degree_df.index.repeat(degree_df[('', 'degree')]
+                                                         .apply(lambda x: x if x >= 0 else 0))]\
             .reset_index(drop=True)
         augmented.to_pickle(self._augmented_path())
         for (table, attr_name), attr in self._augmented_attributes.items():
