@@ -11,7 +11,7 @@ def countries(src: pd.DataFrame) -> pd.DataFrame:
 
 def age_gender(src: pd.DataFrame) -> pd.DataFrame:
     src = src.copy()
-    src.loc[:, 'year'] = src['year'].apply(lambda x: datetime(year=x, month=1, day=1))
+    src.loc[:, 'year'] = src['year'].apply(lambda x: datetime(year=int(x), month=1, day=1))
     return src
 
 

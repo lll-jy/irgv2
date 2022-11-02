@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import os
 import pickle
 import re
@@ -414,17 +415,18 @@ class Table:
         self._unknown_cols = [col for col in self._unknown_cols if col not in self._known_cols]
         if len(self._known_cols) > 0 and augmented_attributes:
             groupby_cols = [(self._name, col) for col in self._known_cols]
-            sizes = degree.loc[:, groupby_cols].groupby(groupby_cols).size()
-            degree = degree.merge(pd.DataFrame({('', 'degree'): sizes}), on=groupby_cols)
+            for group, data in augmented.groupby(groupby_cols, dropna=False):
+                degree.loc[(degree[groupby_cols] == group).all(axis=1).tolist(), ('', 'degree')] = len(data)
+            if ('', 'degree') in degree:
+                degree.loc[:, ('', 'degree')] = degree['', 'degree'].fillna(0)
 
         augmented.to_pickle(self._augmented_path())
         degree.to_pickle(self._degree_path())
         self._augmented_ids, self._degree_ids = augmented_ids, degree_ids
         self._augmented_attributes, self._degree_attributes = augmented_attributes, degree_attributes
-        if len(self._known_cols) > 0:
+        if len(self._known_cols) > 0 and ('', 'degree') in degree and not os.path.exists(self._degree_attr_path()):
             deg_meta = {
                 'type': 'numerical',
-                'rounding': 0,
                 'min_val': 0,
                 'name': 'degree'
             }
@@ -433,9 +435,8 @@ class Table:
                 values=degree.loc[:, ('', 'degree')],
                 temp_cache=self._degree_attr_path()
             )
-            print('done create', flush=True)
-        print('done attributes', flush=True)
 
+        # if augmented.shape[0] > 0:
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._augmented_attributes,
@@ -448,7 +449,6 @@ class Table:
             func_kwargs=dict(new_data=degree, variant='degree'),
             verbose_descr=f'Replacing degree {self._name}'
         )
-        print('updated attribute', flush=True)
         _LOGGER.debug(f'Augmented {self._name} has columns {augmented.columns.values}. '
                       f'The augmented table has {len(augmented)} rows, and degree table has {len(degree)} rows.')
         self._augment_fitted = True
@@ -618,15 +618,11 @@ class Table:
         if not normalize:
             data = data[[col for col in data.columns if col not in exclude_cols]]
         else:
-            if not normalized_by_attr:
-                raise ValueError()
             to_concat = {
                 n: pd_read_compressed_pickle(path_getter(n)) for n
                 in normalized_by_attr if n not in exclude_cols
             }
             data = pd.concat(to_concat, axis=1) if to_concat else pd.DataFrame()
-            if data.empty:
-                raise ValueError('hello this is empty', self._name, exclude_cols, [*normalized_by_attr])
         return data
 
     def is_independent(self):
@@ -702,9 +698,14 @@ class Table:
         unknown_set = set(unknown_cols)
         known_cols = [col for col in deg_data.columns.droplevel(2) if col not in unknown_set]
         known_data = deg_data[[(a, b, c) for a, b, c in deg_data.columns if (a, b) in known_cols]]
-        unknown_data = deg_data[[(a, b, c) for a, b, c in deg_data.columns if (a, b) in unknown_cols]]
-        cat_dims = self._degree_attributes[('', 'degree')].categorical_dimensions()
-        return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
+        if ('', 'degree') in deg_data:
+            unknown_data = deg_data['', 'degree']
+            unknown_data = convert_data_as(unknown_data, 'torch')
+            cat_dims = self._degree_attributes[('', 'degree')].categorical_dimensions()
+        else:
+            unknown_data = torch.zeros(len(known_data), 0)
+            cat_dims = []
+        return convert_data_as(known_data, 'torch'), unknown_data, cat_dims
 
     def save(self, path: str):
         """
@@ -801,12 +802,10 @@ class SyntheticTable(Table):
 
         **Return**: The constructed synthetic table.
         """
-        print('before')
         synthetic = SyntheticTable(name=table._name, ttype=table._ttype, need_fit=False,
                                    id_cols={*table._id_cols}, attributes=table._attr_meta,
                                    determinants=table._determinants, formulas=table._formulas,
                                    temp_cache=temp_cache if temp_cache is not None else table._temp_cache)
-        print('end, then copy', flush=True)
         synthetic._fitted, synthetic._augment_fitted = table._fitted, table._augment_fitted
         synthetic._attributes = table._attributes
         synthetic._real_cache = table._temp_cache
@@ -815,6 +814,16 @@ class SyntheticTable(Table):
         synthetic._degree_attributes = table._degree_attributes
         synthetic._augmented_ids, synthetic._degree_ids = table._augmented_ids, table._degree_ids
         return synthetic
+
+    def update_augmented(self, augmented: pd.DataFrame):
+        """
+        Update augmented table.
+
+        **Args**:
+
+        - `augmented` (`pd.DataFrame`): new augmented table.
+        """
+        augmented.to_pickle(self._augmented_path())
 
     def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
         """
@@ -848,13 +857,10 @@ class SyntheticTable(Table):
         for col in self._core_cols:
             attribute = self._attributes[col]
             if col in normalized_core:
-                print('directly inverse', col, self._name)
                 recovered = attribute.inverse_transform(normalized_core[col])
             elif col in self._known_cols:
-                print('directly get from augmented', col, self._name)
                 recovered = augmented_df[(self._name, col)]
             else:
-                print('generate', col, self._name)
                 assert isinstance(attribute, SerialIDAttribute), f'Column cannot be recovered directly must be IDs. ' \
                                                                  f'Got {type(attribute)}.'
                 recovered = attribute.generate(len(normalized_core))
@@ -879,7 +885,7 @@ class SyntheticTable(Table):
                     json.dump(describer[grp_name], f)
                     f.close()
                 generator.generate_dataset_in_correlated_attribute_mode(len(data), f'{tempfile_name}.json')
-                generated: pd.DataFrame = generator.synthetic_dataset.drop(columns=[':dummy'])\
+                generated: pd.DataFrame = generator.synthetic_dataset.drop(columns=[':dummy']) \
                     .set_axis(list(data.index)).applymap(lambda x: x[1:], na_action='ignore')
                 for col in data.columns:
                     nan_val = self._attributes[col].fill_nan_val
@@ -905,9 +911,6 @@ class SyntheticTable(Table):
                     )
             self._length = len(recovered_df)
 
-        if 'student_token' in recovered_df:
-            print('recovered student token:')
-            print(recovered_df['student_token'].head())
         return recovered_df
 
     def assign_degrees(self, degrees: pd.Series):
@@ -919,16 +922,16 @@ class SyntheticTable(Table):
         - `degrees` (`pd.Series`): The degrees to be assigned.
         """
         degree_df = pd.read_pickle(self._degree_path())
-        print('======== assigned degrees has degree known', degree_df.columns)
-        print(degree_df.head())
         degree_df[('', 'degree')] = degrees
         pd_to_pickle(
             self._degree_attributes[('', 'degree')].transform(degrees),
             self._degree_normalized_path(('', 'degree'))
         )
-        augmented = degree_df.loc[degree_df.index.repeat(degree_df[('', 'degree')]
-                                                         .apply(lambda x: x if x >= 0 else 0))]\
-            .reset_index(drop=True)
+        augmented = pd.DataFrame(columns=degree_df.columns)
+        for i, row in degree_df.iterrows():
+            for _ in range(row[('', 'degree')]):
+                augmented.loc[len(augmented)] = row
+        augmented = augmented.drop(columns=[('', 'degree')])
         augmented.to_pickle(self._augmented_path())
         for (table, attr_name), attr in self._augmented_attributes.items():
             if (table, attr_name) not in augmented.columns:
@@ -938,7 +941,8 @@ class SyntheticTable(Table):
         self._fitted = True
         self._length = len(augmented)
 
-    def inverse_transform_degrees(self, degree_tensor: Tensor, scale: float = 1) -> pd.Series:
+    def inverse_transform_degrees(self, degree_tensor: Tensor, scale: float = 1, expected_size: Optional[int] = None) \
+            -> pd.Series:
         """
         Inversely transform degree predictions to a series of integers.
 
@@ -946,11 +950,46 @@ class SyntheticTable(Table):
 
         - `degree_tensor` (`torch.Tensor`): The raw prediction of degree as a tensor.
         - `scale` (`float`): Scaling factor of the generated degrees. Default is 1.
+        - `expected_size` (`Optional[int]`): Expected sum of generated degrees.
 
         **Return**: Recovered degrees.
         """
+        print('this is new deg gen')
+        self._degree_attributes[('', 'degree')]._rounding = None  # TODO: change meta of deg
         degrees = self._degree_attributes[('', 'degree')].inverse_transform(degree_tensor)
-        degrees = degrees.apply(lambda x: max(0, round(x * scale)))
+        degrees = degrees.apply(lambda x: max(0, x * scale))
+        if len(degrees) == 0:
+            return degrees
+        l, r = expected_size * 0.9, expected_size * 1.1
+        threshold, in_range = 0.5, False
+        ceil, floor = degrees.apply(math.ceil), degrees.apply(int)
+        print('expected in this round is', expected_size, flush=True)
+        if floor.sum() <= l <= ceil.sum() or floor.sum() <= r <= ceil.sum() or l <= floor.sum() <= ceil.sum() <= r:
+            print('in middle branch', flush=True)
+            while True:
+                predicted_len = degrees.apply(lambda x: int(x + threshold)).sum()
+                if predicted_len < l:
+                    threshold = (threshold + 1) / 2
+                elif predicted_len > r:
+                    threshold = threshold / 2
+                else:
+                    break
+            degrees = degrees.apply(lambda x: int(x + threshold))
+        elif floor.sum() > r:
+            print('i need to be smaller', flush=True)
+            degrees = degrees.apply(int)
+            n_rm = degrees.sum() - round(r)
+            while n_rm > 0 and degrees.sum() > 0:
+                idx = np.random.choice(degrees[degrees > 0].index)
+                print('take', idx, 'remain', n_rm, flush=True,)
+                if degrees[idx] > 0:
+                    degrees[idx] -= 1
+                    n_rm -= 1
+        elif ceil.sum() < l:
+            degrees = degrees.apply(math.ceil)
+            idx = np.random.randint(0, len(degrees)-1, round(l) - degrees.sum())
+            for i in idx:
+                degrees[i] += 1
         return degrees
 
     def update_deg_and_aug(self):
@@ -960,11 +999,8 @@ class SyntheticTable(Table):
         degree_df = pd.read_pickle(self._degree_path())
         augmented_df = pd.read_pickle(self._augmented_path())
         data = pd.concat({self._name: self.data()}, axis=1)
-        print('^^ self data', data.columns.tolist())
-        print('^^ gere deg', degree_df.columns.tolist())
-        print('^^ here aug', degree_df.columns.tolist())
-        degree_df = data.merge(degree_df, how='outer')
-        augmented_df = data.merge(augmented_df.drop(columns=[('', 'degree')]), how='left')
+        degree_df = data.merge(degree_df, how='left')
+        dropped_aug = augmented_df.drop(columns=[('', 'degree')]) if ('', 'degree') in augmented_df else augmented_df
+        augmented_df = data.merge(dropped_aug, how='left')
         degree_df.to_pickle(self._degree_path())
         augmented_df.to_pickle(self._augmented_path())
-        print('&&&&& updated aug', self._name, augmented_df.columns.tolist())

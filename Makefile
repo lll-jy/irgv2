@@ -64,6 +64,16 @@ prepare_table_alset:
             personal_data \
         --sample 50
 
+
+prepare_airbnb:
+	python3.9 process.py database airbnb \
+		--src_data_dir examples/data${OUT_SUFFIX}/airbnb \
+		--data_dir ${BASE_DIR}/data${OUT_SUFFIX}/airbnb/processed \
+		--meta_dir examples/airbnb/metadata/results \
+		--out ${BASE_DIR}/data${OUT_SUFFIX}/airbnb/airbnb_db_config.json \
+		--redo_meta --redo_data \
+		--sample 10000
+
 prepare_single:
 	python3.9 process.py database ${SINGLE_NAME} \
 		--src_data_dir examples/data${OUT_SUFFIX}/${SINGLE_NAME} \

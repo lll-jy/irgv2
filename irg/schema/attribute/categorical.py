@@ -96,8 +96,8 @@ class CategoricalTransformer(BaseTransformer):
                 _LOGGER.warning(f'Categorical value {value} is OOV.')
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
-        cat_ids = data.copy().set_axis([*range(data.shape[1])], axis=1).idxmax(axis=1)
-        return cat_ids.apply(lambda x: self._id2label[x])
+        cat_ids = data.fillna(0).copy().set_axis([*range(data.shape[1])], axis=1).idxmax(axis=1)
+        return cat_ids.apply(lambda x: self.fill_nan_val if pd.isnull(x) else self._id2label[x])
 
     def set_categories(self, labels: Collection):
         """

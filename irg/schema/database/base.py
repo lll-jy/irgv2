@@ -459,7 +459,7 @@ class SyntheticDatabase(Database, ABC):
         return syn_db
 
     @abstractmethod
-    def degree_known_for(self, table_name: str) -> Tensor:
+    def degree_known_for(self, table_name: str) -> (Tensor, int):
         """
         Get known tensor for degree generation.
 
@@ -467,7 +467,7 @@ class SyntheticDatabase(Database, ABC):
 
         - `table_name` (`str`): The name of degree table to get.
 
-        **Return**: The degree model known part from already generated part.
+        **Return**: The degree model known part from already generated part; and expected sum of degrees in this call.
         """
         raise NotImplementedError()
 
@@ -499,3 +499,9 @@ class SyntheticDatabase(Database, ABC):
         synthetic_table = SyntheticTable.from_real(real_result)
         synthetic_table.replace_data(synthetic_result.data())
         return synthetic_table
+
+    def save_dummy(self, table_name: str, table: Table):
+        self[table_name] = table
+
+    def deg_finished(self, table_name: str) -> bool:
+        return True

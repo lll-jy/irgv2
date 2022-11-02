@@ -106,26 +106,31 @@ class NumericalTransformer(BaseTransformer):
         pd_to_pickle(transformed, self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
-        scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))
-        means = self._bgm_transformer.means_.reshape((1, self._max_clusters))
+        if len(nan_info) > 0:
+            scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))
+            means = self._bgm_transformer.means_.reshape((1, self._max_clusters))
 
-        stds = np.sqrt(self._bgm_transformer.covariances_).reshape((1, self._max_clusters))
-        normalized_values = (scaled - means) / (self._std_multiplier * stds)
-        normalized_values = normalized_values[:, self._valid_component_indicator]
-        component_probs = self._bgm_transformer.predict_proba(scaled)
-        component_probs = component_probs[:, self._valid_component_indicator]
+            stds = np.sqrt(self._bgm_transformer.covariances_).reshape((1, self._max_clusters))
+            normalized_values = (scaled - means) / (self._std_multiplier * stds)
+            normalized_values = normalized_values[:, self._valid_component_indicator]
+            component_probs = self._bgm_transformer.predict_proba(scaled)
+            component_probs = component_probs[:, self._valid_component_indicator]
 
-        selected_component = np.zeros(len(scaled), dtype='int')
-        for i in range(len(scaled)):
-            component_prob_t = component_probs[i] + 1e-6
-            component_prob_t = component_prob_t / component_prob_t.sum()
-            selected_component[i] = np.random.choice(
-                np.arange(self._valid_component_indicator.sum()),
-                p=component_prob_t
-            )
+            selected_component = np.zeros(len(scaled), dtype='int')
+            for i in range(len(scaled)):
+                component_prob_t = component_probs[i] + 1e-6
+                component_prob_t = component_prob_t / component_prob_t.sum()
+                selected_component[i] = np.random.choice(
+                    np.arange(self._valid_component_indicator.sum()),
+                    p=component_prob_t
+                )
+            aranged = np.arange(len(scaled))
+            normalized = normalized_values[aranged, selected_component].reshape([-1, 1])
+        else:
+            scaled = np.vstack([nan_info['original'].to_numpy()])
+            selected_component = np.zeros(len(scaled), dtype='int')
+            normalized = np.zeros((0, 2))
 
-        aranged = np.arange(len(scaled))
-        normalized = normalized_values[aranged, selected_component].reshape([-1, 1])
         normalized = normalized[:, 0]
 
         selected_component = pd.Series(selected_component, dtype='str')
@@ -140,7 +145,10 @@ class NumericalTransformer(BaseTransformer):
 
         rows = [normalized.reshape(len(normalized), 1), selected_component.to_numpy()]
         col_names = ['value'] + [f'cluster_{i}' for i in range(self._clusters)]
-        result = pd.DataFrame(np.hstack(rows), columns=col_names)
+        if len(normalized) == 0:
+            result = pd.DataFrame(columns=col_names)
+        else:
+            result = pd.DataFrame(np.hstack(rows), columns=col_names)
         result.insert(0, 'is_nan', nan_info['is_nan'])
         return result.fillna(0).astype('float32')
 
@@ -162,9 +170,12 @@ class NumericalTransformer(BaseTransformer):
         mean_t = means[self._valid_component_indicator][selected_component]
         reversed_data = normalized * self._std_multiplier * std_t + mean_t
 
-        reversed_data = self._minmax_scaler \
-            .inverse_transform(pd.DataFrame(reversed_data.values.reshape(len(reversed_data), 1)))
-        reversed_data = pd.Series(reversed_data[:, 0])
+        if len(reversed_data) > 0:
+            reversed_data = self._minmax_scaler \
+                .inverse_transform(pd.DataFrame(reversed_data.values.reshape(len(reversed_data), 1)))
+            reversed_data = pd.Series(reversed_data[:, 0])
+        else:
+            reversed_data = pd.Series()
         return reversed_data.apply(self._round_minmax)
 
     def _round_minmax(self, v):

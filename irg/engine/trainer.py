@@ -49,21 +49,17 @@ def train(database: Database, do_train: bool,
     for name, table in database.tables():
         table = Table.load(table)
         if table.ttype == 'base':
-            print('skipped', name)
             continue
-        print(f'start for {name}')
         tabular_known, tabular_unknown, cat_dims = table.ptg_data()
         tabular_known, tabular_unknown = tabular_known.float(), tabular_unknown.float()
         tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
                                             tab_trainer_args[name], tab_train_args[name], name)
         _LOGGER.debug(f'Loaded tabular model for {name}.')
-        print(f'Loaded tabular model for {name}.')
         if not table.is_independent():
             deg_known, deg_unknown, cat_dims = table.deg_data()
             deg_models[name] = _train_model(deg_known, deg_unknown, cat_dims, do_train,
                                             deg_trainer_args[name], deg_train_args[name], name)
             _LOGGER.debug(f'Loaded degree model for {name}.')
-            print(f'Loaded degree model for {name}.')
 
     return tabular_models, deg_models
 

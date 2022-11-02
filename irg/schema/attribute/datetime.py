@@ -53,9 +53,13 @@ class DatetimeTransformer(NumericalTransformer):
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         nan_info = nan_info.copy()
-        nan_info['original'] = nan_info['original'].apply(
-            lambda x: x if pd.isnull(x) or isinstance(x, numbers.Number) else x.toordinal()
-        ).astype('float32')
+        if len(nan_info) > 0:
+            nan_info['original'] = nan_info['original'].apply(
+                lambda x: x if pd.isnull(x) or not isinstance(x, datetime) else datetime.toordinal(x)
+            ).astype('float32')
+        else:
+            nan_info.loc[:, 'original'] = 0
+            nan_info['original'] = nan_info['original'].astype('float32')
         return super()._transform(nan_info)
 
     def _datetime_round(self, x):

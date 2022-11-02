@@ -325,7 +325,12 @@ class CTGANTrainer(TabularTrainer):
 
         for known, unknown, fakez, c1, perm in zip(disc_in_known, disc_in_unknown, disc_in_fakez,
                                                    disc_in_c, disc_in_perm):
-            print('is nan??', known.isnan().sum(), unknown.isnan().sum())
+            if known.shape[0] == 1:
+                known = torch.cat([known, known])
+                unknown = torch.cat([unknown, unknown])
+                fakez = torch.cat([fakez, fakez])
+                c1 = torch.cat([c1, c1])
+                perm = torch.cat([perm, perm])
             with torch.cuda.amp.autocast(enabled=enable_autocast):
                 known = self._make_context(known)
                 real_cat = torch.cat([known, c1, unknown], dim=1)[perm]
@@ -360,6 +365,11 @@ class CTGANTrainer(TabularTrainer):
                             do_zero_grad=False, do_backward=False)
 
         with torch.cuda.amp.autocast(enabled=enable_autocast):
+            if gen_in_known.shape[0] == 1:
+                gen_in_known = torch.cat([gen_in_known, gen_in_known])
+                gen_in_unknown = torch.cat([gen_in_unknown, gen_in_unknown])
+                gen_in_fakez = torch.cat([gen_in_fakez, gen_in_fakez])
+                gen_cond = torch.cat([gen_cond, gen_cond])
             gen_in_known = self._make_context(gen_in_known)
             real_cat = torch.cat([gen_in_known, gen_cond, gen_in_unknown], dim=1)
             fake = self._generator(torch.cat([gen_in_fakez, gen_cond, gen_in_known], dim=1))
@@ -477,6 +487,7 @@ class CTGANTrainer(TabularTrainer):
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
+        print('start inference', known.shape, self._unknown_dim, self._known_dim, flush=True)
         dataloader = self._make_infer_dataloader(known, batch_size, False)
         autocast = torch.cuda.is_available() and self._autocast
         if is_main_process():
@@ -488,6 +499,12 @@ class CTGANTrainer(TabularTrainer):
         self._discriminator.eval()
         for step, batch in enumerate(dataloader):
             known_batch, fakez, condvec = [x.to(self._device) for x in batch]
+            is_single = False
+            if known_batch.shape[0] == 1:
+                is_single = True
+                known_batch = torch.cat([known_batch, known_batch], dim=1)
+                fakez = torch.cat([fakez, fakez], dim=1)
+                condvec = torch.cat([condvec, condvec], dim=1)
             with torch.cuda.amp.autocast(enabled=autocast):
                 known = self._make_context(known_batch)
                 fake = self._generator(torch.cat([fakez, condvec, known], dim=1))
@@ -496,10 +513,16 @@ class CTGANTrainer(TabularTrainer):
                 fake_cat_full = self._make_full_pac(fake_cat)
                 y_fake = self._discriminator(fake_cat_full)
                 y_fake = y_fake.repeat(self._pac, 1).permute(1, 0).flatten()[:fake_cat.shape[0]]
-                fakes.append(fake_cat)
-                y_fakes.append(y_fake)
+                if is_single:
+                    fakes.append(fake_cat[:1])
+                    y_fakes.append(y_fake[:1])
+                else:
+                    fakes.append(fake_cat)
+                    y_fakes.append(y_fake)
         self._generator.train()
         self._discriminator.train()
-        out_fake = torch.cat(fakes)
+        out_fake = torch.cat(fakes) if len(fakes) > 0 else \
+            torch.zeros(0, self._known_dim + self._cond_dim + self._unknown_dim)
+        out_y = torch.cat(y_fakes) if len(y_fakes) > 0 else torch.zeros(0)
 
-        return CTGANOutput(out_fake, torch.cat(y_fakes))
+        return CTGANOutput(out_fake, out_y)

@@ -42,7 +42,7 @@ class AirbnbProcessor(DatabaseProcessor):
         Arguments to `DatabaseProcessor`.
         If tables is not specified, all recognized tables are processed.
         """
-        if tables is None:
+        if tables is None or len(tables) == 0:
             tables = [*AIRBNB_PROCESSORS]
         super().__init__('airbnb', src_data_dir, data_dir, meta_dir, tables, out)
 
@@ -64,7 +64,7 @@ class AirbnbProcessor(DatabaseProcessor):
 
     def postprocess(self, output_dir: Optional[str] = None, sample: Optional[int] = None):
         if sample is not None:
-            if 'personal_data' not in self._tables:
+            if 'users' not in self._tables:
                 raise ValueError('Cannot sample ALSET database without personal data table.')
             if output_dir is None:
                 raise ValueError('Cannot sample without specifying output directory.')

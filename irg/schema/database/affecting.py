@@ -4,6 +4,7 @@ All tables affecting the table are taken into account when generating it.
 Please refer to [the paper](TODO: link) for detailed definition of `affect`.
 """
 import logging
+import math
 import os.path
 from collections import defaultdict
 from typing import Any, DefaultDict, List, Set, Tuple, Dict, Optional
@@ -15,7 +16,7 @@ import torch
 from sklearn.decomposition import PCA
 from torch import Tensor
 
-from ..table import Table, SyntheticTable
+from ..table import Table
 from ..attribute import BaseAttribute, RawAttribute
 from .base import Database, SyntheticDatabase, ForeignKey
 
@@ -123,16 +124,34 @@ class AffectingDatabase(Database):
             self._augment_table(name, table)
             table.save(path)
 
-    def _augment_table(self, name: str, table: Table, row_range: (int, int) = (0, np.inf)):
-        foreign_keys = self._foreign_keys[name]
+    def _augment_table(self, name: str, table: Table, row_range: (int, int) = (0, np.inf), aug: bool = True) -> int:
         augmented = pd.concat({name: table.data()}, axis=1)
         l, r = row_range
         if r == np.inf:
             r = len(augmented)
         augmented = augmented.iloc[l:r]
+        r = len(augmented) + l
         degree = augmented.copy()
-        # print('start aug', augmented[(name, 'student_token')].head())
-        # print(' this table ', name, 'knows', table._known_cols, self[name]._known_cols)
+        foreign_keys = self._foreign_keys[name]
+        deg_cols = []
+        deg_empty = pd.DataFrame()
+        for fk in foreign_keys:
+            new_df = self[fk.parent].data()[[col for _, col in fk.ref]] \
+                .rename(columns={pc: mc for mc, pc in fk.ref})
+            deg_cols += [*new_df.columns]
+            if aug:
+                if deg_empty.empty:
+                    deg_empty = new_df
+                else:
+                    deg_empty = deg_empty.merge(new_df, how='cross')
+        degree = degree[[(name, col) for col in deg_cols]].drop_duplicates().reset_index(drop=True)
+        if aug and not deg_empty.empty:
+            deg_empty = deg_empty.merge(degree[name], how='left', indicator=True, on=deg_cols)
+            deg_empty = deg_empty[deg_empty['_merge'] == 'left_only'].drop(columns=['_merge'])
+            deg_empty = deg_empty.sample(min(len(deg_empty), 5 * len(degree)))
+            deg_empty = pd.concat({name: deg_empty}, axis=1)
+            degree = pd.concat([degree, deg_empty])
+
         id_cols, attributes, fk_cols, fk_attr = set(), {}, set(), {}
         for i, foreign_key in enumerate(foreign_keys):
             parent_name = foreign_key.parent
@@ -144,7 +163,7 @@ class AffectingDatabase(Database):
             left = foreign_key.left
             right = [(prefix, col) for _, col in foreign_key.right]
             augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
-            degree = degree.merge(data, how='outer', left_on=left, right_on=right)
+            degree = degree.merge(data, how='left', left_on=left, right_on=right)
 
             id_cols |= {(prefix, col) for col in new_ids}
             attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
@@ -173,6 +192,7 @@ class AffectingDatabase(Database):
             augmented_ids=aug_id_cols | id_cols, degree_ids=deg_id_cols | id_cols,
             augmented_attributes=aug_attr | attributes, degree_attributes=deg_attr | attributes
         )
+        return r - l
 
     def _descendant_joined(self, curr_name: str, parent_name: str) -> \
             Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
@@ -204,11 +224,16 @@ class AffectingDatabase(Database):
                 desc_agg_reduced[col_to_join] = desc_agg[col_to_join]
                 desc_agg = desc_agg_reduced
                 _LOGGER.info(f'Fitted PCA to reduce dimension for context from descendant of {parent_name}.')
-            desc_agg = desc_agg.set_axis([f'desc{i}:{foreign_key.child}/{c}{":" if n else ""}{n}' for c, n in desc_agg.columns], axis=1)
+            desc_agg = desc_agg.set_axis(
+                [f'desc{i}:{foreign_key.child}/{c}{":" if n else ""}{n}' for c, n in desc_agg.columns], axis=1)
             col_to_join = [f'desc{i}:{foreign_key.child}/{c}' for c in col_to_join]
-            data = data.merge(desc_agg, how='inner',
+            data = data.merge(desc_agg, how='left',
                               left_on=[col for _, col in foreign_key.right],
                               right_on=col_to_join).drop(columns=col_to_join)
+            for c in desc_agg.columns:
+                if c in col_to_join:
+                    continue
+                data.loc[:, c] = data[c].fillna(0 if pd.isnull(desc_agg[c].mean()) else desc_agg[c].mean())
 
             col_to_join = set(col_to_join)
             for col in desc_agg.columns:
@@ -245,40 +270,51 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._used = defaultdict(int)
-        self._total_groups = defaultdict(int)
 
-    def _temp_deg_potential(self, table_name: str):
+    def _temp_table_path(self, table_name) -> str:
         os.makedirs(os.path.join(self._temp_cache, 'temp_deg'), exist_ok=True)
-        os.makedirs(os.path.join(self._temp_cache, 'temp_deg', table_name), exist_ok=True)
-        return os.path.join(self._temp_cache, 'temp_deg', table_name)
+        return os.path.join(self._temp_cache, 'temp_deg', f'{table_name}.pt')
 
-    def degree_known_for(self, table_name: str) -> Optional[Tensor]:
-        if self._used[table_name] >= self._total_groups[table_name] and self._used[table_name] > 0:
-            return None
-        if self._used[table_name] == 0 and not os.path.exists(
-                os.path.join(self._temp_deg_potential(table_name), f'set{self._used[table_name]}.pt')):
-            table = self[table_name]
+    def degree_known_for(self, table_name: str) -> (Tensor, int):
+        table = self[table_name]
+        if not os.path.exists(self._temp_table_path(table_name)):
             foreign_keys = self._foreign_keys[table_name]
 
             df = pd.DataFrame()
             for fk in foreign_keys:
-                new_df = self[fk.parent].data()[[col for _, col in fk.ref]]\
+                new_df = self[fk.parent].data()[[col for _, col in fk.ref]] \
                     .rename(columns={pc: mc for mc, pc in fk.ref})
-                new_df.loc[len(new_df)] = [np.nan for _ in fk.ref]
                 if df.empty:
                     df = new_df
                 else:
                     df = df.merge(new_df, how='cross')
-            table.augment(df, df, set(), set(), {}, {})
-            table.replace_data(df, False)
-            for i in range(0, len(df), 100000):
-                self._augment_table(table_name, table, (i, i+100000))
-                deg, _, _ = table.deg_data()
-                torch.save(deg, os.path.join(self._temp_deg_potential(table_name), f'set{i//100000}.pt'))
-                self._total_groups[table_name] += 1
-            self._used[table_name] = 1
-            return torch.load(os.path.join(self._temp_deg_potential(table_name), 'set0.pt'))
-        res = torch.load(os.path.join(self._temp_deg_potential(table_name), f'set{self._used[table_name]}.pt'))
-        self._used[table_name] += 1
-        return res
+            torch.save(df, self._temp_table_path(table_name))
+        else:
+            df = torch.load(self._temp_table_path(table_name))
+        table.augment(df, df, set(), set(), {}, {})
+        table.replace_data(df, False)
 
+        base = (self._used[table_name] - 1) * 100000
+        size = self._augment_table(table_name, table, (base, base+100000), False)
+        deg, _, _ = table.deg_data()
+        real_size = len(self._real[table_name].data())
+        print('i get from??', table_name, size, len(df), real_size, flush=True)
+        return deg, size / len(df) * real_size
+
+    def deg_finished(self, table_name: str) -> bool:
+        if not os.path.exists(self._temp_table_path(table_name)):
+            self._used[table_name] += 1
+            return False
+        base = self._used[table_name] * 100000
+        df = torch.load(self._temp_table_path(table_name))
+        self._used[table_name] += 1
+        return base > len(df)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self._augment_table(key, value)
+        aug_df = pd.read_pickle(self[key]._augmented_path())
+        cols = [col for col in aug_df.columns if 'student_token' in col or 'module_code' in col]
+
+    def save_dummy(self, table_name: str, table: Table):
+        super().__setitem__(table_name, table)
