@@ -1,0 +1,86 @@
+{
+  "id_cols": [
+    "id"
+  ],
+  "attributes": {
+    "id": {
+      "name": "id",
+      "type": "id"
+    },
+    "date_account_created": {
+      "name": "date_account_created",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "timestamp_first_active": {
+      "name": "timestamp_first_active",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d %H:%M:%S.%f"
+    },
+    "date_first_booking": {
+      "name": "date_first_booking",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "gender": {
+      "name": "gender",
+      "type": "categorical"
+    },
+    "age": {
+      "name": "age",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "signup_method": {
+      "name": "signup_method",
+      "type": "categorical"
+    },
+    "signup_flow": {
+      "name": "signup_flow",
+      "type": "categorical"
+    },
+    "language": {
+      "name": "language",
+      "type": "categorical"
+    },
+    "affiliate_channel": {
+      "name": "affiliate_channel",
+      "type": "categorical"
+    },
+    "affiliate_provider": {
+      "name": "affiliate_provider",
+      "type": "categorical"
+    },
+    "first_affiliate_tracked": {
+      "name": "first_affiliate_tracked",
+      "type": "categorical"
+    },
+    "signup_app": {
+      "name": "signup_app",
+      "type": "categorical"
+    },
+    "first_device_type": {
+      "name": "first_device_type",
+      "type": "categorical"
+    },
+    "first_browser": {
+      "name": "first_browser",
+      "type": "categorical"
+    },
+    "country_destination": {
+      "name": "country_destination",
+      "type": "categorical"
+    }
+  },
+  "primary_keys": [
+    "id"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "country_destination"
+      ],
+      "parent": "countries"
+    }
+  ]
+}

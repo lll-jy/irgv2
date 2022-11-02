@@ -487,7 +487,6 @@ class CTGANTrainer(TabularTrainer):
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
-        print('start inference', known.shape, self._unknown_dim, self._known_dim, flush=True)
         dataloader = self._make_infer_dataloader(known, batch_size, False)
         autocast = torch.cuda.is_available() and self._autocast
         if is_main_process():

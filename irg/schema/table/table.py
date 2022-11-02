@@ -963,9 +963,7 @@ class SyntheticTable(Table):
         l, r = expected_size * 0.9, expected_size * 1.1
         threshold, in_range = 0.5, False
         ceil, floor = degrees.apply(math.ceil), degrees.apply(int)
-        print('expected in this round is', expected_size, flush=True)
         if floor.sum() <= l <= ceil.sum() or floor.sum() <= r <= ceil.sum() or l <= floor.sum() <= ceil.sum() <= r:
-            print('in middle branch', flush=True)
             while True:
                 predicted_len = degrees.apply(lambda x: int(x + threshold)).sum()
                 if predicted_len < l:
@@ -976,12 +974,10 @@ class SyntheticTable(Table):
                     break
             degrees = degrees.apply(lambda x: int(x + threshold))
         elif floor.sum() > r:
-            print('i need to be smaller', flush=True)
             degrees = degrees.apply(int)
             n_rm = degrees.sum() - round(r)
             while n_rm > 0 and degrees.sum() > 0:
                 idx = np.random.choice(degrees[degrees > 0].index)
-                print('take', idx, 'remain', n_rm, flush=True,)
                 if degrees[idx] > 0:
                     degrees[idx] -= 1
                     n_rm -= 1
