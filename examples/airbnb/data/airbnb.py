@@ -6,7 +6,10 @@ import pandas as pd
 
 
 def countries(src: pd.DataFrame) -> pd.DataFrame:
-    return src.copy()
+    src = src.copy()
+    src.loc[len(src), 'country_destination'] = 'other'
+    src.loc[len(src), 'country_destination'] = 'NDF'
+    return src
 
 
 def age_gender(src: pd.DataFrame) -> pd.DataFrame:

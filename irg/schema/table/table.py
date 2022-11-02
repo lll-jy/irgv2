@@ -436,7 +436,6 @@ class Table:
                 temp_cache=self._degree_attr_path()
             )
 
-        # if augmented.shape[0] > 0:
         fast_map_dict(
             func=self._replace_data_by_attr,
             dictionary=self._augmented_attributes,
@@ -954,7 +953,6 @@ class SyntheticTable(Table):
 
         **Return**: Recovered degrees.
         """
-        print('this is new deg gen')
         self._degree_attributes[('', 'degree')]._rounding = None  # TODO: change meta of deg
         degrees = self._degree_attributes[('', 'degree')].inverse_transform(degree_tensor)
         degrees = degrees.apply(lambda x: max(0, x * scale))

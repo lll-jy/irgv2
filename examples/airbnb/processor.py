@@ -64,13 +64,19 @@ class AirbnbProcessor(DatabaseProcessor):
 
     def postprocess(self, output_dir: Optional[str] = None, sample: Optional[int] = None):
         if sample is not None:
+            countries = pd.read_pickle(os.path.join(self._data_dir, 'countries.pkl'))
+            countries.to_pickle(os.path.join(output_dir, 'countries.pkl'))
+            age_gender = pd.read_pickle(os.path.join(self._data_dir, 'age_gender.pkl'))
+            age_gender.to_pickle(os.path.join(output_dir, 'age_gender.pkl'))
             if 'users' not in self._tables:
                 raise ValueError('Cannot sample ALSET database without personal data table.')
             if output_dir is None:
                 raise ValueError('Cannot sample without specifying output directory.')
             os.makedirs(output_dir, exist_ok=True)
-            users = pd.read_table(os.path.join(self._data_dir, 'users.pkl'))
+            users = pd.read_pickle(os.path.join(self._data_dir, 'users.pkl'))
             selected_users = users['id'].sample(sample)
+            users = users[users['id'].isin(selected_users)].reset_index(drop=True)
+            users.to_pickle(os.path.join(output_dir, 'users.pkl'))
             if 'sessions' in self._tables:
                 sessions = pd.read_pickle(os.path.join(self._data_dir, 'sessions.pkl'))
                 sessions = sessions[sessions['user_id'].isin(selected_users)].reset_index(drop=True)

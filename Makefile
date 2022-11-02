@@ -70,7 +70,7 @@ prepare_airbnb:
 		--src_data_dir examples/data${OUT_SUFFIX}/airbnb \
 		--data_dir ${BASE_DIR}/data${OUT_SUFFIX}/airbnb/processed \
 		--meta_dir examples/airbnb/metadata/results \
-		--out ${BASE_DIR}/data${OUT_SUFFIX}/airbnb/airbnb_db_config.json \
+		--out ${BASE_DIR}/data${OUT_SUFFIX}/airbnb/processed_db_config.json \
 		--redo_meta --redo_data \
 		--sample 10000
 

@@ -114,6 +114,6 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularT
     syn_table.update_augmented(augmented)
 
     output = tab_trainer.inference(known_tab, tab_batch_size).output[:, -tab_trainer.unknown_dim:].cpu()
-    recovered = syn_table.inverse_transform(output, replace_content=True)
+    syn_table.inverse_transform(output, replace_content=True)
     syn_table.update_deg_and_aug()
     return syn_table
