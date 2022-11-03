@@ -1,0 +1,3 @@
+"""
+Degree generation framework.
+"""

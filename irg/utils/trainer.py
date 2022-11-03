@@ -302,7 +302,7 @@ class Trainer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
+    def inference(self, known: Tensor, batch_size: int = 500) -> InferenceOutput:
         """
         Infer using the trained model.
 
