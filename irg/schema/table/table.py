@@ -853,7 +853,7 @@ class SyntheticTable(Table):
             augmented_df = pd.DataFrame()
 
         recovered_df = pd.DataFrame()
-        for col in self._core_cols:
+        for col in tqdm(self._core_cols, desc=f'Inversely transform core {self._name}', total=len(self._core_cols)):
             attribute = self._attributes[col]
             if col in normalized_core:
                 recovered = attribute.inverse_transform(normalized_core[col])
@@ -926,13 +926,12 @@ class SyntheticTable(Table):
             self._degree_attributes[('', 'degree')].transform(degrees),
             self._degree_normalized_path(('', 'degree'))
         )
-        augmented = pd.DataFrame(columns=degree_df.columns)
-        for i, row in degree_df.iterrows():
-            for _ in range(row[('', 'degree')]):
-                augmented.loc[len(augmented)] = row
+        augmented = degree_df.loc[degree_df.index.repeat(degree_df[('', 'degree')])].reset_index(drop=True)
         augmented = augmented.drop(columns=[('', 'degree')])
         augmented.to_pickle(self._augmented_path())
-        for (table, attr_name), attr in self._augmented_attributes.items():
+        for (table, attr_name), attr in tqdm(self._augmented_attributes.items(),
+                                             desc=f'Normalize fake augmented {self._name}',
+                                             total=len(self._augmented_attributes)):
             if (table, attr_name) not in augmented.columns:
                 continue
             transformed = attr.transform(augmented[(table, attr_name)])

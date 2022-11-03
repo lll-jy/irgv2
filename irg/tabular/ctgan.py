@@ -105,11 +105,13 @@ class DataSampler(CTGANDataSampler):
             n_cat = self._discrete_column_n_category[discrete_column_id]
             prob = self._discrete_column_category_prob_plain[discrete_column_id][:n_cat]
             return np.random.choice(range(n_cat), p=prob / prob.sum())
-        distance = ((known_row - self._context) ** 2).sum(dim=1)
+        data_indices = np.arange(len(self._context)) if len(self._context) < 10000 else \
+            np.random.choice(range(len(self._context)), 10000, replace=False)
+        distance = ((known_row - self._context[data_indices]) ** 2).sum(dim=1)
         indices = torch.topk(distance, 5, largest=False).indices  # TODO: as input
         st = self._complete_discrete_col_st[discrete_column_id]
         width = self._discrete_column_n_category[discrete_column_id]
-        votes = torch.argmax(torch.from_numpy(self._data[indices, st:st+width]), dim=1)
+        votes = torch.argmax(torch.from_numpy(self._data[data_indices][indices, st:st+width]), dim=1)
         opt, cnt = torch.unique(votes, return_counts=True)
         return opt[cnt.argmax()]
 

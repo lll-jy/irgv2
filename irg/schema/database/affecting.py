@@ -298,7 +298,6 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
         size = self._augment_table(table_name, table, (base, base+100000), False)
         deg, _, _ = table.deg_data()
         real_size = len(self._real[table_name].data())
-        print('i get from??', table_name, size, len(df), real_size, flush=True)
         return deg, size / len(df) * real_size
 
     def deg_finished(self, table_name: str) -> bool:
