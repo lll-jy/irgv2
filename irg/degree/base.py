@@ -39,6 +39,13 @@ class DegreeTrainer(ABC):
     def _fit(self, data: Table, context: Database):
         raise NotImplementedError()
 
-    def predict(self, data: SyntheticTable, context: SyntheticDatabase, scaling: List[float]) -> (Tensor, pd.DataFrame):
+    def _get_scaling(self, scaling: Optional[List[float]]) -> List[float]:
+        if scaling is None:
+            return [1 for _ in self._foreign_keys]
+        else:
+            return scaling
+
+    def predict(self, data: SyntheticTable, context: SyntheticDatabase, scaling: Optional[List[float]],
+                tolerance: float = 0.05) -> (Tensor, pd.DataFrame):
         raise NotImplementedError()
 
