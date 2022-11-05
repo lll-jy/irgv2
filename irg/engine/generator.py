@@ -96,15 +96,14 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularT
             known_tab, aug_tab = torch.load(os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
         else:
             known, expected_size = syn_db.degree_known_for(table.name)
-            if known.isnan().sum() > 0:
-                raise ValueError()
-            deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:].cpu()
-            degrees = syn_table.inverse_transform_degrees(deg_tensor, scale, expected_size)
+            if expected_size is None:
+                degrees = syn_db.real_table(table.name).data('degree')[('', 'degree')]
+            else:
+                deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:].cpu()
+                degrees = syn_table.inverse_transform_degrees(deg_tensor, scale, expected_size)
             syn_table.assign_degrees(degrees)
             known_tab, _, _ = syn_table.ptg_data()
             aug_tab = syn_table.data('augmented')
-            if known_tab.isnan().sum() > 0 and known_tab.shape[0] > 0:
-                raise ValueError()
             torch.save((known_tab, aug_tab), os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
         known_tensors.append(known_tab)
         augmented.append(aug_tab)

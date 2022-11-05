@@ -277,12 +277,16 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
 
     def degree_known_for(self, table_name: str) -> (Tensor, int):
         table = self[table_name]
+        all_base = True
         if not os.path.exists(self._temp_table_path(table_name)):
             foreign_keys = self._foreign_keys[table_name]
 
             df = pd.DataFrame()
             for fk in foreign_keys:
-                new_df = self[fk.parent].data()[[col for _, col in fk.ref]] \
+                parent_table = self[fk.parent]
+                if parent_table.ttype != 'base':
+                    all_base = False
+                new_df = parent_table.data()[[col for _, col in fk.ref]] \
                     .rename(columns={pc: mc for mc, pc in fk.ref})
                 if df.empty:
                     df = new_df
@@ -298,6 +302,8 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
         size = self._augment_table(table_name, table, (base, base+100000), False)
         deg, _, _ = table.deg_data()
         real_size = len(self._real[table_name].data())
+        if all_base:
+            return None, None
         return deg, size / len(df) * real_size
 
     def deg_finished(self, table_name: str) -> bool:

@@ -505,3 +505,6 @@ class SyntheticDatabase(Database, ABC):
 
     def deg_finished(self, table_name: str) -> bool:
         return True
+
+    def real_table(self, table_name: str) -> Table:
+        return self._real[table_name]
