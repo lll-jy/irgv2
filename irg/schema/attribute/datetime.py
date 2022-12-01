@@ -62,20 +62,22 @@ class DatetimeTransformer(NumericalTransformer):
             nan_info['original'] = nan_info['original'].astype('float32')
         return super()._transform(nan_info)
 
-    def _datetime_round(self, x):
-        try:
-            if pd.isnull(x):
-                return x
-            return datetime.strftime(x, self._format)
-        except Exception as e:
-            raise ValueError(f'????? {e}')
-
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         numerical_result = super()._inverse_transform(data)
+        print('numerical result')
+        if numerical_result.nunique() > 5:
+            print(numerical_result.describe())
+        else:
+            print(numerical_result.value_counts(dropna=False))
         datetime_result = numerical_result.apply(lambda x: x if pd.isnull(x) else datetime.fromordinal(int(x)))
-        return datetime_result.apply(lambda x:
-                                     x if pd.isnull(x) else x.strftime(self._format))\
-                                     .astype('datetime64[ns]')
+        print('!!! format is ', self._format)
+        formatted = datetime_result.apply(lambda x: x if pd.isnull(x) else
+        x.strftime(self._format))#.astype('datetime64[ns]')
+        print('formatted', formatted.head())
+        formatted = formatted.astype('datetime64[ns]')
+        print('typed', formatted.head())
+        print(formatted.iloc[0].hour, formatted.iloc[0].minute)
+        return formatted
 
 
 class DatetimeAttribute(BaseAttribute):
