@@ -1,13 +1,16 @@
+import os.path
 from collections import defaultdict
 from typing import Optional, List
 
 import numpy as np
 import pandas as pd
+import torch
 from sklearn.metrics.pairwise import euclidean_distances
 from torch import Tensor
 
 from .base import DegreeTrainer
 from ..schema import Table, Database, SyntheticTable, SyntheticDatabase
+from ..utils.io import pd_to_pickle, pd_read_compressed_pickle
 
 
 class DegreeFromNeighborsTrainer(DegreeTrainer):
@@ -20,26 +23,39 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
     def _fit(self, data: Table, context: Database):
         deg_data = data.data('degree')
         self._comb_counts, self._context = defaultdict(int), []
+        do_comb_count = True
+        if os.path.exists(os.path.join(self._cache_dir, 'comb_counts.pt')):
+            comb_counts = torch.load(os.path.join(self._cache_dir, 'comb_counts.pt'))
+            self._comb_counts.update(comb_counts)
+            do_comb_count = False
+
         index_in_parent = []
-        for fk in self._foreign_keys:
+        for i, fk in enumerate(self._foreign_keys):
+            filepath = os.path.join(self._cache_dir, f'context{i:2d}.pt')
             parent_name = fk.parent
             parent_table = context[parent_name]
-            parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
-            assert len(parent_data) == len(parent_normalized)
+            if os.path.exists(filepath):
+                parent_normalized = pd_read_compressed_pickle(filepath)
+            else:
+                parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
+                assert len(parent_data) == len(parent_normalized)
+                pd_to_pickle(parent_normalized, filepath)
             self._context.append(parent_normalized)
 
-            parent_data = parent_table.data()[fk.right]
-            indices = []
-            for i, row in deg_data.iterrows():
-                deg_val = row[fk.left]
-                matches = parent_data.apply(lambda row: row == deg_val, axis=1)
-                assert sum(matches) == 1
-                index = matches.argmax()
-                indices.append(index)
-            index_in_parent.append(indices)
+            if do_comb_count:
+                parent_data = parent_table.data()[fk.right]
+                indices = []
+                for i, row in deg_data.iterrows():
+                    deg_val = row[fk.left]
+                    matches = parent_data.apply(lambda row: row == deg_val, axis=1)
+                    assert sum(matches) == 1
+                    index = matches.argmax()
+                    indices.append(index)
+                index_in_parent.append(indices)
 
-        for comb in zip(*index_in_parent):
-            self._comb_counts[comb] += 1
+        if do_comb_count:
+            for comb in zip(*index_in_parent):
+                self._comb_counts[comb] += 1
 
     def predict(self, data: SyntheticTable, context: SyntheticDatabase, scaling: Optional[List[float]],
                 tolerance: float = 0.05) -> (Tensor, pd.DataFrame):
