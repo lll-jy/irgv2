@@ -6,9 +6,9 @@ import logging
 
 from torch import Tensor
 
-from ..tabular import TabularTrainer
 from ..schema import Database, Table
-from ..tabular import create_trainer as create_tab_trainer
+from ..tabular import create_trainer as create_tab_trainer, TabularTrainer
+from ..degree import create_trainer as create_deg_trainer, DegreeTrainer
 
 _LOGGER = logging.getLogger()
 
@@ -57,8 +57,7 @@ def train(database: Database, do_train: bool,
         _LOGGER.debug(f'Loaded tabular model for {name}.')
         if not table.is_independent():
             deg_known, deg_unknown, cat_dims = table.deg_data()
-            deg_models[name] = _train_model(deg_known, deg_unknown, cat_dims, do_train,
-                                            deg_trainer_args[name], deg_train_args[name], name)
+            deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name)
             _LOGGER.debug(f'Loaded degree model for {name}.')
 
     return tabular_models, deg_models
@@ -72,4 +71,10 @@ def _train_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]]
                                  **trainer_args)
     # if do_train or True:
     trainer.train(known, unknown, **train_args)
+    return trainer
+
+
+def _train_degrees(data: Table, context: Database, trainer_args: Dict, descr: str) -> DegreeTrainer:
+    trainer = create_deg_trainer(foreign_keys=context.foreign_keys, descr=descr, **trainer_args)
+    trainer.fit(data, context)
     return trainer
