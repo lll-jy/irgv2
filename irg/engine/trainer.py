@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger()
 def train(database: Database, do_train: bool,
           tab_trainer_args: Optional[Dict[str, Dict]] = None, deg_trainer_args: Optional[Dict[str, Dict]] = None,
           tab_train_args: Optional[Dict[str, Dict]] = None, deg_train_args: Optional[Dict[str, Dict]] = None) -> \
-        Tuple[Dict[str, TabularTrainer], Dict[str, TabularTrainer]]:
+        Tuple[Dict[str, TabularTrainer], Dict[str, DegreeTrainer]]:
     """
     Train database generator.
 
@@ -56,7 +56,6 @@ def train(database: Database, do_train: bool,
                                             tab_trainer_args[name], tab_train_args[name], name)
         _LOGGER.debug(f'Loaded tabular model for {name}.')
         if not table.is_independent():
-            deg_known, deg_unknown, cat_dims = table.deg_data()
             deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name)
             _LOGGER.debug(f'Loaded degree model for {name}.')
 

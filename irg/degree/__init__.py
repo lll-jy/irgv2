@@ -2,6 +2,8 @@
 Degree generation framework.
 """
 
+from typing import Dict
+
 from .base import DegreeTrainer
 from .ptgan import DegreeAsTabularTrainer
 from .neighbors import DegreeFromNeighborsTrainer

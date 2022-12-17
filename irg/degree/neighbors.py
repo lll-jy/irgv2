@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 from sklearn.metrics.pairwise import euclidean_distances
 from torch import Tensor
+from tqdm import tqdm
 
 from .base import DegreeTrainer
 from ..schema import Table, Database, SyntheticTable, SyntheticDatabase
@@ -45,7 +46,7 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             if do_comb_count:
                 parent_data = parent_table.data()[fk.right]
                 indices = []
-                for i, row in deg_data.iterrows():
+                for i, row in tqdm(deg_data.iterrows(), total=len(deg_data), desc=f'Fit {data.name} deg {i} nb'):
                     deg_val = row[fk.left]
                     matches = parent_data.apply(lambda row: row == deg_val, axis=1)
                     assert sum(matches) == 1
