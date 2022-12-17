@@ -43,49 +43,6 @@ class DegreeAsTabularTrainer(DegreeTrainer):
         )
         self._trainer.train(deg_known, deg_unknown, **self._train_kwargs)
 
-    def _do_scaling(self, degrees: pd.Series, scaling: List[float], deg_known: pd.DataFrame, tolerance: float) -> pd.Series:
-        assert len(scaling) == len(self._foreign_keys), \
-            f'Number of scaling factors provided should be the same as the number of foreign keys. ' \
-            f'Got {len(scaling)} factors but {len(self._foreign_keys)} foreign keys.'
-        assert len(degrees) == len(deg_known), \
-            f'Size of degrees predicted and the known part of degree table should be the same. ' \
-            f'Got {len(degrees)} predicted degrees but {len(deg_known)} rows in the known part of degree table.'
-        deg_known.loc[:, ('', 'degree_raw')] = degrees * np.prod(scaling)
-        deg_known.loc[:, ('', 'degree')] = deg_known[('', 'degree_raw')].apply(round)\
-            .apply(lambda x: x if x >= 0 else 0)
-
-        for _ in range(self._max_scaling_iter):
-            violated = False
-            for fk, factor, real_degrees in zip(self._foreign_keys, scaling, self._degrees_per_fk):
-                grouped = deg_known.groupby(fk.left, dropna=False, sort=False)[[('', 'degree'), ('', 'degree_raw')]]
-                degrees_for_this_fk = grouped.sum()
-                expected_mean = real_degrees.mean() * factor
-                l, r = expected_mean * (1 - tolerance), expected_mean * (1 + tolerance)
-                actual_mean = degrees_for_this_fk[('', 'degree')].mean()
-                if l <= actual_mean <= r:
-                    continue
-
-                violated = True
-                ratio = expected_mean / actual_mean
-                for fk_val, deg_val in grouped:
-                    int_deg = deg_val[('', 'degree')]
-                    rounding = deg_val[('', 'degree_raw')]
-                    expected_diff = int_deg.sum() * ratio - int_deg.sum()
-                    if expected_diff < 0:
-                        rounding = -rounding
-                    offset = -rounding.min() + 0.01 if rounding.min() < 0 else 0
-                    p = rounding + offset
-                    indices = np.random.choice(range(len(int_deg)), round(expected_diff), p=p / p.sum())
-                    for idx in indices:
-                        if expected_diff > 0:
-                            deg_known.loc[int_deg.iloc[idx].name, ('', 'degree')] += 1
-                        else:
-                            deg_known.loc[int_deg.iloc[idx].name, ('', 'degree')] -= 1
-                deg_known.loc[:, ('', 'degree')] = deg_known[('', 'degree')].apply(lambda x: x if x >= 0 else 0)
-            if not violated:
-                break
-        return deg_known[('', 'degree')]
-
     def predict(self, data: SyntheticTable, context: SyntheticDatabase, scaling: Optional[List[float]],
                 tolerance: float = 0.05) \
             -> (Tensor, pd.DataFrame):
