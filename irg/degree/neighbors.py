@@ -32,25 +32,31 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
 
         index_in_parent = []
         for i, fk in enumerate(self._foreign_keys):
+            if fk.child != data.name:
+                continue
             filepath = os.path.join(self._cache_dir, f'context{i:2d}.pt')
             parent_name = fk.parent
             parent_table = context[parent_name]
             if os.path.exists(filepath):
                 parent_normalized = pd_read_compressed_pickle(filepath)
             else:
-                parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
-                assert len(parent_data) == len(parent_normalized)
+                if parent_table.is_independent():
+                    parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
+                else:
+                    parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
                 pd_to_pickle(parent_normalized, filepath)
             self._context.append(parent_normalized)
 
             if do_comb_count:
-                parent_data = parent_table.data()[fk.right]
+                parent_data = parent_table.data()[[r for l, r in fk.right]]
+                assert len(parent_data) == len(parent_normalized)
                 indices = []
-                for i, row in tqdm(deg_data.iterrows(), total=len(deg_data), desc=f'Fit {data.name} deg {i} nb'):
+                print(data.name)
+                for _, row in tqdm(deg_data.iterrows(), total=len(deg_data), desc=f'Fit {data.name} deg {i} nb'):
                     deg_val = row[fk.left]
-                    matches = parent_data.apply(lambda row: row == deg_val, axis=1)
-                    assert sum(matches) == 1
-                    index = matches.argmax()
+                    matches = parent_data.apply(lambda r: all(deg_val.values == r.values), axis=1)
+                    assert sum(matches) == 1, f'Matched {sum(matches)}, but expected 1'
+                    index = matches.astype('int').argmax()
                     indices.append(index)
                 index_in_parent.append(indices)
 

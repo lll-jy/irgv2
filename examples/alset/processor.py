@@ -100,10 +100,12 @@ class ALSETProcessor(DatabaseProcessor):
                 selected_modules = module_enrolment['module_code'].drop_duplicates().sample(sample)
             elif os.path.exists(os.path.join(self._data_dir, 'module_offer.pkl')):
                 module_offer = pd.read_pickle(os.path.join(self._data_dir, 'module_offer.pkl'))
-                selected_modules = module_offer['module_code'].sample(sample)
+                selected_modules = module_offer['module_code'].drop_duplicates().sample(sample)
             for table_name in self._tables:
                 table_data = pd.read_pickle(os.path.join(self._data_dir, f'{table_name}.pkl'))
                 columns = set(table_data.columns)
+                if table_name == 'module_offer':
+                    table_data = table_data.loc[table_data['module_code'].drop_duplicates().index]
                 if 'student_token' in columns:
                     table_data = table_data[table_data['student_token'].isin(selected_students)].reset_index(drop=True)
                 if 'module_code' in columns:

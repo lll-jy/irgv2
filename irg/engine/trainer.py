@@ -1,5 +1,5 @@
 """Train database generators."""
-
+import os.path
 from collections import defaultdict
 from typing import Optional, Dict, List, Tuple, DefaultDict
 import logging
@@ -56,7 +56,7 @@ def train(database: Database, do_train: bool,
                                             tab_trainer_args[name], tab_train_args[name], name)
         _LOGGER.debug(f'Loaded tabular model for {name}.')
         if not table.is_independent():
-            deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name)
+            deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name, **deg_train_args[name])
             _LOGGER.debug(f'Loaded degree model for {name}.')
 
     return tabular_models, deg_models
@@ -73,7 +73,11 @@ def _train_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]]
     return trainer
 
 
-def _train_degrees(data: Table, context: Database, trainer_args: Dict, descr: str) -> DegreeTrainer:
-    trainer = create_deg_trainer(foreign_keys=context.foreign_keys, descr=descr, **trainer_args)
+def _train_degrees(data: Table, context: Database, trainer_args: Dict, descr: str, **kwargs) -> DegreeTrainer:
+    if 'ckpt_dir' in trainer_args:
+        kwargs['cache_dir'] = os.path.join(trainer_args['ckpt_dir'], descr)
+    trainer = create_deg_trainer(foreign_keys=[fk for fk in context.foreign_keys if fk.child == data.name],
+                                 descr=descr,
+                                 **trainer_args, **kwargs)
     trainer.fit(data, context)
     return trainer
