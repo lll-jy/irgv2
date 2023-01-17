@@ -455,6 +455,24 @@ class Table:
         if self._length is None:
             self._length = len(augmented)
 
+    def save_degree_known(self, data: pd.DataFrame):
+        print('degree known!!!', self.name, [*self._degree_attributes])
+        print('!! data', data.columns.tolist())
+        data.to_pickle(self._degree_path())
+        # new_data = pd.DataFrame()
+        # appeared_cols = set()
+        # for a, b, c in data.columns:
+        #     new_data[(a, f'{b}__{c}')] = data[(a, b, c)]
+        #     appeared_cols.add((a, b))
+        # new_data.to_pickle(self._degree_path())
+        for (table, attr_name), attr in tqdm(self._degree_attributes.items(),
+                                             desc=f'Normalize fake degree {self._name}',
+                                             total=len(self._degree_attributes)):
+            if (table, attr_name) not in data.columns:
+                continue
+            transformed = attr.transform(data[(table, attr_name)])
+            pd_to_pickle(transformed, self._augmented_normalized_path((table, attr_name)))
+
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         """
         Fit the table with given data.
@@ -677,6 +695,10 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
+            print()
+            print('======= ptg data', self.name)
+            print(unknown_cols)
+            print(known_cols)
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)
@@ -812,6 +834,7 @@ class SyntheticTable(Table):
         synthetic._augmented_attributes = table._augmented_attributes
         synthetic._degree_attributes = table._degree_attributes
         synthetic._augmented_ids, synthetic._degree_ids = table._augmented_ids, table._degree_ids
+        synthetic._length = table._length
         return synthetic
 
     def update_augmented(self, augmented: pd.DataFrame):

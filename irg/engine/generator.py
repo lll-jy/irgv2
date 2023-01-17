@@ -2,17 +2,17 @@
 
 from collections import defaultdict
 import os
-from typing import Dict, Optional, DefaultDict, Any
+from typing import Dict, Optional, DefaultDict, Any, List
 
-import pandas as pd
 import torch
 
+from ..degree import DegreeTrainer
 from ..tabular import TabularTrainer
 from ..schema import Table, SyntheticTable, Database, SyntheticDatabase
 from ..schema.database import SYN_DB_TYPE_BY_NAME
 
 
-def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_models: Dict[str, TabularTrainer],
+def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_models: Dict[str, DegreeTrainer],
              save_to: str, scaling: Optional[Dict[str, float]] = None,
              tab_batch_sizes: Optional[Dict[str, int]] = None, deg_batch_sizes: Optional[Dict[str, int]] = None,
              save_db_to: Optional[str] = None, temp_cache: str = '.temp') -> SyntheticDatabase:
@@ -54,7 +54,9 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
             gen_table = _generate_independent_table(tab_models[name], table, scaling[name], tab_batch_sizes[name],
                                                     table_temp_cache)
         else:
-            gen_table = _generate_dependent_table(tab_models[name], deg_models[name], table, scaling[name],
+            a, b, c = table.ptg_data()
+            print(name, '!! so my ptg data', a.shape)
+            gen_table = _generate_dependent_table(tab_models[name], deg_models[name], table, scaling,
                                                   tab_batch_sizes[name], deg_batch_sizes[name], syn_db,
                                                   table_temp_cache)
         syn_db[name] = gen_table
@@ -83,40 +85,43 @@ def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: fl
     return syn_table
 
 
-def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: TabularTrainer, table: Table, scale: float,
-                              tab_batch_size: int, deg_batch_size: int, syn_db: SyntheticDatabase, temp_cache: str) \
+def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: DegreeTrainer, table: Table,
+                              scaling: Dict[str, float], tab_batch_size: int, deg_batch_size: int,
+                              syn_db: SyntheticDatabase, temp_cache: str) \
         -> SyntheticTable:
     syn_table = SyntheticTable.from_real(table, temp_cache)
     syn_db.save_dummy(table.name, syn_table)
-    known_tensors, augmented = [], []
-    os.makedirs(os.path.join(temp_cache, 'deg_temp'), exist_ok=True)
-    deg_cnt = 0
-    print('=== start', table.name)
-    while not syn_db.deg_finished(table.name):
-        if os.path.exists(os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt')):
-            known_tab, aug_tab = torch.load(os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
-        else:
-            known, expected_size = syn_db.degree_known_for(table.name)
-            if expected_size is None:
-                real_degrees = syn_db.real_table(table.name).data('degree')
-                degrees = syn_db[table.name].data('degree')
-                key_cols = [(n, c) for n, c in degrees.columns.tolist() if n == table.name]
-                real_degrees = real_degrees[key_cols + [('', 'degree')]]
-                degrees = degrees[key_cols]
-                degrees = degrees.merge(real_degrees, how='left', on=key_cols)
-                degrees = degrees[('', 'degree')]
-            else:
-                deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:].cpu()
-                degrees = syn_table.inverse_transform_degrees(deg_tensor, scale, expected_size)
-            syn_table.assign_degrees(degrees)
-            known_tab, _, _ = syn_table.ptg_data()
-            aug_tab = syn_table.data('augmented')
-            torch.save((known_tab, aug_tab), os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
-        known_tensors.append(known_tab)
-        augmented.append(aug_tab)
-        deg_cnt += 1
-    known_tab = torch.cat(known_tensors)
-    augmented = pd.concat(augmented)
+
+    known_tab, augmented = deg_trainer.predict(syn_table, syn_db, scaling)
+    # known_tensors, augmented = [], []
+    # os.makedirs(os.path.join(temp_cache, 'deg_temp'), exist_ok=True)
+    # deg_cnt = 0
+    # print('=== start', table.name)
+    # while not syn_db.deg_finished(table.name):
+    #     if os.path.exists(os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt')):
+    #         known_tab, aug_tab = torch.load(os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
+    #     else:
+    #         known, expected_size = syn_db.degree_known_for(table.name)
+    #         if expected_size is None:
+    #             real_degrees = syn_db.real_table(table.name).data('degree')
+    #             degrees = syn_db[table.name].data('degree')
+    #             key_cols = [(n, c) for n, c in degrees.columns.tolist() if n == table.name]
+    #             real_degrees = real_degrees[key_cols + [('', 'degree')]]
+    #             degrees = degrees[key_cols]
+    #             degrees = degrees.merge(real_degrees, how='left', on=key_cols)
+    #             degrees = degrees[('', 'degree')]
+    #         else:
+    #             deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:].cpu()
+    #             degrees = syn_table.inverse_transform_degrees(deg_tensor, scale, expected_size)
+    #         syn_table.assign_degrees(degrees)
+    #         known_tab, _, _ = syn_table.ptg_data()
+    #         aug_tab = syn_table.data('augmented')
+    #         torch.save((known_tab, aug_tab), os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
+    #     known_tensors.append(known_tab)
+    #     augmented.append(aug_tab)
+    #     deg_cnt += 1
+    # known_tab = torch.cat(known_tensors)
+    # augmented = pd.concat(augmented)
     syn_table.update_augmented(augmented)
 
     output = tab_trainer.inference(known_tab, tab_batch_size).output[:, -tab_trainer.unknown_dim:].cpu()

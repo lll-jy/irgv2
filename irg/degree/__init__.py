@@ -12,7 +12,8 @@ from .neighbors import DegreeFromNeighborsTrainer
 __all__ = (
     'DegreeTrainer',
     'DegreeAsTabularTrainer',
-    'DegreeFromNeighborsTrainer'
+    'DegreeFromNeighborsTrainer',
+    'create_trainer'
 )
 
 _DEG_TRAINERS: Dict[str, DegreeTrainer.__class__] = {

@@ -17,7 +17,7 @@ from ..schema.database.base import ForeignKey
 class DegreeAsTabularTrainer(DegreeTrainer):
     """Degree prediction trainer as if partial tabular."""
     def __init__(self, foreign_keys: List[ForeignKey], descr: str, cache_dir: str = 'cached',
-                 max_scaling_iter: int = 10, **kwargs):
+                 **kwargs):
         super().__init__(foreign_keys, descr, cache_dir)
         self._train_kwargs = {
             n: v for n, v in kwargs.items()
