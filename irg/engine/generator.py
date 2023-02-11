@@ -55,7 +55,6 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
                                                     table_temp_cache)
         else:
             a, b, c = table.ptg_data()
-            print(name, '!! so my ptg data', a.shape)
             gen_table = _generate_dependent_table(tab_models[name], deg_models[name], table, scaling,
                                                   tab_batch_sizes[name], deg_batch_sizes[name], syn_db,
                                                   table_temp_cache)

@@ -74,9 +74,9 @@ class DegreeTrainer(ABC):
 
     def _do_scaling(self, degrees: pd.Series, scaling: Dict[str, float], deg_known: pd.DataFrame, tolerance: float) \
             -> pd.Series:
-        assert len(scaling) == len(self._foreign_keys), \
-            f'Number of scaling factors provided should be the same as the number of foreign keys. ' \
-            f'Got {len(scaling)} factors but {len(self._foreign_keys)} foreign keys.'
+        # assert len(scaling) == len(self._foreign_keys), \
+        #     f'Number of scaling factors provided should be the same as the number of foreign keys. ' \
+        #     f'Got {len(scaling)} factors but {len(self._foreign_keys)} foreign keys.'
         assert len(degrees) == len(deg_known), \
             f'Size of degrees predicted and the known part of degree table should be the same. ' \
             f'Got {len(degrees)} predicted degrees but {len(deg_known)} rows in the known part of degree table.'
@@ -120,6 +120,8 @@ class DegreeTrainer(ABC):
                         rounding = -rounding
                     offset = -rounding.min() + 0.01 if rounding.min() < 0 else 0.01
                     p = rounding + offset
+                    # print('???', int_deg.sum())
+                    # print('!! expected diff', expected_diff, int_deg.describe(), deg_val.shape, fk_val)
                     indices = np.random.choice(range(len(int_deg)), round(abs(expected_diff)), p=p / p.sum())
                     for idx in indices:
                         if expected_diff > 0:

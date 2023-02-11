@@ -79,8 +79,12 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
                 parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
                 assert len(parent_data) == len(parent_normalized)
             pairwise_euclidean = euclidean_distances(parent_normalized, real_ctx)
-            is_max_indicator = pairwise_euclidean == pairwise_euclidean.max(axis=-1).reshape(-1, 1)
-            correspondence = [np.random.choice(np.flatnonzero(row)) for row in is_max_indicator]
+            correspondence = torch.topk(torch.tensor(pairwise_euclidean), 10, dim=-1).indices
+            rand = torch.argmax(torch.rand(*correspondence.shape), dim=-1)
+            correspondence = [row[i].item() for row, i in zip(correspondence, rand)]
+            # correspondence = correspondence[torch.argmax(rand, dim=-1)]
+            # is_max_indicator = pairwise_euclidean == pairwise_euclidean.max(axis=-1).reshape(-1, 1)
+            # correspondence = [np.random.choice(np.flatnonzero(row)) for row in is_max_indicator]
             index_correspondences.append(correspondence)
 
             # raw_parent = parent_table.data(with_id='this')
@@ -117,6 +121,6 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
         data.assign_degrees(pred_deg)
         known_tab, _, _ = data.ptg_data()
         augmented = data.data('augmented')
-        print('result', known_tab.shape, augmented.shape)
+        print('result deg', data.name, known_tab.shape, augmented.shape, context._real[data.name].data('augmented')[augmented.columns].shape)
         print(augmented.columns.tolist())
         return known_tab, augmented

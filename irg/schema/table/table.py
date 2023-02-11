@@ -456,8 +456,8 @@ class Table:
             self._length = len(augmented)
 
     def save_degree_known(self, data: pd.DataFrame):
-        print('degree known!!!', self.name, [*self._degree_attributes])
-        print('!! data', data.columns.tolist())
+        # print('degree known!!!', self.name, [*self._degree_attributes])
+        # print('!! data', data.columns.tolist())
         data.to_pickle(self._degree_path())
         # new_data = pd.DataFrame()
         # appeared_cols = set()
@@ -687,7 +687,7 @@ class Table:
             ]
             aug_data = self.data(variant='augmented', normalize=True, with_id='inherit', core_only=True)
             unknown_set = set(unknown_cols)
-            known_cols = [col for col in aug_data.columns.droplevel(2) if col not in unknown_set]
+            known_cols = [col for col in aug_data.columns.droplevel(2).drop_duplicates() if col not in unknown_set]
             known_data = aug_data[[(a, b, c) for a, b, c in aug_data.columns if (a, b) in known_cols]]
             unknown_data = aug_data[[(a, b, c) for a, b, c in aug_data.columns if (a, b) in unknown_cols]]
             unknown_attr = {
@@ -695,10 +695,10 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
-            print()
-            print('======= ptg data', self.name)
-            print(unknown_cols)
-            print(known_cols)
+            # print()
+            # print('======= ptg data', self.name)
+            # print(unknown_cols)
+            # print(known_cols)
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)
