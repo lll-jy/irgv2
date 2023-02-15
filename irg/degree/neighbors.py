@@ -38,14 +38,17 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             filepath = os.path.join(self._cache_dir, f'context{i:2d}.pt')
             parent_name = fk.parent
             parent_table = context[parent_name]
-            if os.path.exists(filepath):
+            if os.path.exists(filepath) and False:
                 parent_normalized = pd_read_compressed_pickle(filepath)
             else:
-                if parent_table.is_independent():
-                    parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
-                else:
-                    parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
+                parent_normalized = context.augmented_till(parent_name, data.name)
+                # if parent_table.is_independent():
+                #     parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
+                # else:
+                #     parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
                 pd_to_pickle(parent_normalized, filepath)
+                print('!!! re do', self._name, parent_name, parent_normalized.shape, flush=True)
+                print(parent_normalized.columns.tolist(), flush=True)
             self._context.append(parent_normalized)
 
             if do_comb_count:
@@ -71,6 +74,7 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
         parent_tables = []
         for fk, real_ctx in zip(self._foreign_keys, self._context):
             parent_name = fk.parent
+            # print('predict for', fk.parent, fk.child)
             parent_table = context[parent_name]
             if parent_table.is_independent():
                 parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
@@ -92,6 +96,7 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             #     if not any(col_name == x and y != 'is_nan' for x, y in parent_normalized.columns):
             #         parent_normalized[(col_name, '')] = raw_parent[col_name]
             # parent_tables.append(parent_normalized)
+            # parent_table = self._real.augmented_till(parent_name, )
             if parent_table.is_independent():
                 parent_tables.append(pd.concat({parent_name: parent_table.data(with_id='this')}))
             else:
@@ -105,6 +110,8 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             for c, table_normalized, (i, fk) in zip(comb, parent_tables, enumerate(self._foreign_keys)):
                 new_row[f'fk{i}:{fk.parent}'] = table_normalized.iloc[c]
             new_row = pd.concat(new_row)
+            if len(pred_deg) == 1:
+                print(new_row, flush=True)
             deg_known = deg_known.append(new_row, ignore_index=True)
         for i, fk in enumerate(self._foreign_keys):
             for (pname, cname), l in zip(fk.right, fk.left):
@@ -118,9 +125,16 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             tolerance=tolerance
         )
 
+        print('pred deg', data.name, pred_deg.sum(), pred_deg.describe())
         data.assign_degrees(pred_deg)
+        print('call fake')
         known_tab, _, _ = data.ptg_data()
         augmented = data.data('augmented')
-        print('result deg', data.name, known_tab.shape, augmented.shape, context._real[data.name].data('augmented')[augmented.columns].shape)
-        print(augmented.columns.tolist())
+        real_this = context._real[data.name]
+        print('call real')
+        k, _, _ = real_this.ptg_data()
+        print('result deg', data.name, '\n',
+              'knownshape', known_tab.shape, deg_known.shape, k.shape, '\n',
+              augmented.shape, real_this.data('augmented')[augmented.columns].shape)
+        print(augmented.columns.tolist(), flush=True)
         return known_tab, augmented

@@ -4,10 +4,9 @@ All tables affecting the table are taken into account when generating it.
 Please refer to [the paper](TODO: link) for detailed definition of `affect`.
 """
 import logging
-import math
 import os.path
 from collections import defaultdict
-from typing import Any, DefaultDict, List, Set, Tuple, Dict, Optional
+from typing import Any, DefaultDict, List, Literal, Set, Tuple, Dict, Optional
 from types import FunctionType
 
 import numpy as np
@@ -194,9 +193,29 @@ class AffectingDatabase(Database):
         )
         return r - l
 
-    def _descendant_joined(self, curr_name: str, parent_name: str) -> \
+    def augmented_till(self, name: str, till: str) -> pd.DataFrame:
+        updated_descendants = False
+        if name not in self._descendants:
+            updated_descendants = True
+            for child_name, foreign_keys in self._foreign_keys.items():
+                stop = False
+                if child_name == till:
+                    stop = True
+                for i, foreign_key in enumerate(foreign_keys):
+                    if foreign_key.parent == name and foreign_key.child == child_name:
+                        self._descendants[name].append(foreign_key)
+                if stop:
+                    break
+        print('descendants', name, [f.child for f in self._descendants[name]], flush=True)
+        data = self._descendant_joined(till, name, True, 'none')[0]
+        if updated_descendants:
+            del self._descendants[name]
+        return data
+
+    def _descendant_joined(self, curr_name: str, parent_name: str, normalize: bool = False,
+                           with_id: Literal['none', 'this', 'inherit'] = 'this') -> \
             Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
-        data, new_ids, all_attr = self[parent_name].augmented_for_join()
+        data, new_ids, all_attr = self[parent_name].augmented_for_join(normalized=normalize, with_id=with_id)
         original_cols = data.columns
         new_attr = {}
         for i, foreign_key in enumerate(self._descendants[parent_name]):

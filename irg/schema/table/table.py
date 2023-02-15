@@ -459,12 +459,18 @@ class Table:
         # print('degree known!!!', self.name, [*self._degree_attributes])
         # print('!! data', data.columns.tolist())
         data.to_pickle(self._degree_path())
+        data.to_pickle(self._augmented_path())
         # new_data = pd.DataFrame()
         # appeared_cols = set()
         # for a, b, c in data.columns:
         #     new_data[(a, f'{b}__{c}')] = data[(a, b, c)]
         #     appeared_cols.add((a, b))
         # new_data.to_pickle(self._degree_path())
+        attributes = set(self._degree_attributes.keys())
+        names = set(data.columns)
+        print('@@@ saved', self._name, data.shape, len(attributes), len(names), flush=True)
+        print(attributes - names)
+        print(names - attributes)
         for (table, attr_name), attr in tqdm(self._degree_attributes.items(),
                                              desc=f'Normalize fake degree {self._name}',
                                              total=len(self._degree_attributes)):
@@ -472,6 +478,7 @@ class Table:
                 continue
             transformed = attr.transform(data[(table, attr_name)])
             pd_to_pickle(transformed, self._augmented_normalized_path((table, attr_name)))
+            pd_to_pickle(transformed, self._degree_normalized_path((table, attr_name)))
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         """
@@ -654,20 +661,22 @@ class Table:
             base += len(attr.transformed_columns)
         return res
 
-    def augmented_for_join(self) -> Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
+    def augmented_for_join(self, normalized: bool = False, with_id: Literal['none', 'this', 'inherit'] = 'this') -> \
+            Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
         """
         Get the augmented information for joining.
 
         **Args**:
 
         - `normalized` (`bool`): Whether to return the normalized. Default is `False`.
+        - 'with_id` (`Literal['none', 'this', 'inherit']`): Which ID to maintain.
 
         **Return**: Augmented table, set of ID column names, and attributes.
         """
         if self.is_independent():
-            return self.data(), self._id_cols, self._attributes
+            return self.data(normalize=normalized, with_id=with_id), self._id_cols, self._attributes
 
-        data = self.data(variant='augmented')
+        data = self.data(variant='augmented', normalize=normalized, with_id=with_id)
         flattened, attributes = {}, {n: v for n, v in self._attributes.items()}
         for (table, col), group_df in data.groupby(level=[0, 1], axis=1):
             if table == '':
@@ -695,10 +704,10 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
-            # print()
-            # print('======= ptg data', self.name)
-            # print(unknown_cols)
-            # print(known_cols)
+            print()
+            print('======= ptg data', self.name)
+            print(len(unknown_cols), known_data.shape, unknown_cols)
+            print(len(known_cols), known_cols)
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)

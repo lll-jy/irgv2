@@ -113,22 +113,27 @@ class DegreeTrainer(ABC):
                 violated = True
                 ratio = expected_mean / actual_mean
                 for fk_val, deg_val in grouped:
-                    int_deg = deg_val[('', 'degree')]
-                    rounding = deg_val[('', 'degree_raw')]
-                    expected_diff = int_deg.sum() * ratio - int_deg.sum()
+                    int_deg = (deg_val[('', 'degree')] * ratio).round()
+                    rounding = deg_val[('', 'degree_raw')] * ratio
+                    expected_diff = int_deg.sum() - rounding.sum()
+                    # expected_diff = int_deg.sum() * ratio - int_deg.sum()
                     if expected_diff < 0:
                         rounding = -rounding
-                    offset = -rounding.min() + 0.01 if rounding.min() < 0 else 0.01
+                    offset = -rounding.min() + 0.1 if rounding.min() < 0 else 0.1
                     p = rounding + offset
                     # print('???', int_deg.sum())
                     # print('!! expected diff', expected_diff, int_deg.describe(), deg_val.shape, fk_val)
                     indices = np.random.choice(range(len(int_deg)), round(abs(expected_diff)), p=p / p.sum())
+                    deg_known.loc[int_deg.index, ('', 'degree')] = int_deg
                     for idx in indices:
                         if expected_diff > 0:
                             deg_known.loc[int_deg.index[idx], ('', 'degree')] += 1
                         else:
                             deg_known.loc[int_deg.index[idx], ('', 'degree')] -= 1
                 deg_known.loc[:, ('', 'degree')] = deg_known[('', 'degree')].apply(lambda x: x if x >= 0 else 0)
+                print(self._name, fk.child, fk.parent, 'expected',
+                      expected_mean, actual_mean, 'got', deg_known.loc[:, ('', 'degree')].mean(), 'raw', degrees.mean(),
+                      'real', real_degrees.mean(), 'factor', factor)
             if not violated:
                 break
         return deg_known[('', 'degree')]

@@ -423,6 +423,10 @@ class Database:
     def _update_cls(item: Any):
         raise NotImplementedError()
 
+    def augmented_till(self, name: str, till: str) -> pd.DataFrame:
+        data, new_ids, all_attr = self[name].augmented_for_join()
+        return data
+
 
 class SyntheticDatabase(Database, ABC):
     """

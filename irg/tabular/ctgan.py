@@ -107,7 +107,6 @@ class DataSampler(CTGANDataSampler):
             return np.random.choice(range(n_cat), p=prob / prob.sum())
         data_indices = np.arange(len(self._context)) if len(self._context) < 10000 else \
             np.random.choice(range(len(self._context)), 10000, replace=False)
-        print('~~~ so the shapes are', known_row.shape, self._context[data_indices].shape, flush=True)
         distance = ((known_row - self._context[data_indices]) ** 2).sum(dim=1)
         indices = torch.topk(distance, 5, largest=False).indices  # TODO: as input
         st = self._complete_discrete_col_st[discrete_column_id]
