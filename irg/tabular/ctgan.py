@@ -268,7 +268,6 @@ class CTGANTrainer(TabularTrainer):
         sampler = DistributedSampler(dataset) if self._distributed else RandomSampler(dataset)
         dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
                                 collate_fn=self._collate_fn)
-        print('shape dataset', known.shape)
         return dataloader
 
     def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
@@ -490,7 +489,6 @@ class CTGANTrainer(TabularTrainer):
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
-        print('infer dataloader', known.shape)
         dataloader = self._make_infer_dataloader(known, batch_size, False)
         autocast = torch.cuda.is_available() and self._autocast
         if is_main_process():

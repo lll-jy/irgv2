@@ -216,26 +216,16 @@ class AffectingDatabase(Database):
             parent_name=name,
             with_id='this' if with_id == 'none' else with_id
         )
-        print('descendant joined', name, till)
-        print(data.columns.tolist(), flush=True)
-        data_set = set(data.columns)
-        all_set = {*all_attr}
-        print(data_set - all_set)
-        print(all_set - data_set)
         if with_id == 'none':
             data = data.drop(columns=[c for c in data.columns if c in ids])
         all_columns = set(data.columns)
-        # all_columns = set(data.columns.droplevel(2))
         if normalized:
             normalized_data = {}
             for attr_name, attr in all_attr.items():
                 if attr_name in all_columns:
                     normalized_data[attr_name] = attr.transform(data[attr_name])
             data = pd.concat(normalized_data, axis=1)
-        # data = super().augmented_till(name, till, normalized, with_id)
-        # data, id_cols, _ = self._descendant_joined(till, name, True, 'this' if with_id == 'none' else with_id)
         self._descendants[name] = previous_descendants
-        print(name, till, normalized, 'so I currently have columns', data.columns.tolist(), flush=True)
         return data
 
     def _descendant_joined(self, curr_name: str, parent_name: str,

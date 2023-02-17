@@ -458,17 +458,6 @@ class Table:
     def save_degree_known(self, data: pd.DataFrame):
         data.to_pickle(self._degree_path())
         data.to_pickle(self._augmented_path())
-        # new_data = pd.DataFrame()
-        # appeared_cols = set()
-        # for a, b, c in data.columns:
-        #     new_data[(a, f'{b}__{c}')] = data[(a, b, c)]
-        #     appeared_cols.add((a, b))
-        # new_data.to_pickle(self._degree_path())
-        attributes = set(self._degree_attributes.keys())
-        names = set(data.columns)
-        print('@@@ saved', data.columns.nlevels, self._name, data.shape, len(attributes), len(names), flush=True)
-        print(attributes - names)
-        print(names - attributes)
         for (table, attr_name), attr in tqdm(self._degree_attributes.items(),
                                              desc=f'Normalize fake degree {self._name}',
                                              total=len(self._degree_attributes)):
@@ -677,12 +666,10 @@ class Table:
 
         data = self.data(variant='augmented', with_id=with_id)
         flattened, attributes = {}, {n: v for n, v in self._attributes.items()}
-        print('all aug', [*self._augmented_attributes])
         for (table, col), group_df in data.groupby(level=[0, 1], axis=1):
             if table == '':
                 continue
             col_name = col if table == self.name else f'{table}/{col}'
-            print('doneee', self._name, col_name)
             attributes[col_name] = self._augmented_attributes[(table, col)]
             flattened[col_name] = group_df[(table, col)]
         return pd.concat(flattened, axis=1), self._id_cols, attributes
@@ -705,10 +692,6 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
-            print()
-            print('======= ptg data', self.name)
-            print(len(unknown_cols), known_data.shape, unknown_cols)
-            print(len(known_cols), known_cols)
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)

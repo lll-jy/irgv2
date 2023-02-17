@@ -42,13 +42,7 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
                 parent_normalized = pd_read_compressed_pickle(filepath)
             else:
                 parent_normalized = context.augmented_till(parent_name, data.name, with_id='none')
-                # if parent_table.is_independent():
-                #     parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
-                # else:
-                #     parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
                 pd_to_pickle(parent_normalized, filepath)
-                print('!!! re do', self._name, parent_name, parent_normalized.shape, flush=True)
-                print(parent_normalized.columns.tolist(), flush=True)
             self._context.append(parent_normalized)
 
             if do_comb_count:
@@ -76,36 +70,14 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             parent_name = fk.parent
             # print('predict for', fk.parent, fk.child)
             parent_normalized = context.augmented_till(parent_name, self._name, with_id='none')
-            # parent_table = context[parent_name]
-            # if parent_table.is_independent():
-            #     parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
-            # else:
-            #     parent_data = parent_table.data('augmented')
-            #     parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
-            #     assert len(parent_data) == len(parent_normalized)
             pairwise_euclidean = euclidean_distances(parent_normalized, real_ctx)
             correspondence = torch.topk(torch.tensor(pairwise_euclidean), 10, dim=-1).indices
             rand = torch.argmax(torch.rand(*correspondence.shape), dim=-1)
             correspondence = [row[i].item() for row, i in zip(correspondence, rand)]
-            # correspondence = correspondence[torch.argmax(rand, dim=-1)]
-            # is_max_indicator = pairwise_euclidean == pairwise_euclidean.max(axis=-1).reshape(-1, 1)
-            # correspondence = [np.random.choice(np.flatnonzero(row)) for row in is_max_indicator]
             index_correspondences.append(correspondence)
 
-            # raw_parent = parent_table.data(with_id='this')
-            # for col_name in raw_parent.columns:
-            #     if not any(col_name == x and y != 'is_nan' for x, y in parent_normalized.columns):
-            #         parent_normalized[(col_name, '')] = raw_parent[col_name]
-            # parent_tables.append(parent_normalized)
             parent_normalized = context.augmented_till(parent_name, self._name, with_id='inherit', normalized=False)
             parent_tables.append(parent_normalized)
-            print('!!!??? normalized inhe', self._name, parent_name)
-            print(parent_normalized.columns.tolist(), flush=True)
-            # parent_table = self._real.augmented_till(parent_name, )
-            # if parent_table.is_independent():
-            #     parent_tables.append(pd.concat({parent_name: parent_table.data(with_id='this')}))
-            # else:
-            #     parent_tables.append(parent_table.data(variant='augmented', with_id='this'))
 
         pred_deg = []
         deg_known = pd.concat({data.name: pd.DataFrame()})
@@ -115,34 +87,20 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             for c, table_normalized, (i, fk) in zip(comb, parent_tables, enumerate(self._foreign_keys)):
                 new_row[f'fk{i}:{fk.parent}'] = table_normalized.iloc[c]
             new_row = pd.concat(new_row)
-            if len(pred_deg) == 1:
-                print('for', self._name)
-                print(new_row, flush=True)
             deg_known = deg_known.append(new_row, ignore_index=True)
         for i, fk in enumerate(self._foreign_keys):
             for (pname, cname), l in zip(fk.right, fk.left):
                 deg_known[l] = deg_known[(f'fk{i}:{pname}', cname)]
-                # for c in deg_known[(f'fk{i}:{pname}', cname)].columns:
-                #     deg_known[(*l, c)] = deg_known[(f'fk{i}:{pname}', cname, c)]
         data.save_degree_known(deg_known)
         pred_deg = self._do_scaling(
             degrees=pd.Series(pred_deg),
             scaling=scaling,
             deg_known=deg_known,
-            # deg_known=data.data('degree') if not data.is_independent() else pd.concat({data.name: pd.DataFrame()}),
             tolerance=tolerance
         )
 
         print('pred deg', data.name, pred_deg.sum(), pred_deg.describe())
         data.assign_degrees(pred_deg)
-        print('call fake')
         known_tab, _, _ = data.ptg_data()
         augmented = data.data('augmented')
-        real_this = context._real[data.name]
-        print('call real')
-        k, _, _ = real_this.ptg_data()
-        print('result deg', data.name, '\n',
-              'knownshape', known_tab.shape, deg_known.shape, k.shape, '\n',
-              augmented.shape, real_this.data('augmented')[augmented.columns].shape)
-        print(augmented.columns.tolist(), flush=True)
         return known_tab, augmented
