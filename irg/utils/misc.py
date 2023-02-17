@@ -7,6 +7,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from torch import Tensor, from_numpy as tensor_from_numpy
+from torch.utils.data import TensorDataset, DataLoader, DistributedSampler, RandomSampler, SequentialSampler
+
+from .dist import is_initialized, get_device
 
 __all__ = (
     'Data2D',
@@ -14,7 +17,8 @@ __all__ = (
     'SparseDType',
     'convert_data_as',
     'inverse_convert_data',
-    'calculate_mean'
+    'calculate_mean',
+    'make_dataloader'
 )
 
 
@@ -122,3 +126,31 @@ def reformat_datetime(x: Optional[datetime], format_str: str) -> Optional[dateti
     if pd.isnull(x):
         return x
     return datetime.strptime(x.strftime(format_str), format_str)
+
+
+def make_dataloader(*x: Data2D, batch_size: int = 64, shuffle: bool = True) -> DataLoader:
+    """
+    Make dataloader for training based the data.
+
+    **Args**:
+
+    - `x` (`Data2D`): Data to build loader from.
+    - `batch_size` (`int`): Batch size of the data loader. Default is 64.
+    - `shuffle` (`bool`): Whether to shuffle.
+    """
+    dataset = [convert_data_as(t, 'torch').to(get_device()) for t in x]
+    dataset = TensorDataset(*dataset)
+    if is_initialized():
+        sampler = DistributedSampler(dataset, shuffle=shuffle)
+    elif shuffle:
+        sampler = RandomSampler(dataset)
+    else:
+        sampler = SequentialSampler(dataset)
+    loader = DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=5,
+        pin_memory=True
+    )
+    return loader

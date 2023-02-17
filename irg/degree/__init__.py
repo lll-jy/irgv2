@@ -7,18 +7,21 @@ from typing import Dict
 from .base import DegreeTrainer
 from .ptgan import DegreeAsTabularTrainer
 from .neighbors import DegreeFromNeighborsTrainer
+from .stepped import DegreeSteppedTrainer
 
 
 __all__ = (
     'DegreeTrainer',
     'DegreeAsTabularTrainer',
     'DegreeFromNeighborsTrainer',
+    'DegreeSteppedTrainer',
     'create_trainer'
 )
 
 _DEG_TRAINERS: Dict[str, DegreeTrainer.__class__] = {
     'as_tab': DegreeAsTabularTrainer,
-    'neighbors': DegreeFromNeighborsTrainer
+    'neighbors': DegreeFromNeighborsTrainer,
+    'stepped': DegreeSteppedTrainer
 }
 
 

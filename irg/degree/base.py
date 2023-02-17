@@ -15,7 +15,7 @@ from ..schema import Table, SyntheticTable, Database, SyntheticDatabase
 class DegreeTrainer(ABC):
     """Base trainer for degree prediction."""
     def __init__(self, foreign_keys: List[ForeignKey], descr: str = '', cache_dir: str = 'cached',
-                 max_scaling_iter: int = 10, **kwargs):
+                 max_scaling_iter: int = 10, unique: bool = False, **kwargs):
         """
         **Args**:
 
@@ -24,12 +24,14 @@ class DegreeTrainer(ABC):
         - `cache_dir` (`str`): Cache directory for information in this trainer.
         - `max_scaling_iter` (`int`): Maximum number of iterations to run to adjust degrees to integers to a desired
           sum.
+        - `unique` (`bool`): True if each combination of foreign keys appear at most once. Default is `False`.
         """
         self._foreign_keys = foreign_keys
         self._descr = descr
         self._cache_dir = cache_dir
         self._name = None
         self._max_scaling_iter = max_scaling_iter
+        self._unique = unique
         os.makedirs(self._cache_dir, exist_ok=True)
         self._degrees_per_fk = []
 
@@ -99,41 +101,55 @@ class DegreeTrainer(ABC):
         for _ in range(self._max_scaling_iter):
             violated = False
             for fk, factor, real_degrees in zip(self._foreign_keys, scaling_factors, self._degrees_per_fk):
-                # by_keys = [(a, b, c) for a, b, c in deg_known.columns if (a, b) in fk.left]
                 grouped = deg_known.groupby(fk.left, dropna=False, sort=False)[[
                     ('', 'degree'), ('', 'degree_raw')
                 ]]
-                degrees_for_this_fk = grouped.sum()
+                degrees_for_this_fk = grouped.transform('sum')
                 expected_mean = real_degrees.mean() * factor
                 l, r = expected_mean * (1 - tolerance), expected_mean * (1 + tolerance)
+                # print(degrees_for_this_fk.shape, degrees_for_this_fk[('', 'degree')].head())
                 actual_mean = degrees_for_this_fk[('', 'degree')].mean()
+                print('for--- ', self._name, fk.parent, expected_mean, 'want', l, '<', actual_mean, '<', r, flush=True)
                 if l <= actual_mean <= r:
                     continue
 
                 violated = True
-                ratio = expected_mean / actual_mean
+                expected_std = (real_degrees * factor).std()
+                actual_std = degrees_for_this_fk[('', 'degree')].std()
+
+                def renorm(x):
+                    x = (x - actual_mean) / actual_std
+                    return x * expected_std + expected_mean
+                total_change = 0
+                fake_total_change = 0
                 for fk_val, deg_val in grouped:
-                    int_deg = (deg_val[('', 'degree')] * ratio).round()
-                    rounding = deg_val[('', 'degree_raw')] * ratio
+                    int_deg = renorm(deg_val[('', 'degree')]).round()
+                    rounding = renorm(deg_val[('', 'degree_raw')])
+                    # int_deg = (deg_val[('', 'degree')] * ratio).round()
+                    # rounding = deg_val[('', 'degree_raw')] * ratio
                     expected_diff = int_deg.sum() - rounding.sum()
-                    # expected_diff = int_deg.sum() * ratio - int_deg.sum()
+                    deg_known.loc[int_deg.index, ('', 'degree')] = int_deg
+                    if round(abs(expected_diff)) <= 1:
+                        continue
                     if expected_diff < 0:
                         rounding = -rounding
                     offset = -rounding.min() + 0.1 if rounding.min() < 0 else 0.1
                     p = rounding + offset
-                    # print('???', int_deg.sum())
-                    print('!! expected diff', expected_diff, int_deg.describe(), deg_val.shape, fk_val)
                     indices = np.random.choice(range(len(int_deg)), round(abs(expected_diff)), p=p / p.sum())
-                    deg_known.loc[int_deg.index, ('', 'degree')] = int_deg
                     for idx in indices:
+                        fake_total_change += 1
                         if expected_diff > 0:
+                            if not self._unique or deg_known.loc[int_deg.index[idx], ('', 'degree')] <= 1:
+                                total_change += 1
                             deg_known.loc[int_deg.index[idx], ('', 'degree')] += 1
                         else:
+                            if deg_known.loc[int_deg.index[idx], ('', 'degree')] > 0:
+                                total_change -= 1
                             deg_known.loc[int_deg.index[idx], ('', 'degree')] -= 1
                 deg_known.loc[:, ('', 'degree')] = deg_known[('', 'degree')].apply(lambda x: x if x >= 0 else 0)
                 print(self._name, fk.child, fk.parent, 'expected',
                       expected_mean, actual_mean, 'got', deg_known.loc[:, ('', 'degree')].mean(), 'raw', degrees.mean(),
-                      'real', real_degrees.mean(), 'factor', factor)
+                      'real', real_degrees.mean(), 'factor', factor, 'changed', total_change, fake_total_change)
             if not violated:
                 break
         return deg_known[('', 'degree')]

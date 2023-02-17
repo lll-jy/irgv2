@@ -73,6 +73,15 @@ def init_process_group(distributed: bool = True, num_processes: int = 200):
     # _pool = mp.Pool(processes=num_processes)
 
 
+def is_initialized() -> bool:
+    """
+    Check whether process group is initialized.
+
+    **Return**: True if initialized.
+    """
+    return dist.is_initialized()
+
+
 def to_device(obj: object, device: torch.device) -> object:
     """
     Move the object onto the device, recursively, including all its elements.

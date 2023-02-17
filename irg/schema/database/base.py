@@ -104,7 +104,8 @@ class Database:
                     'required': ['columns', 'parent'],
                     'additionalProperties': False
                 }
-            }
+            },
+            'unique_fk': {'type': 'boolean'}
         },
         'additionalProperties': False
     }
@@ -147,6 +148,7 @@ class Database:
         self._table_columns: Dict[str, List[str]] = {}
         self._primary_keys: Dict[str, List[str]] = {}
         self._foreign_keys: Dict[str, List[ForeignKey]] = {}
+        self._unique_fks = set()
 
         os.makedirs(temp_cache, exist_ok=True)
         self._data_dir, self._temp_cache = data_dir, os.path.join(temp_cache, 'real_db')
@@ -199,6 +201,10 @@ class Database:
                         raise ColumnNotFoundError(parent_name, col)
                 self._foreign_keys[name].append(ForeignKey(name, this_columns, parent_name, parent_columns))
 
+            unique = True if 'unique_fk' in schema and schema['unique_fk'] else False
+            if unique:
+                self._unique_fks.add(name)
+
             id_cols = [] if id_cols is None else id_cols
             determinants = [] if determinants is None else determinants
             formulas = {} if formulas is None else formulas
@@ -232,6 +238,18 @@ class Database:
 
     def __len__(self):
         return len(self._table_paths)
+
+    def has_unique_fk_comb(self, name: str) -> bool:
+        """
+        Check whether a table has unique combination of foreign keys.
+
+        **Args**:
+
+        - `name` (`str`): The name of the table queried.
+
+        **Return**: Whether the table has unique combination.
+        """
+        return name in self._unique_fks
 
     @classmethod
     def load_from(cls, file_path: str, engine: Optional[str] = None, data_dir: str = '.', temp_cache: str = '.temp')\

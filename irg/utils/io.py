@@ -6,11 +6,14 @@ import pickle
 import sys
 from typing import Any, Optional
 
-from torch import load as torch_load
 import pandas as pd
+import torch
+from torch import load as torch_load
+from torch.nn import Module
 import yaml
 
 from .misc import SparseDType
+from .dist import is_main_process
 
 
 def load_from(file_path: str, engine: Optional[str] = None) -> Any:
@@ -85,6 +88,41 @@ def pd_read_compressed_pickle(file_path: str, sparse: bool = True) -> pd.DataFra
     if sparse:
         loaded = loaded.to_dense()
     return loaded
+
+
+def save_state_dict(model: Module, path: str):
+    """
+    Save state dict of a model to the path.
+
+    **Args**:
+
+    - `model` (`Module`): The model to save.
+    - `path` (`str`): Path to save the state dict to.
+    """
+    if is_main_process():
+        if hasattr(model, 'module'):
+            torch.save(model.module.state_dict(), path)
+        else:
+            torch.save(model.state_dict(), path)
+
+
+def load_state_dict(model: Module, path: str) -> Module:
+    """
+    Load state dict of a model from the path.
+
+    **Args**:
+
+    - `model` (`Module`): The model to load.
+    - `path` (`str`): Path the state dict was saved at.
+
+    **Return**: Model with state dict loaded.
+    """
+    state_dict = torch.load(path)
+    if hasattr(model, 'module'):
+        model.module.load_state_dict(state_dict)
+    else:
+        model.load_state_dict(state_dict)
+    return model
 
 
 class HiddenPrints:

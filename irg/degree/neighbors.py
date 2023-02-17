@@ -2,7 +2,6 @@ import os.path
 from collections import defaultdict
 from typing import Optional, Dict
 
-import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics.pairwise import euclidean_distances
@@ -16,10 +15,16 @@ from ..utils.io import pd_to_pickle, pd_read_compressed_pickle
 
 class DegreeFromNeighborsTrainer(DegreeTrainer):
     """Degree prediction by same degree values from nearest neighbor in real data."""
-    def __init__(self, **kwargs):
+    def __init__(self, k: int = 10, **kwargs):
+        """
+        **Args**:
+
+        - `k` (`int`): Number of neighbors with the highest scores to retain. Default is 10.
+        """
         super().__init__(**kwargs)
         self._comb_counts = defaultdict(int)
         self._context = []
+        self._k = k
 
     def _fit(self, data: Table, context: Database):
         deg_data = data.data('degree')
@@ -58,8 +63,8 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
                 index_in_parent.append(indices)
 
         if do_comb_count:
-            for comb in zip(*index_in_parent):
-                self._comb_counts[comb] += 1
+            for comb, deg in zip(zip(*index_in_parent), deg_data[('', 'degree')]):
+                self._comb_counts[comb] += int(deg)
         torch.save(self._comb_counts, os.path.join(self._cache_dir, 'comb_counts.pt'))
 
     def predict(self, data: SyntheticTable, context: SyntheticDatabase, scaling: Optional[Dict[str, float]],
@@ -70,24 +75,36 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             parent_name = fk.parent
             # print('predict for', fk.parent, fk.child)
             parent_normalized = context.augmented_till(parent_name, self._name, with_id='none')
-            pairwise_euclidean = euclidean_distances(parent_normalized, real_ctx)
-            correspondence = torch.topk(torch.tensor(pairwise_euclidean), 10, dim=-1).indices
-            rand = torch.argmax(torch.rand(*correspondence.shape), dim=-1)
+            pairwise_euclidean = euclidean_distances(real_ctx, parent_normalized)
+            # pairwise_euclidean = euclidean_distances(parent_normalized, real_ctx)
+            values, correspondence = torch.topk(torch.tensor(pairwise_euclidean), self._k, dim=-1)
+            rand = torch.argmax(torch.rand(*correspondence.shape) * values, dim=-1)
             correspondence = [row[i].item() for row, i in zip(correspondence, rand)]
             index_correspondences.append(correspondence)
 
             parent_normalized = context.augmented_till(parent_name, self._name, with_id='inherit', normalized=False)
+            print('parent normalized shape', parent_name, self._name, parent_normalized.shape, flush=True)
             parent_tables.append(parent_normalized)
 
         pred_deg = []
         deg_known = pd.concat({data.name: pd.DataFrame()})
-        for comb in zip(*index_correspondences):
-            pred_deg.append(self._comb_counts[comb])
+        print('!! get here', len(self._comb_counts), len(index_correspondences), flush=True)
+        for comb, cnt in self._comb_counts.items():
+            pred_deg.append(cnt)
             new_row = {}
-            for c, table_normalized, (i, fk) in zip(comb, parent_tables, enumerate(self._foreign_keys)):
-                new_row[f'fk{i}:{fk.parent}'] = table_normalized.iloc[c]
+            for c, table, idx, (i, fk) in zip(comb, parent_tables, index_correspondences, enumerate(self._foreign_keys)):
+                new_row[f'fk{i}:{fk.parent}'] = table.iloc[idx]
             new_row = pd.concat(new_row)
             deg_known = deg_known.append(new_row, ignore_index=True)
+            if len(deg_known) % 500 == 0:
+                print('got deg known', len(deg_known), flush=True)
+        # for comb in zip(*index_correspondences):
+        #     pred_deg.append(self._comb_counts[comb])
+        #     new_row = {}
+        #     for c, table_normalized, (i, fk) in zip(comb, parent_tables, enumerate(self._foreign_keys)):
+        #         new_row[f'fk{i}:{fk.parent}'] = table_normalized.iloc[c]
+        #     new_row = pd.concat(new_row)
+        #     deg_known = deg_known.append(new_row, ignore_index=True)
         for i, fk in enumerate(self._foreign_keys):
             for (pname, cname), l in zip(fk.right, fk.left):
                 deg_known[l] = deg_known[(f'fk{i}:{pname}', cname)]
@@ -100,6 +117,15 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
         )
 
         print('pred deg', data.name, pred_deg.sum(), pred_deg.describe())
+        total = 1
+        for s in parent_tables:
+            total *= len(s)
+        real = pd.Series([*self._comb_counts.values()] + [0] * (total - len(self._comb_counts)))
+        print('real deg', real.sum(), real.describe())
+        left = real.sum() * 0.9
+        right = real.sum() * 1.1
+        if not left <= pred_deg.sum() <= right:
+            raise ValueError()
         data.assign_degrees(pred_deg)
         known_tab, _, _ = data.ptg_data()
         augmented = data.data('augmented')

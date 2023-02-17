@@ -77,7 +77,7 @@ def _train_degrees(data: Table, context: Database, trainer_args: Dict, descr: st
     if 'ckpt_dir' in trainer_args:
         kwargs['cache_dir'] = os.path.join(trainer_args['ckpt_dir'], descr)
     trainer = create_deg_trainer(foreign_keys=[fk for fk in context.foreign_keys if fk.child == data.name],
-                                 descr=descr,
+                                 descr=descr, unique=context.has_unique_fk_comb(data.name),
                                  **trainer_args, **kwargs)
     trainer.fit(data, context)
     return trainer
