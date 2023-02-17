@@ -122,7 +122,7 @@ class DegreeTrainer(ABC):
                     offset = -rounding.min() + 0.1 if rounding.min() < 0 else 0.1
                     p = rounding + offset
                     # print('???', int_deg.sum())
-                    # print('!! expected diff', expected_diff, int_deg.describe(), deg_val.shape, fk_val)
+                    print('!! expected diff', expected_diff, int_deg.describe(), deg_val.shape, fk_val)
                     indices = np.random.choice(range(len(int_deg)), round(abs(expected_diff)), p=p / p.sum())
                     deg_known.loc[int_deg.index, ('', 'degree')] = int_deg
                     for idx in indices:

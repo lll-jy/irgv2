@@ -456,8 +456,6 @@ class Table:
             self._length = len(augmented)
 
     def save_degree_known(self, data: pd.DataFrame):
-        # print('degree known!!!', self.name, [*self._degree_attributes])
-        # print('!! data', data.columns.tolist())
         data.to_pickle(self._degree_path())
         data.to_pickle(self._augmented_path())
         # new_data = pd.DataFrame()
@@ -468,7 +466,7 @@ class Table:
         # new_data.to_pickle(self._degree_path())
         attributes = set(self._degree_attributes.keys())
         names = set(data.columns)
-        print('@@@ saved', self._name, data.shape, len(attributes), len(names), flush=True)
+        print('@@@ saved', data.columns.nlevels, self._name, data.shape, len(attributes), len(names), flush=True)
         print(attributes - names)
         print(names - attributes)
         for (table, attr_name), attr in tqdm(self._degree_attributes.items(),
@@ -661,7 +659,7 @@ class Table:
             base += len(attr.transformed_columns)
         return res
 
-    def augmented_for_join(self, normalized: bool = False, with_id: Literal['none', 'this', 'inherit'] = 'this') -> \
+    def augmented_for_join(self, with_id: Literal['none', 'this', 'inherit'] = 'this') -> \
             Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
         """
         Get the augmented information for joining.
@@ -674,14 +672,17 @@ class Table:
         **Return**: Augmented table, set of ID column names, and attributes.
         """
         if self.is_independent():
-            return self.data(normalize=normalized, with_id=with_id), self._id_cols, self._attributes
+            data = self.data(with_id=with_id)
+            return data, self._id_cols, self._attributes
 
-        data = self.data(variant='augmented', normalize=normalized, with_id=with_id)
+        data = self.data(variant='augmented', with_id=with_id)
         flattened, attributes = {}, {n: v for n, v in self._attributes.items()}
+        print('all aug', [*self._augmented_attributes])
         for (table, col), group_df in data.groupby(level=[0, 1], axis=1):
             if table == '':
                 continue
             col_name = col if table == self.name else f'{table}/{col}'
+            print('doneee', self._name, col_name)
             attributes[col_name] = self._augmented_attributes[(table, col)]
             flattened[col_name] = group_df[(table, col)]
         return pd.concat(flattened, axis=1), self._id_cols, attributes

@@ -193,29 +193,55 @@ class AffectingDatabase(Database):
         )
         return r - l
 
-    def augmented_till(self, name: str, till: str) -> pd.DataFrame:
-        updated_descendants = False
-        if name not in self._descendants:
-            updated_descendants = True
-            for child_name, foreign_keys in self._foreign_keys.items():
-                stop = False
-                if child_name == till:
-                    stop = True
-                for i, foreign_key in enumerate(foreign_keys):
-                    if foreign_key.parent == name and foreign_key.child == child_name:
-                        self._descendants[name].append(foreign_key)
-                if stop:
-                    break
-        print('descendants', name, [f.child for f in self._descendants[name]], flush=True)
-        data = self._descendant_joined(till, name, True, 'none')[0]
-        if updated_descendants:
-            del self._descendants[name]
+    def _descendant_graph_till(self, till: str) -> Dict[str, List[ForeignKey]]:
+        last_child = None
+        for child, foreign_keys in self._foreign_keys.items():
+            if child == till:
+                break
+            last_child = child
+        if last_child is None:
+            return {till: []}
+        previous_result = self._descendant_graph_till(last_child)
+        for foreign_key in self._foreign_keys[till]:
+            previous_result[foreign_key.parent].append(foreign_key)
+        previous_result[till] = []
+        return previous_result
+
+    def augmented_till(self, name: str, till: str, normalized: bool = True,
+                       with_id: Literal['none', 'this', 'inherit'] = 'this') -> pd.DataFrame:
+        previous_descendants = self._descendants[name]
+        self._descendants[name] = self._descendant_graph_till(self.prev_table_of(till))[name]
+        data, ids, all_attr = self._descendant_joined(
+            curr_name=till,
+            parent_name=name,
+            with_id='this' if with_id == 'none' else with_id
+        )
+        print('descendant joined', name, till)
+        print(data.columns.tolist(), flush=True)
+        data_set = set(data.columns)
+        all_set = {*all_attr}
+        print(data_set - all_set)
+        print(all_set - data_set)
+        if with_id == 'none':
+            data = data.drop(columns=[c for c in data.columns if c in ids])
+        all_columns = set(data.columns)
+        # all_columns = set(data.columns.droplevel(2))
+        if normalized:
+            normalized_data = {}
+            for attr_name, attr in all_attr.items():
+                if attr_name in all_columns:
+                    normalized_data[attr_name] = attr.transform(data[attr_name])
+            data = pd.concat(normalized_data, axis=1)
+        # data = super().augmented_till(name, till, normalized, with_id)
+        # data, id_cols, _ = self._descendant_joined(till, name, True, 'this' if with_id == 'none' else with_id)
+        self._descendants[name] = previous_descendants
+        print(name, till, normalized, 'so I currently have columns', data.columns.tolist(), flush=True)
         return data
 
-    def _descendant_joined(self, curr_name: str, parent_name: str, normalize: bool = False,
+    def _descendant_joined(self, curr_name: str, parent_name: str,
                            with_id: Literal['none', 'this', 'inherit'] = 'this') -> \
             Tuple[pd.DataFrame, Set[str], Dict[str, BaseAttribute]]:
-        data, new_ids, all_attr = self[parent_name].augmented_for_join(normalized=normalize, with_id=with_id)
+        data, new_ids, all_attr = self[parent_name].augmented_for_join(with_id=with_id)
         original_cols = data.columns
         new_attr = {}
         for i, foreign_key in enumerate(self._descendants[parent_name]):

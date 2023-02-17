@@ -41,7 +41,7 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             if os.path.exists(filepath) and False:
                 parent_normalized = pd_read_compressed_pickle(filepath)
             else:
-                parent_normalized = context.augmented_till(parent_name, data.name)
+                parent_normalized = context.augmented_till(parent_name, data.name, with_id='none')
                 # if parent_table.is_independent():
                 #     parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
                 # else:
@@ -75,13 +75,14 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
         for fk, real_ctx in zip(self._foreign_keys, self._context):
             parent_name = fk.parent
             # print('predict for', fk.parent, fk.child)
-            parent_table = context[parent_name]
-            if parent_table.is_independent():
-                parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
-            else:
-                parent_data = parent_table.data('augmented')
-                parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
-                assert len(parent_data) == len(parent_normalized)
+            parent_normalized = context.augmented_till(parent_name, self._name, with_id='none')
+            # parent_table = context[parent_name]
+            # if parent_table.is_independent():
+            #     parent_normalized = pd.concat({parent_name: parent_table.data(normalize=True, with_id='none')})
+            # else:
+            #     parent_data = parent_table.data('augmented')
+            #     parent_normalized = parent_table.data('augmented', normalize=True, with_id='none')
+            #     assert len(parent_data) == len(parent_normalized)
             pairwise_euclidean = euclidean_distances(parent_normalized, real_ctx)
             correspondence = torch.topk(torch.tensor(pairwise_euclidean), 10, dim=-1).indices
             rand = torch.argmax(torch.rand(*correspondence.shape), dim=-1)
@@ -96,11 +97,15 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             #     if not any(col_name == x and y != 'is_nan' for x, y in parent_normalized.columns):
             #         parent_normalized[(col_name, '')] = raw_parent[col_name]
             # parent_tables.append(parent_normalized)
+            parent_normalized = context.augmented_till(parent_name, self._name, with_id='inherit', normalized=False)
+            parent_tables.append(parent_normalized)
+            print('!!!??? normalized inhe', self._name, parent_name)
+            print(parent_normalized.columns.tolist(), flush=True)
             # parent_table = self._real.augmented_till(parent_name, )
-            if parent_table.is_independent():
-                parent_tables.append(pd.concat({parent_name: parent_table.data(with_id='this')}))
-            else:
-                parent_tables.append(parent_table.data(variant='augmented', with_id='this'))
+            # if parent_table.is_independent():
+            #     parent_tables.append(pd.concat({parent_name: parent_table.data(with_id='this')}))
+            # else:
+            #     parent_tables.append(parent_table.data(variant='augmented', with_id='this'))
 
         pred_deg = []
         deg_known = pd.concat({data.name: pd.DataFrame()})
@@ -111,11 +116,14 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
                 new_row[f'fk{i}:{fk.parent}'] = table_normalized.iloc[c]
             new_row = pd.concat(new_row)
             if len(pred_deg) == 1:
+                print('for', self._name)
                 print(new_row, flush=True)
             deg_known = deg_known.append(new_row, ignore_index=True)
         for i, fk in enumerate(self._foreign_keys):
             for (pname, cname), l in zip(fk.right, fk.left):
                 deg_known[l] = deg_known[(f'fk{i}:{pname}', cname)]
+                # for c in deg_known[(f'fk{i}:{pname}', cname)].columns:
+                #     deg_known[(*l, c)] = deg_known[(f'fk{i}:{pname}', cname, c)]
         data.save_degree_known(deg_known)
         pred_deg = self._do_scaling(
             degrees=pd.Series(pred_deg),

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import List, Optional, ItemsView, Any, Tuple, Dict
+from typing import List, Optional, ItemsView, Any, Tuple, Dict, Literal
 import os
 import json
 import logging
@@ -423,9 +423,34 @@ class Database:
     def _update_cls(item: Any):
         raise NotImplementedError()
 
-    def augmented_till(self, name: str, till: str) -> pd.DataFrame:
-        data, new_ids, all_attr = self[name].augmented_for_join()
+    def augmented_till(self, name: str, till: str, normalized: bool = True,
+                       with_id: Literal['none', 'this', 'inherit'] = 'this') -> pd.DataFrame:
+        data, new_ids, all_attr = self[name].augmented_for_join(with_id=with_id)
+        all_columns = set(data.columns)
+        if normalized:
+            normalized_data = {}
+            for attr_name, attr in all_attr.items():
+                if attr_name in all_columns:
+                    normalized_data[attr_name] = attr.transform(data[attr_name])
+            return pd.concat(normalized_data, axis=1)
         return data
+
+    def next_table_of(self, table_name: str) -> Optional[str]:
+        found = False
+        for name in self._foreign_keys:
+            if found:
+                return name
+            if name == table_name:
+                found = True
+        return None
+
+    def prev_table_of(self, table_name: str) -> Optional[str]:
+        prev = None
+        for name in self._foreign_keys:
+            if name == table_name:
+                return prev
+            prev = name
+        return None
 
 
 class SyntheticDatabase(Database, ABC):
