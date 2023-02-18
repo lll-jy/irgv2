@@ -6,6 +6,7 @@ from typing import Optional, Iterable, Any, Dict, List, Collection, Tuple
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from tqdm import tqdm
@@ -93,7 +94,7 @@ def to_device(obj: object, device: torch.device) -> object:
 
     **Return**: The object on the target device.
     """
-    if isinstance(obj, Tensor):
+    if isinstance(obj, Tensor) or isinstance(obj, Module):
         return obj.to(device)
     if isinstance(obj, Dict):
         return {
@@ -101,7 +102,7 @@ def to_device(obj: object, device: torch.device) -> object:
             for n, v in obj.items()
         }
     if isinstance(obj, Tuple):
-        return tuple([to_device(n, device) for n in obj])
+        return tuple(to_device([*obj], device))
     if isinstance(obj, List) or isinstance(obj, Collection):
         return [to_device(n, device) for n in obj]
     return obj

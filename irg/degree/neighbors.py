@@ -73,7 +73,6 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
         parent_tables = []
         for fk, real_ctx in zip(self._foreign_keys, self._context):
             parent_name = fk.parent
-            # print('predict for', fk.parent, fk.child)
             parent_normalized = context.augmented_till(parent_name, self._name, with_id='none')
             pairwise_euclidean = euclidean_distances(real_ctx, parent_normalized)
             # pairwise_euclidean = euclidean_distances(parent_normalized, real_ctx)
@@ -83,12 +82,10 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             index_correspondences.append(correspondence)
 
             parent_normalized = context.augmented_till(parent_name, self._name, with_id='inherit', normalized=False)
-            print('parent normalized shape', parent_name, self._name, parent_normalized.shape, flush=True)
             parent_tables.append(parent_normalized)
 
         pred_deg = []
         deg_known = pd.concat({data.name: pd.DataFrame()})
-        print('!! get here', len(self._comb_counts), len(index_correspondences), flush=True)
         for comb, cnt in self._comb_counts.items():
             pred_deg.append(cnt)
             new_row = {}
@@ -96,15 +93,6 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
                 new_row[f'fk{i}:{fk.parent}'] = table.iloc[idx]
             new_row = pd.concat(new_row)
             deg_known = deg_known.append(new_row, ignore_index=True)
-            if len(deg_known) % 500 == 0:
-                print('got deg known', len(deg_known), flush=True)
-        # for comb in zip(*index_correspondences):
-        #     pred_deg.append(self._comb_counts[comb])
-        #     new_row = {}
-        #     for c, table_normalized, (i, fk) in zip(comb, parent_tables, enumerate(self._foreign_keys)):
-        #         new_row[f'fk{i}:{fk.parent}'] = table_normalized.iloc[c]
-        #     new_row = pd.concat(new_row)
-        #     deg_known = deg_known.append(new_row, ignore_index=True)
         for i, fk in enumerate(self._foreign_keys):
             for (pname, cname), l in zip(fk.right, fk.left):
                 deg_known[l] = deg_known[(f'fk{i}:{pname}', cname)]
@@ -116,12 +104,10 @@ class DegreeFromNeighborsTrainer(DegreeTrainer):
             tolerance=tolerance
         )
 
-        print('pred deg', data.name, pred_deg.sum(), pred_deg.describe())
         total = 1
         for s in parent_tables:
             total *= len(s)
         real = pd.Series([*self._comb_counts.values()] + [0] * (total - len(self._comb_counts)))
-        print('real deg', real.sum(), real.describe())
         left = real.sum() * 0.9
         right = real.sum() * 1.1
         if not left <= pred_deg.sum() <= right:

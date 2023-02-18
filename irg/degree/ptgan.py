@@ -58,7 +58,7 @@ class DegreeAsTabularTrainer(DegreeTrainer):
                 known, expected_size = context.degree_known_for(data.name)
                 known_original = data.data('degree')
                 deg_tensor = self._trainer.inference(known).output[:, -self._trainer.unknown_dim].cpu()
-                degrees = data.inverse_transform_degrees(deg_tensor)  # TODO: move expected size here
+                degrees = data.inverse_transform_degrees(deg_tensor)
                 degrees = self._do_scaling(degrees, scaling, known_original, tolerance)
                 data.assign_degrees(degrees)
                 known_tab, _, _ = data.ptg_data()

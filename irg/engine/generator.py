@@ -92,35 +92,6 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: DegreeTr
     syn_db.save_dummy(table.name, syn_table)
 
     known_tab, augmented = deg_trainer.predict(syn_table, syn_db, scaling)
-    # known_tensors, augmented = [], []
-    # os.makedirs(os.path.join(temp_cache, 'deg_temp'), exist_ok=True)
-    # deg_cnt = 0
-    # print('=== start', table.name)
-    # while not syn_db.deg_finished(table.name):
-    #     if os.path.exists(os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt')):
-    #         known_tab, aug_tab = torch.load(os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
-    #     else:
-    #         known, expected_size = syn_db.degree_known_for(table.name)
-    #         if expected_size is None:
-    #             real_degrees = syn_db.real_table(table.name).data('degree')
-    #             degrees = syn_db[table.name].data('degree')
-    #             key_cols = [(n, c) for n, c in degrees.columns.tolist() if n == table.name]
-    #             real_degrees = real_degrees[key_cols + [('', 'degree')]]
-    #             degrees = degrees[key_cols]
-    #             degrees = degrees.merge(real_degrees, how='left', on=key_cols)
-    #             degrees = degrees[('', 'degree')]
-    #         else:
-    #             deg_tensor = deg_trainer.inference(known, deg_batch_size).output[:, -deg_trainer.unknown_dim:].cpu()
-    #             degrees = syn_table.inverse_transform_degrees(deg_tensor, scale, expected_size)
-    #         syn_table.assign_degrees(degrees)
-    #         known_tab, _, _ = syn_table.ptg_data()
-    #         aug_tab = syn_table.data('augmented')
-    #         torch.save((known_tab, aug_tab), os.path.join(temp_cache, 'deg_temp', f'set{deg_cnt}.pt'))
-    #     known_tensors.append(known_tab)
-    #     augmented.append(aug_tab)
-    #     deg_cnt += 1
-    # known_tab = torch.cat(known_tensors)
-    # augmented = pd.concat(augmented)
     syn_table.update_augmented(augmented)
 
     output = tab_trainer.inference(known_tab, tab_batch_size).output[:, -tab_trainer.unknown_dim:].cpu()

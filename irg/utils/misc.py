@@ -128,17 +128,17 @@ def reformat_datetime(x: Optional[datetime], format_str: str) -> Optional[dateti
     return datetime.strptime(x.strftime(format_str), format_str)
 
 
-def make_dataloader(*x: Data2D, batch_size: int = 64, shuffle: bool = True) -> DataLoader:
+def make_dataloader(*x: Tensor, batch_size: int = 64, shuffle: bool = True) -> DataLoader:
     """
     Make dataloader for training based the data.
 
     **Args**:
 
-    - `x` (`Data2D`): Data to build loader from.
+    - `x` (`Tensor`): Data to build loader from.
     - `batch_size` (`int`): Batch size of the data loader. Default is 64.
     - `shuffle` (`bool`): Whether to shuffle.
     """
-    dataset = [convert_data_as(t, 'torch').to(get_device()) for t in x]
+    dataset = [t.to(get_device()) for t in x]
     dataset = TensorDataset(*dataset)
     if is_initialized():
         sampler = DistributedSampler(dataset, shuffle=shuffle)

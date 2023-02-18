@@ -1,4 +1,5 @@
 """Base trainer for degree prediction."""
+import math
 import os
 from abc import ABC
 from typing import Optional, List, Dict
@@ -74,29 +75,56 @@ class DegreeTrainer(ABC):
         else:
             return scaling
 
+    @staticmethod
+    def _round_sumrange(data: pd.Series, l: float, r: float, till_in_range: bool = False) -> (pd.Series, float):
+        data = data.apply(lambda x: 0 if x < 0 else x)
+        l = math.floor(l)
+        r = math.ceil(r)
+        smallest = data.apply(math.floor)
+        if smallest.sum() >= r:
+            if till_in_range:
+                nd = math.ceil(smallest.sum() - r)
+                while smallest.sum() > r:
+                    to_del = np.random.choice(smallest[smallest >= 1].index, nd, replace=False)
+                    for d in to_del:
+                        smallest[d] -= 1
+                return smallest, -nd
+            return smallest, 0.
+        largest = data.apply(math.ceil)
+        if largest.sum() <= l:
+            if till_in_range:
+                na = math.ceil(l - largest.sum())
+                to_add = np.random.choice(largest, na, replace=True)
+                for a in to_add:
+                    largest[a] += 1
+                return largest, na
+            return largest, 1.
+        l_thres = 0
+        r_thres = 1
+        while True:
+            m = (l_thres + r_thres) / 2
+            current = data.apply(lambda x: math.floor(x) if x < math.floor(x) + m else math.ceil(x))
+            curr_sum = current.sum()
+            if l <= curr_sum <= r or r_thres - l_thres < 1e-6:
+                return current, m
+            if curr_sum < l:
+                l_thres = m
+            else:
+                r_thres = m
+
     def _do_scaling(self, degrees: pd.Series, scaling: Dict[str, float], deg_known: pd.DataFrame, tolerance: float) \
             -> pd.Series:
-        # assert len(scaling) == len(self._foreign_keys), \
-        #     f'Number of scaling factors provided should be the same as the number of foreign keys. ' \
-        #     f'Got {len(scaling)} factors but {len(self._foreign_keys)} foreign keys.'
         assert len(degrees) == len(deg_known), \
             f'Size of degrees predicted and the known part of degree table should be the same. ' \
             f'Got {len(degrees)} predicted degrees but {len(deg_known)} rows in the known part of degree table.'
+        degrees = degrees.apply(lambda x: x if x > 0 else 0)
         scaling_factors = [scaling[fk.parent] for fk in self._foreign_keys]
-        print('do scaling input', len(degrees), deg_known.shape, np.prod(scaling_factors))
         raw_degrees = degrees * np.prod(scaling_factors) * scaling[self._name]
-        print('!!! raw degrees', self._name, raw_degrees.describe())
         int_degrees = raw_degrees.apply(lambda x: round(x) if x >= 0 else 0)
         deg_known = pd.concat([deg_known, pd.DataFrame({
             ('', 'degree_raw'): raw_degrees,
             ('', 'degree'): int_degrees
         })], axis=1)
-        # deg_known[('', 'degree_raw')] = degrees * np.prod(scaling_factors) * scaling[self._name]
-        # deg_known[('', 'degree')] = deg_known[('', 'degree_raw')].apply(
-        #     lambda x: round(x) if x >= 0 else 0
-        # )
-        # deg_known.loc[:, ('', 'degree')] = deg_known[('', 'degree_raw')].apply(round) \
-        #     .apply(lambda x: x if x >= 0 else 0)
 
         for _ in range(self._max_scaling_iter):
             violated = False
@@ -107,30 +135,40 @@ class DegreeTrainer(ABC):
                 degrees_for_this_fk = grouped.transform('sum')
                 expected_mean = real_degrees.mean() * factor
                 l, r = expected_mean * (1 - tolerance), expected_mean * (1 + tolerance)
-                # print(degrees_for_this_fk.shape, degrees_for_this_fk[('', 'degree')].head())
-                actual_mean = degrees_for_this_fk[('', 'degree')].mean()
-                print('for--- ', self._name, fk.parent, expected_mean, 'want', l, '<', actual_mean, '<', r, flush=True)
+                scaled_deg, thres = self._round_sumrange(degrees_for_this_fk[('', 'degree')],
+                                                         l * len(degrees_for_this_fk), r * len(degrees_for_this_fk))
+                deg_known[('', 'degree')] = deg_known[('', 'degree')].apply(
+                    lambda x: math.floor(x) if x < thres + math.floor(x) else math.ceil(x))
+                grouped = deg_known.groupby(fk.left, dropna=False, sort=False)[[
+                    ('', 'degree'), ('', 'degree_raw')
+                ]]
+                actual_mean = scaled_deg.mean()
                 if l <= actual_mean <= r:
                     continue
 
                 violated = True
                 expected_std = (real_degrees * factor).std()
-                actual_std = degrees_for_this_fk[('', 'degree')].std()
+                actual_std = scaled_deg.std()
 
                 def renorm(x):
-                    x = (x - actual_mean) / actual_std
+                    x = (x - actual_mean) / max(actual_std, 1e-5)
                     return x * expected_std + expected_mean
                 total_change = 0
                 fake_total_change = 0
                 for fk_val, deg_val in grouped:
-                    int_deg = renorm(deg_val[('', 'degree')]).round()
                     rounding = renorm(deg_val[('', 'degree_raw')])
-                    # int_deg = (deg_val[('', 'degree')] * ratio).round()
-                    # rounding = deg_val[('', 'degree_raw')] * ratio
-                    expected_diff = int_deg.sum() - rounding.sum()
+                    rsum = rounding.sum()
+                    suml, sumr = rsum * (1 - tolerance), rsum * (1 - tolerance)
+                    int_deg, val_thres = self._round_sumrange(
+                        renorm(deg_val[('', 'degree')]), suml, sumr
+                    )
                     deg_known.loc[int_deg.index, ('', 'degree')] = int_deg
-                    if round(abs(expected_diff)) <= 1:
+                    deg_known.loc[int_deg.index, ('', 'degree_raw')] = rounding
+                    if suml <= int_deg.sum() <= sumr:
                         continue
+                    int_sum = int_deg.sum()
+                    suml, sumr = math.floor(suml), math.ceil(sumr)
+                    expected_diff = (sumr - int_sum) if int_sum > sumr else (int_sum - suml)
                     if expected_diff < 0:
                         rounding = -rounding
                     offset = -rounding.min() + 0.1 if rounding.min() < 0 else 0.1
@@ -147,9 +185,6 @@ class DegreeTrainer(ABC):
                                 total_change -= 1
                             deg_known.loc[int_deg.index[idx], ('', 'degree')] -= 1
                 deg_known.loc[:, ('', 'degree')] = deg_known[('', 'degree')].apply(lambda x: x if x >= 0 else 0)
-                print(self._name, fk.child, fk.parent, 'expected',
-                      expected_mean, actual_mean, 'got', deg_known.loc[:, ('', 'degree')].mean(), 'raw', degrees.mean(),
-                      'real', real_degrees.mean(), 'factor', factor, 'changed', total_change, fake_total_change)
             if not violated:
                 break
         return deg_known[('', 'degree')]
