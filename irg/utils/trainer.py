@@ -256,9 +256,9 @@ class Trainer(ABC):
         if not os.path.exists(path):
             return 0, 0
         loaded = torch.load(path)
+        steps, epochs = loaded['steps'], loaded['epochs']
         self._load_content_from(loaded)
         torch.manual_seed(loaded['seed'])
-        steps, epochs = loaded['steps'], loaded['epochs']
         _LOGGER.info(f'Resume at step {steps}, epoch {epochs} from {path}.')
         return steps, epochs
 

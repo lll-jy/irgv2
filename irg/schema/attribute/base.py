@@ -8,6 +8,7 @@ from typing import Any, Collection, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import torch
 
 from ...utils.errors import NotFittedError
 from ...utils.misc import convert_data_as, inverse_convert_data, Data2D, Data2DName
@@ -234,13 +235,31 @@ class BaseTransformer:
         recovered_no_nan = self._inverse_transform(core_data)
         if nan_thres is not None:
             threshold = nan_thres
+            isna = data['is_nan'] > threshold
         else:
             if nan_ratio is None:
                 original = pd.read_pickle(self._data_path)
-                nan_ratio = original.count() / len(original)
-            threshold = data['is_nan'].quantile(nan_ratio)
+                nan_ratio = min(1, original.isna().sum() / len(original) * 1.1)
+            if nan_ratio > 0:
+                threshold = data['is_nan'].quantile(1 - nan_ratio)
+                isna = data['is_nan'] > threshold
+                indices = isna[isna].index
+                expected_nan_cnt = min(round(len(data) * nan_ratio), len(data))
+                isna = torch.tensor(data.loc[indices, 'is_nan'].values).softmax(dim=-1)
+                prob = (isna / isna.sum()).numpy()
+                isna_indices = np.random.choice(
+                    a=indices,
+                    size=expected_nan_cnt,
+                    replace=False,
+                    p=prob
+                )
+                isna = data['is_nan'] != data['is_nan']
+                isna[isna_indices] = True
+                print('isnan !!!', isna.sum(), len(isna))
+            else:
+                isna = data['is_nan'] != data['is_nan']
         self._unload_additional_info()
-        return (data['is_nan'] > threshold), recovered_no_nan
+        return isna, recovered_no_nan
 
     @abstractmethod
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:

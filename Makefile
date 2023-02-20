@@ -46,7 +46,7 @@ prepare_model_compare:
 			module_offer \
 			module_enrolment \
 			uci_gym \
-		--sample 1000
+		--sample 5000
 
 
 prepare_all_alset:
@@ -114,6 +114,23 @@ train_cfg:
         --skip_generate >> log.txt
 	du -sh .temp${OUT_SUFFIX}
 	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+
+
+inspect_sizes:
+	echo data:
+	-du -sh ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE}
+	-du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/generated
+	echo cache:
+	-du -sh .temp${OUT_SUFFIX}
+	echo checkpoints:
+	-du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab
+	-du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg
+	echo tensorboard:
+	-du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab
+	-du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg
+	echo database:
+	-du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db
+	-du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db
 
 
 generate:

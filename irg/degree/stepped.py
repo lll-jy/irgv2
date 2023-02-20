@@ -165,6 +165,24 @@ class DegreeSteppedTrainer(DegreeTrainer):
                 self._wrap_step(optim, loss, iterator, losses, f'Training fk{idx} in {self._name} Epoch [{e}]')
         save_state_dict(model, self._match_path_for(idx))
 
+    @staticmethod
+    def _normalize_inverse_prob(v: Tensor) -> Tensor:
+        if v.shape[-1] == 1:
+            return v / v
+        v = (-v).softmax(dim=-1)
+        v = (v + (1 - v.sum()) / v.shape[-1]).clamp(min=0., max=1.)
+        if v.sum() == 1:
+            return v
+        diff = v.sum() - 1
+        if diff < 0:
+            can = v < 1 + diff
+        else:
+            can = v > diff
+        can = can.nonzero().flatten()
+        idx = np.random.choice(can)
+        v[idx] -= diff
+        return v
+
     @torch.no_grad()
     def _infer_matching(self, x: pd.DataFrame, next_data: pd.DataFrame, degrees: pd.Series, idx: int) \
             -> (pd.DataFrame, List[Tuple[int, int]]):
@@ -194,11 +212,10 @@ class DegreeSteppedTrainer(DegreeTrainer):
                 total = math.ceil(d.item() * (1 + self._top_k))
                 if total <= 0:
                     continue
-                v = (-v[:total]).softmax(dim=-1).numpy()
-                v = v + (1 - v.sum()) / total
+                v = self._normalize_inverse_prob(v[:total]).numpy()
                 chosen = np.random.choice(
                     a=i[:total].numpy(),
-                    size=min(max(int(d.item()), 0), next_data.shape[0]),
+                    size=max(1, min(max(int(d.item()), 1), next_data.shape[0], (v != 0).sum())),
                     replace=False,
                     p=v
                 )
