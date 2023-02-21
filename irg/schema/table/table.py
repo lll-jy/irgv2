@@ -415,8 +415,15 @@ class Table:
         self._unknown_cols = [col for col in self._unknown_cols if col not in self._known_cols]
         if len(self._known_cols) > 0 and augmented_attributes:
             groupby_cols = [(self._name, col) for col in self._known_cols]
-            for group, data in augmented.groupby(groupby_cols, dropna=False):
-                degree.loc[(degree[groupby_cols] == group).all(axis=1).tolist(), ('', 'degree')] = len(data)
+            augmented[('', 'degree')] = 0
+            augmented[('', 'degree')] = augmented.groupby(groupby_cols, dropna=False)[
+                [('', 'degree')]].transform('count')[('', 'degree')]
+            deg_deg = degree.merge(augmented[groupby_cols + [('', 'degree')]], on=groupby_cols)[('', 'degree')]
+            augmented = augmented.drop(columns=[('', 'degree')])
+            degree[('', 'degree')] = deg_deg
+            print('==== run here', self._name, deg_deg.sum(), len(deg_deg), len(degree), flush=True)
+            # for group, data in augmented.groupby(groupby_cols, dropna=False):
+            #     degree.loc[(degree[groupby_cols] == group).all(axis=1).tolist(), ('', 'degree')] = len(data)
             if ('', 'degree') in degree:
                 degree.loc[:, ('', 'degree')] = degree['', 'degree'].fillna(0)
 
@@ -424,12 +431,14 @@ class Table:
         degree.to_pickle(self._degree_path())
         self._augmented_ids, self._degree_ids = augmented_ids, degree_ids
         self._augmented_attributes, self._degree_attributes = augmented_attributes, degree_attributes
-        if len(self._known_cols) > 0 and ('', 'degree') in degree and not os.path.exists(self._degree_attr_path()):
+        if len(self._known_cols) > 0 and ('', 'degree') in degree and \
+                (not os.path.exists(self._degree_attr_path()) or ('', 'degree' not in self._degree_attributes)):
             deg_meta = {
                 'type': 'numerical',
                 'min_val': 0,
                 'name': 'degree'
             }
+            print('to deg attr', self._degree_attr_path(), flush=True)
             self._degree_attributes[('', 'degree')] = create_attribute(
                 deg_meta,
                 values=degree.loc[:, ('', 'degree')],
@@ -801,7 +810,7 @@ class SyntheticTable(Table):
         return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
 
     def _degree_attr_path(self) -> str:
-        return os.path.join(self._real_cache, 'deg.pkl')
+        return os.path.join(self._real_cache, 'deg_attr.pkl')
 
     @classmethod
     def from_real(cls, table: Table, temp_cache: Optional[str] = None) -> "SyntheticTable":

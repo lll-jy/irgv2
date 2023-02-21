@@ -123,7 +123,7 @@ class DegreeSteppedTrainer(DegreeTrainer):
         model = self._make_pred_model(idx)
         x = convert_data_as(x, 'torch')
         model, x, model = to_device((model, x, model), self._device)
-        dataloader = make_dataloader(x, batch_size=self._batch_size, shuffle=False)
+        dataloader = make_dataloader(x.float(), batch_size=self._batch_size, shuffle=False)
         results = []
         iterator = tqdm(dataloader, desc=f'DegFk{idx} of {self._name} Infer')
         for ctx, in iterator:
@@ -263,11 +263,18 @@ class DegreeSteppedTrainer(DegreeTrainer):
 
             known_so_far[fk.left] = known_so_far[[(f'fk{i}:{t}', c) for t, c in fk.right]]
 
+            print('!!!! degrees fk', self._name, fk.parent, fk.child)
+            print(real, fkcomb_degrees.sum())
+
             if i == len(self._foreign_keys) - 1:
                 pred_deg = fkcomb_degrees * scaling[self._name]
                 real = real * scaling[self._name]
                 pred_deg, _ = self._round_sumrange(pred_deg, real * (1 - tolerance), real * (1 + tolerance),
                                                    till_in_range=True)
+                print('!!!! degrees', self._name, self._real_sum[i], real, pred_deg.sum())
+                rs = real
+                ps = pred_deg.sum()
+                assert (1 - tolerance) * rs <= ps <= (1 + tolerance) * rs, f'predicted dimensions, {rs}, {ps}'
                 break
             
             next_table = context.augmented_till(self._foreign_keys[i+1].parent, self._name, with_id='none')

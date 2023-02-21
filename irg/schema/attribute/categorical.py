@@ -5,6 +5,7 @@ import os
 import pickle
 from typing import Optional, List, Tuple, Dict, Collection
 
+import numpy as np
 import pandas as pd
 
 from .base import BaseAttribute, BaseTransformer
@@ -55,22 +56,15 @@ class CategoricalTransformer(BaseTransformer):
         return self._cat_cnt
 
     def _calc_fill_nan(self, original: pd.Series) -> str:
-        original = original.astype(str)
-        original.to_pickle(self._data_path)
-        cat_cnt = len(self._label2id)
-        categories = set(pd_mp.unique(original).dropna().reset_index(drop=True))
-        for cat in categories:
-            if cat not in self._label2id:
-                self._label2id[cat], self._id2label[cat_cnt] = cat_cnt, cat
-                cat_cnt += 1
-        idx = 0
-        while True:
-            if f'nan_{idx}' not in self._label2id:
-                label = f'nan_{idx}'
-                return label
-            idx += 1
+        return 'nan'
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        self.set_categories([x for x in original.unique() if not pd.isnull(x)])
+        print('categories', self.fill_nan_val, [*self._id2label.values()], flush=True)
+        original.to_pickle(self._data_path)
+        nan_info['is_nan'] = nan_info.apply(
+            lambda row: row['is_nan'] if row['is_nan'] else
+            (pd.isnull(row['original']) or str(row['original']).startswith('nan') or str(row['original']) == ''), axis=1)
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
         pd_to_pickle(transformed, self._transformed_path)
@@ -93,7 +87,7 @@ class CategoricalTransformer(BaseTransformer):
                 cat_id = self._label2id[value]
                 transformed.loc[i, f'cat_{cat_id}'] = 1
             else:
-                _LOGGER.warning(f'Categorical value {value} is OOV.')
+                _LOGGER.warning(f'Categorical value {value} is OOV.', self._data_path)
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
         cat_ids = data.fillna(0).copy().set_axis([*range(data.shape[1])], axis=1).idxmax(axis=1)

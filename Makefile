@@ -228,6 +228,11 @@ clear: kill
 	-rm -r .temp
 	-rm -r .temp${OUT_SUFFIX}
 	-rm -r ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/
+	-rm -r ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db
+
+
+clear_db: kill
+	-rm -r ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db
 
 
 clear_ckpt: kill

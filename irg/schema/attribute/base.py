@@ -112,6 +112,7 @@ class BaseTransformer:
         - `force_redo` (`bool`) [default `False`]: Whether to re-fit if the attribute is already fitted.
           Default is `False`.
         """
+
         if self._fitted and not force_redo:
             return
         self._load_additional_info()
@@ -239,10 +240,15 @@ class BaseTransformer:
         else:
             if nan_ratio is None:
                 original = pd.read_pickle(self._data_path)
-                nan_ratio = min(1, original.isna().sum() / len(original) * 1.1)
-            if nan_ratio > 0:
-                threshold = data['is_nan'].quantile(1 - nan_ratio)
-                isna = data['is_nan'] > threshold
+                nan_cnt = original.isna().sum()
+                print('orig size', nan_cnt, len(original), self._data_path)
+                if 'module_enrolment' in self._data_path:
+                    print(original.value_counts().to_dict())
+                nan_ratio = nan_cnt / len(original)
+            loose_nan_ratio = min(1., nan_ratio * 1.1)
+            if 0 < nan_ratio < 1:
+                threshold = data['is_nan'].quantile(1 - loose_nan_ratio)
+                isna = data['is_nan'] >= threshold
                 indices = isna[isna].index
                 expected_nan_cnt = min(round(len(data) * nan_ratio), len(data))
                 isna = torch.tensor(data.loc[indices, 'is_nan'].values).softmax(dim=-1)
@@ -255,9 +261,11 @@ class BaseTransformer:
                 )
                 isna = data['is_nan'] != data['is_nan']
                 isna[isna_indices] = True
-                print('isnan !!!', isna.sum(), len(isna))
-            else:
+                print('isnan !!!', isna.sum(), len(isna), self._data_path, flush=True)
+            elif nan_ratio <= 0:
                 isna = data['is_nan'] != data['is_nan']
+            else:
+                isna = data['is_nan'] == data['is_nan']
         self._unload_additional_info()
         return isna, recovered_no_nan
 
@@ -386,6 +394,13 @@ class BaseAttribute(ABC):
         - `force_redo` (`bool`) [default `False`]: Whether to re-fit if the attribute is already fitted.
           Default is `False`.
         """
+        values = values.apply(lambda x: np.nan if any(x == v for v in ['nan', '']) else x)
+
+        print('!! values', self.name, values.isna().sum(), len(values))
+        if any(x in self.atype for x in ['num', 'dat', 'raw']):
+            print(values.describe(percentiles=[], datetime_is_numeric=True).to_dict())
+        elif 'id' not in self.atype:
+            print(values.value_counts(dropna=False)[:10].to_dict())
         if os.path.exists(self._transformer_path):
             with open(self._transformer_path, 'rb') as f:
                 self._transformer = pickle.load(f)
@@ -427,6 +442,7 @@ class BaseAttribute(ABC):
 
         **Raise**: `NotFittedError` if the transformer is not yet fitted.
         """
+        data = data.apply(lambda x: np.nan if any(x == v for v in ['nan', '']) else x)
         return self._transformer.transform(data, return_as)
 
     def inverse_transform(self, data: Data2D) -> pd.Series:

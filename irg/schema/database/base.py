@@ -168,6 +168,7 @@ class Database:
                 data = pd.read_csv(path) if fm == 'csv' else pd.read_pickle(path)
             id_cols, attributes = meta['id_cols'], meta['attributes']
             determinants, formulas = meta['determinants'], meta['formulas']
+            print('create table here', data.columns.tolist(), flush=True)
             table = Table(
                 name=name, ttype=ttype, need_fit=True,
                 id_cols=id_cols, attributes=attributes, data=data,
