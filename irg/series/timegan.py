@@ -1,7 +1,9 @@
-"""Series generation using TimeGAN trainer."""
+"""Series generation using TimeGAN trainer.
+Adapted from https://github.com/benearnthof/TimeGAN/blob/main/modules_and_training.py."""
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 from torch import nn, Tensor
 from torch.cuda.amp import GradScaler
@@ -14,13 +16,14 @@ from tqdm import tqdm
 from .base import SeriesTrainer
 from ..utils.torch import TimeGanNet
 from ..utils import dist
+from ..utils.dist import to_device
 
 _LOGGER = logging.getLogger()
 
 
 class TimeGANTrainer(SeriesTrainer):
     """Trainer for series table generation for TimeGAN."""
-    def __init__(self, hidden_dim: int = 40, n_layers: int = 1, **kwargs):
+    def __init__(self, hidden_dim: int = 40, n_layers: int = 1, gamma: float = 1., **kwargs):
         super().__init__(**kwargs)
         self._embedder = TimeGanNet(
             input_size=self._known_dim + self._unknown_dim + 1, output_size=hidden_dim,
@@ -58,6 +61,8 @@ class TimeGANTrainer(SeriesTrainer):
         )
         self._hidden_dim = hidden_dim
         self._pretrained = False, False
+        self._gamma = gamma
+        self._cat_dims.append((self._known_dim, self._known_dim + 1))
 
     def _load_content_from(self, loaded: Dict[str, Any]):
         super()._load_content_from(loaded)
@@ -100,7 +105,7 @@ class TimeGANTrainer(SeriesTrainer):
                      generator: TimeGanNet, opt_g: Optimizer, lrs_g: LRScheduler, gs_g: Optional[GradScaler],
                      supervisor: TimeGanNet, opt_s: Optimizer, lrs_s: LRScheduler, gs_s: Optional[GradScaler],
                      discriminator: TimeGanNet, opt_d: Optimizer, lrs_d: LRScheduler, gs_d: Optional[GradScaler],
-                     hidden_dim: int, pretrained: (bool, bool)) ->\
+                     hidden_dim: int, pretrained: (bool, bool), gamma: float) ->\
             "TimeGANTrainer":
         base = SeriesTrainer._reconstruct(
             distributed, autocast, log_dir, ckpt_dir, descr,
@@ -114,7 +119,7 @@ class TimeGANTrainer(SeriesTrainer):
         base._generator, base._opt_g, base._lrs_g, base._gs_g = generator, opt_g, lrs_g, gs_g
         base._supervisor, base._opt_s, base._lrs_s, base._gs_s = supervisor, opt_s, lrs_s, gs_s
         base._discriminator, base._opt_d, base._lrs_d, base._gs_d = discriminator, opt_d, lrs_d, gs_d
-        base._hidden_dim, base._pretrained = hidden_dim, pretrained
+        base._hidden_dim, base._pretrained, base._gamma = hidden_dim, pretrained, gamma
         return base
 
     def __reduce__(self):
@@ -125,7 +130,7 @@ class TimeGANTrainer(SeriesTrainer):
             self._generator, self._opt_g, self._lrs_g, self._gs_g,
             self._supervisor, self._opt_s, self._lrs_s, self._gs_s,
             self._discriminator, self._opt_d, self._lrs_d, self._gs_d,
-            self._hidden_dim, self._pretrained
+            self._hidden_dim, self._pretrained, self._gamma
         )
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
@@ -146,10 +151,7 @@ class TimeGANTrainer(SeriesTrainer):
                 dataloader.set_description(descr)
             for step, (known_batch, unknown_batch) in enumerate(dataloader):
                 data = torch.cat([known_batch[:, :, :-1], unknown_batch], dim=-1)
-                h, _ = self._embedder(data)
-                h = h.view(*data.shape[:2], self._hidden_dim)
-                x_tilde, _ = self._recovery(h)
-                x_tilde = x_tilde.view(*data.shape[:2], -1)
+                h, x_tilde = self._recover(data)
 
                 e_loss = self._calculate_recon_loss(data[:, :, known_batch.shape[-1]-1:], x_tilde, True)
                 self._take_step(e_loss, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
@@ -164,6 +166,13 @@ class TimeGANTrainer(SeriesTrainer):
             self._save_checkpoint(0, 'final', 0, 0)
         self._pretrained = True, False
         _LOGGER.debug('Finished pretraining embedding.')
+
+    def _recover(self, data: Tensor) -> (Tensor, Tensor):
+        h, _ = self._embedder(data)
+        h = h.view(*data.shape[:2], self._hidden_dim)
+        x_tilde, _ = self._recovery(h)
+        x_tilde = x_tilde.view(*data.shape[:2], -1)
+        return h, x_tilde
 
     def _run_supervised(self, dataloader: DataLoader, epochs: int = 10):
         if self._pretrained[1]:
@@ -196,5 +205,150 @@ class TimeGANTrainer(SeriesTrainer):
         self._pretrained = True
         _LOGGER.debug('Finished pretraining supervised')
 
+    def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
+        known, unknown = super()._collate_fn(batch)
+        z_dim = self._unknown_dim + self._known_dim + 1
+        noise = []
+        for i in range(len(batch)):
+            seq_len = unknown[i, :, -1].sum()
+            temp = torch.zeros(known.shape[1], z_dim)
+            temp_z = np.random.uniform(0., 10, (seq_len, z_dim))
+            temp[:seq_len] = temp_z
+            noise.append(temp)
+        return torch.stack(noise), known, unknown
+
+    def _prepare_epoch(self, dataloader: DataLoader, base_step: int, global_step: int, save_freq: int):
+        if base_step < global_step:
+            return
+        if base_step == global_step:
+            self._reload_checkpoint(global_step // save_freq, 'step')
+        for prepare in range(2):
+            batch = next(iter(dataloader))
+            batch = tuple(to_device(b, self._device) for b in batch)
+            noise, known, unknown = batch
+            batch_size = noise.shape[0]
+
+            data = torch.cat([known[:, :, :-1], unknown], dim=-1)
+            g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v = self._joint_step(batch_size, noise, data, unknown)
+            self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_g, self._gs_g, self._lrs_g,
+                            retain_graph=True)
+            self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_s, self._gs_s, self._lrs_s,
+                            retain_graph=True)
+            self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_d, self._gs_d, self._lrs_d,
+                            retain_graph=True)
+
+            h, x_tilde = self._recover(data)
+            e_loss = self._calculate_recon_loss(data[:, :, known.shape[-1]-1:], x_tilde, True) / 10
+            h_sup, _ = self._supervisor(h)
+            h_sup = h_sup.view(batch_size, -1, self._hidden_dim)
+            g_loss_s = F.mse_loss(h[:, 1:, :], h_sup[:, :-1, :])
+            self._take_step(e_loss / 10 + g_loss_s, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
+            self._take_step(e_loss / 10 + g_loss_s, self._opt_r, self._gs_r, self._lrs_r, retain_graph=True)
+            self._take_step(e_loss / 10 + g_loss_s, self._opt_s, self._gs_s, self._lrs_s, retain_graph=True)
+
+    def _joint_step(self, batch_size: int, noise: Tensor, data: Tensor, unknown: Tensor) -> (
+            Tensor, Tensor, Tensor, Tensor, Tensor):
+        e_hat, _ = self._generator(noise)
+        e_hat = e_hat.view(batch_size, -1, self._hidden_dim)
+        h_hat, _ = self._supervisor(e_hat)
+        h_hat = h_hat.view(batch_size, -1, self._hidden_dim)
+        y_fake = self._discriminator(h_hat)
+        y_fake = y_fake.view(batch_size, -1, 1)
+        x_hat, _ = self._recovery(h_hat)
+        x_hat = x_hat.view(batch_size, -1, self._known_dim + 1)
+        h, _ = self._embedder(data)
+        h = h.view(batch_size, -1, self._hidden_dim)
+        h_sup, _ = self._supervisor(h)
+        h_sup = h_sup.view(batch_size, -1, self._hidden_dim)
+        g_loss_s = F.mse_loss(h[:, 1:, :], h_sup[:, :-1, :])
+        g_loss_u = F.binary_cross_entropy_with_logits(y_fake, torch.ones_like(y_fake))
+        g_loss_v1 = (x_hat.std([0], unbiased=False).abs() + 1e-6 - (unknown[:, :, :-1].std([0]) + 1e-6)).mean()
+        g_loss_v2 = (x_hat.mean([0]) - unknown[:, :, :-1].mean([0])).abs().mean()
+        g_loss_v = g_loss_v1 + g_loss_v2
+        return g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v
+
     def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
-        pass
+        noise, known, unknown = batch
+        data = torch.cat([known[:, :, :-1], unknown], dim=-1)
+        batch_size = noise.shape[0]
+        h, _ = self._embedder(data)
+        h = h.view(batch_size, -1, self._hidden_dim)
+        y_real = self._discriminator(h).view(batch_size, -1, 1)
+        e_hat, _ = self._generator(noise)
+        e_hat = e_hat.view(batch_size, -1, self._hidden_dim)
+        y_fake_e = self._discriminator(e_hat).view(batch_size, -1, 1)
+        h_hat, _ = self._supervisor(e_hat)
+        h_hat = h_hat.view(batch_size, -1, self._hidden_dim)
+        y_fake = self._discriminator(h_hat).view(batch_size, -1, 1)
+        x_hat, _ = self._recover(h_hat)
+        x_hat = x_hat.view(batch_size, -1, self._unknown_dim + 1)
+
+        self._generator.zero_grad()
+        self._supervisor.zero_grad()
+        self._discriminator.zero_grad()
+        self._recovery.zero_grad()
+        self._embedder.zero_grad()
+
+        dlr = F.binary_cross_entropy_with_logits(y_real, torch.ones_like(y_real))
+        dlf = F.binary_cross_entropy_with_logits(y_fake, torch.zeros_like(y_fake))
+        dlf_e = F.binary_cross_entropy_with_logits(y_fake_e, torch.zeros_like(y_fake_e))
+        d_loss = dlr + dlf + self._gamma * dlf_e
+        if d_loss > 0.15:
+            self._take_step(d_loss, self._opt_d, self._gs_d, self._lrs_d, retain_graph=True)
+
+        h, x_tilde = self._recover(data)
+        g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v = self._joint_step(batch_size, noise, data, unknown)
+        e_loss = self._calculate_recon_loss(unknown, x_tilde, True)
+        mean_l, corr_l = self._meta_loss(known, unknown, x_hat)
+        recon_loss = self._calculate_recon_loss(unknown, x_hat, True)
+        self._take_step(g_loss_s, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        self._take_step(g_loss_u, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        self._take_step(g_loss_v, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        self._take_step(e_loss + 0.1 * g_loss_s, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        self._take_step(recon_loss, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        self._take_step(mean_l + corr_l, self._opt_g, self._gs_g, self._lrs_g, do_step=True,
+                        do_zero_grad=False, do_backward=True)
+        self._take_step(None, self._opt_s, self._gs_s, self._lrs_s, do_step=True, do_zero_grad=False, do_backward=False)
+        self._take_step(None, self._opt_e, self._gs_e, self._lrs_e, do_step=True, do_zero_grad=False, do_backward=False)
+        self._take_step(None, self._opt_r, self._gs_r, self._lrs_r, do_step=True, do_zero_grad=False, do_backward=False)
+
+        out_dict = {
+            'd': d_loss,
+            'gs': g_loss_s,
+            'gu': g_loss_u,
+            'gv': g_loss_v,
+            'e': e_loss,
+            'm': mean_l,
+            'c': corr_l
+        }
+        out_dict = {k: v.detach().cpu().item() for k, v in out_dict.items()}
+        out_dict['elr'] = self._opt_e.param_groups[0]['lr']
+        out_dict['rlr'] = self._opt_r.param_groups[0]['lr']
+        out_dict['glr'] = self._opt_g.param_groups[0]['lr']
+        out_dict['slr'] = self._opt_s.param_groups[0]['lr']
+        out_dict['dlr'] = self._opt_d.param_groups[0]['lr']
+        return out_dict, x_hat[:, :, :-1]
+
+    def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> (Tensor, Tensor):
+        known = self._expand_series(known)
+        real = self._expand_series(real)
+        fake = self._expand_series(fake)
+        return self._meta_loss(known, real, fake)
+
+    @staticmethod
+    def _expand_series(x: Tensor) -> Tensor:
+        out = []
+        for seq in x:
+            maintained = seq[:, -1] > 0.5
+            ml = maintained.tolist()
+            width = 5
+            while width > 0:
+                find = ml.index([False] * width)
+                if find > 0:
+                    maintained[find:] = 0
+                    break
+                else:
+                    width -= 1
+            used = seq[maintained, :-1]
+            out.append(used)
+        return torch.cat(out)

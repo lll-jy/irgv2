@@ -134,7 +134,7 @@ class Trainer(ABC):
         } | ({'grad_scaler': grad_scaler.state_dict()} if grad_scaler is not None else {})
 
     @staticmethod
-    def _take_step(loss: Tensor, optimizer: Optimizer, grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler,
+    def _take_step(loss: Optional[Tensor], optimizer: Optional[Optimizer], grad_scaler: Optional[GradScaler], lr_scheduler: LRScheduler,
                    retain_graph: bool = False, do_zero_grad: bool = True,
                    do_backward: bool = True, do_step: bool = True):
         if do_zero_grad:
@@ -214,12 +214,16 @@ class Trainer(ABC):
         (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
         self._run_training(epoch, epochs, global_step, save_freq, dataloader)
 
+    def _prepare_epoch(self, dataloader: DataLoader, base_step: int, global_step: int, save_freq: int):
+        pass
+
     def _run_training(self, epoch: int, epochs: int, global_step: int, save_freq: int, dataloader: DataLoader):
         for i in range(epoch, epochs, 1):
             if is_main_process():
                 dataloader = tqdm(dataloader)
                 dataloader.set_description(f'Epoch[{i}] {self._descr}')
             base_step = i * len(dataloader)
+            self._prepare_epoch(dataloader, base_step, global_step, save_freq)
             for step, batch in enumerate(dataloader):
                 if base_step < global_step:
                     continue

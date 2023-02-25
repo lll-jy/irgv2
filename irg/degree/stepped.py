@@ -256,13 +256,12 @@ class DegreeSteppedTrainer(DegreeTrainer):
         known_so_far = context.augmented_till(
             self._foreign_keys[0].parent, self._name, with_id='this', normalized=False)
         known_so_far = pd.concat({f'fk0:{self._foreign_keys[0].parent}': known_so_far}, axis=1)
-        factor = 1.
         for i, fk in enumerate(self._foreign_keys):
             assert len(current_context) == len(known_so_far)
             fkcomb_degrees = self._infer_pred_model(current_context, i)
             # factor *= scaling[fk.parent]
             factor = scaling[fk.parent]
-            fkcomb_degrees = fkcomb_degrees / factor
+            fkcomb_degrees = fkcomb_degrees
             real = self._real_sum[i] / factor
             fkcomb_degrees, _ = self._round_sumrange(fkcomb_degrees, real * (1 - tolerance), real * (1 + tolerance),
                                                      till_in_range=True)
