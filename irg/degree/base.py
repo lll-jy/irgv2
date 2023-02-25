@@ -84,11 +84,16 @@ class DegreeTrainer(ABC):
         if smallest.sum() >= r:
             if till_in_range:
                 nd = math.ceil(smallest.sum() - r)
+                rd = nd
                 while smallest.sum() > r:
-                    to_del = np.random.choice(smallest[smallest >= 1].index, nd, replace=False)
+                    criterion = smallest >= 1
+                    if criterion.sum() <= 0:
+                        break
+                    to_del = np.random.choice(smallest[criterion].index, min(rd, criterion.sum()), replace=False)
                     for d in to_del:
                         smallest[d] -= 1
-                return smallest, -nd
+                        rd -= 1
+                return smallest, -(nd - rd)
             return smallest, 0.
         largest = data.apply(math.ceil)
         if largest.sum() <= l:

@@ -205,3 +205,32 @@ class TabularTrainer(Trainer, ABC):
         if len(corr_diff) == 0:
             return mean_loss, torch.tensor(0).to(self._device)
         return mean_loss, corr_loss
+
+    def _calculate_recon_loss(self, x: Tensor, y: Tensor, activate: bool = False) -> Tensor:
+        x = x.view(-1, x.shape[-1])
+        y = y.view(-1, y.shape[-1])
+        loss = []
+        ptr, cat_ptr = 0, 0
+        while ptr < self._unknown_dim:
+            if cat_ptr < len(self._cat_dims) and ptr == self._cat_dims[cat_ptr][0]:
+                l, r = self._cat_dims[cat_ptr]
+                cat_ptr += 1
+                cx, cy = x[:, l:r], y[:, l:r]
+                if r - l > 1:
+                    if activate:
+                        loss.append(F.nll_loss(cx, cy))
+                    else:
+                        loss.append(F.cross_entropy(cx, cy))
+                else:
+                    if activate:
+                        loss.append(F.binary_cross_entropy_with_logits(cx, cy))
+                    else:
+                        loss.append(F.binary_cross_entropy(cx, cy))
+                ptr = r
+            else:
+                cx, cy = x[:, ptr:ptr+1], y[:, ptr:ptr+1]
+                if activate:
+                    cx, cy = F.tanh(cx), F.tanh(cy)
+                loss.append(F.mse_loss(cx, cy))
+                ptr += 1
+        return torch.stack(loss).sum()

@@ -260,14 +260,13 @@ class DegreeSteppedTrainer(DegreeTrainer):
         for i, fk in enumerate(self._foreign_keys):
             assert len(current_context) == len(known_so_far)
             fkcomb_degrees = self._infer_pred_model(current_context, i)
-            factor *= scaling[fk.parent]
+            # factor *= scaling[fk.parent]
+            factor = scaling[fk.parent]
             fkcomb_degrees = fkcomb_degrees / factor
             real = self._real_sum[i] / factor
-            # if i > 0:
-            #     fkcomb_degrees = fkcomb_degrees.apply(lambda x: 1 if x < 1 else x)
-            raw_gen = fkcomb_degrees
             fkcomb_degrees, _ = self._round_sumrange(fkcomb_degrees, real * (1 - tolerance), real * (1 + tolerance),
                                                      till_in_range=True)
+            print('so I want here', self._name, self._real_sum[i], factor, real, 'got', fkcomb_degrees.sum())
 
             known_so_far[fk.left] = known_so_far[[(f'fk{i}:{t}', c) for t, c in fk.right]]
 
@@ -276,6 +275,7 @@ class DegreeSteppedTrainer(DegreeTrainer):
                 real = real * scaling[self._name]
                 pred_deg, _ = self._round_sumrange(pred_deg, real * (1 - tolerance), real * (1 + tolerance),
                                                    till_in_range=True)
+                print('finally scale', self._name, scaling[self._name], real, 'got', pred_deg.sum(), flush=True)
                 break
             
             next_table = context.augmented_till(self._foreign_keys[i+1].parent, self._name, with_id='none')

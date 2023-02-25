@@ -13,7 +13,7 @@ import pandas as pd
 from torch import Tensor
 from pandasql import sqldf
 
-from ..table import Table, SyntheticTable
+from ..table import Table, SyntheticTable, SeriesTable
 from ...utils.errors import ColumnNotFoundError, TableNotFoundError
 from ...utils.misc import Data2D
 from ...utils.io import load_from
@@ -83,6 +83,11 @@ class Database:
                 'items': {'type': 'string'}
             },
             'ttype': {'enum': ['base', 'normal', 'series']},
+            'series_id': {'type': 'string'},
+            'base_columns': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            },
             'attributes': {'type': 'object'},
             'path': {'type': 'string'},
             'format': {'enum': ['csv', 'pickle']},
@@ -149,6 +154,7 @@ class Database:
         self._primary_keys: Dict[str, List[str]] = {}
         self._foreign_keys: Dict[str, List[ForeignKey]] = {}
         self._unique_fks = set()
+        self._series = set()
 
         os.makedirs(temp_cache, exist_ok=True)
         self._data_dir, self._temp_cache = data_dir, os.path.join(temp_cache, 'real_db')
@@ -168,12 +174,21 @@ class Database:
                 data = pd.read_csv(path) if fm == 'csv' else pd.read_pickle(path)
             id_cols, attributes = meta['id_cols'], meta['attributes']
             determinants, formulas = meta['determinants'], meta['formulas']
-            table = Table(
-                name=name, ttype=ttype, need_fit=True,
-                id_cols=id_cols, attributes=attributes, data=data,
-                determinants=determinants, formulas=formulas,
-                temp_cache=os.path.join(self._temp_cache, 'tables', name)
-            )
+            if ttype == 'series':
+                table = SeriesTable(
+                    name=name, series_id=meta['series_id'], base_cols=meta.get('base_cols'), need_fit=True,
+                    id_cols=id_cols, attributes=attributes, data=data,
+                    determinants=determinants, formulas=formulas,
+                    temp_cache=os.path.join(self._temp_cache, 'tables', name)
+                )
+                self._series.add(name)
+            else:
+                table = Table(
+                    name=name, ttype=ttype, need_fit=True,
+                    id_cols=id_cols, attributes=attributes, data=data,
+                    determinants=determinants, formulas=formulas,
+                    temp_cache=os.path.join(self._temp_cache, 'tables', name)
+                )
             table.save(os.path.join(temp_cache, f'{name}.pkl'))
             self._table_paths[name] = os.path.join(temp_cache, f'{name}.pkl')
             self._table_columns[name] = table.columns
@@ -238,6 +253,18 @@ class Database:
 
     def __len__(self):
         return len(self._table_paths)
+
+    def is_series(self, name: str) -> bool:
+        """
+        Check whether a table is series table.
+
+        **Args**:
+
+        - `name` (`str`): Name of the table.
+
+        **Return**: True if the table is series.
+        """
+        return name in self._series
 
     def has_unique_fk_comb(self, name: str) -> bool:
         """

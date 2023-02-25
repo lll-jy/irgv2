@@ -149,3 +149,44 @@ class CNNDiscriminator(nn.Module):
         x = self.pool(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1)
         return self.fc(x)
+
+
+class TimeGanNet(nn.Module):
+    def __init__(self, input_size: int, output_size: int, hidden_dim: int = 40, n_layers: int = 1,
+                 activation: str = 'sigmoid', rnn_type: str = 'gru'):
+        super().__init__()
+        if rnn_type == 'gru':
+            self.rnn = nn.GRU(input_size, hidden_dim, n_layers, batch_first=True)
+        elif rnn_type == 'rnn':
+            self.rnn = nn.RNN(input_size, hidden_dim, n_layers, batch_first=True)
+        elif rnn_type == 'lstm':
+            self.rnn = nn.LSTM(input_size, hidden_dim, n_layers, batch_first=True)
+        else:
+            raise NotImplementedError(f'RNN {rnn_type} is not implemented.')
+        self.fc = nn.Linear(hidden_dim, output_size)
+
+        if activation == 'sigmoid':
+            self.act = nn.Sigmoid()
+        elif activation == 'none':
+            self.act = nn.Identity()
+        else:
+            raise NotImplementedError(f'Activation {activation} is not implemented.')
+
+        self._is_lstm = rnn_type == 'lstm'
+        self._hidden_dim = hidden_dim
+        self._n_layers = n_layers
+
+    def forward(self, x: Tensor) -> (Tensor, Tensor):
+        batch_size = x.shape[0]
+        if self._is_lstm:
+            h0 = torch.zeros(self._n_layers, batch_size, self._hidden_dim, device=x.device, dtype=torch.float32)
+            c0 = torch.zeros(self._n_layers, batch_size, self._hidden_dim, device=x.device, dtype=torch.float32)
+            hidden = h0, c0
+        else:
+            hidden = torch.zeros(self._n_layers, batch_size, self._hidden_dim, device=x.device, dtype=torch.float32)
+        out, hidden = self.rnn(x, hidden)
+        out = out.contiguous().view(-1, self._hidden_dim)
+        out = self.fc(out)
+        out = self.act(out)
+        return out, hidden
+

@@ -6,7 +6,7 @@ import logging
 
 from torch import Tensor
 
-from ..schema import Database, Table
+from ..schema import Database, Table, SeriesTable
 from ..tabular import create_trainer as create_tab_trainer, TabularTrainer
 from ..degree import create_trainer as create_deg_trainer, DegreeTrainer
 
@@ -47,17 +47,22 @@ def train(database: Database, do_train: bool,
 
     tabular_models, deg_models = {}, {}
     for name, table in database.tables():
-        table = Table.load(table)
-        if table.ttype == 'base':
-            continue
-        tabular_known, tabular_unknown, cat_dims = table.ptg_data()
-        tabular_known, tabular_unknown = tabular_known.float(), tabular_unknown.float()
-        tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
-                                            tab_trainer_args[name], tab_train_args[name], name)
-        _LOGGER.debug(f'Loaded tabular model for {name}.')
-        if not table.is_independent():
-            deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name, **deg_train_args[name])
-            _LOGGER.debug(f'Loaded degree model for {name}.')
+        if not database.is_series(name):
+            table = Table.load(table)
+            if table.ttype == 'base':
+                continue
+            elif table.ttype == 'normal':
+                tabular_known, tabular_unknown, cat_dims = table.ptg_data()
+                tabular_known, tabular_unknown = tabular_known.float(), tabular_unknown.float()
+                tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
+                                                    tab_trainer_args[name], tab_train_args[name], name)
+                _LOGGER.debug(f'Loaded tabular model for {name}.')
+                if not table.is_independent():
+                    deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name, **deg_train_args[name])
+                    _LOGGER.debug(f'Loaded degree model for {name}.')
+        else:
+            table = SeriesTable.load(table)
+            known, unknown, cat_dims, base_ids, seq_ids = table.sg_data()
 
     return tabular_models, deg_models
 

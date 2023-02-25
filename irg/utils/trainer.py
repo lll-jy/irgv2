@@ -35,7 +35,7 @@ class InferenceOutput(ABC):
 class Trainer(ABC):
     """PyTorch Trainer helper."""
     def __init__(self, distributed: bool = False, autocast: bool = False,
-                 log_dir: str = 'tflog', ckpt_dir: str = 'checkpoints', descr: str = ''):
+                 log_dir: str = 'tflog', ckpt_dir: str = 'checkpoints', descr: str = '', **kwargs):
         """
         **Args**:
 
