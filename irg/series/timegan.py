@@ -15,10 +15,20 @@ from tqdm import tqdm
 
 from .base import SeriesTrainer
 from ..utils.torch import TimeGanNet
-from ..utils import dist
+from ..utils import dist, InferenceOutput
 from ..utils.dist import to_device
 
 _LOGGER = logging.getLogger()
+
+
+class TimeGANOutput(InferenceOutput):
+    def __init__(self, fake: Tensor, discr_out: Optional[Tensor] = None):
+        super().__init__(fake)
+        self.fake = fake
+        """Fake data generated."""
+        self.discr_out = discr_out
+        """Discriminator output."""
+
 
 
 class TimeGANTrainer(SeriesTrainer):
@@ -207,15 +217,25 @@ class TimeGANTrainer(SeriesTrainer):
 
     def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
         known, unknown = super()._collate_fn(batch)
+        noise = self._get_noise(len(batch), known)
+        return noise, known, unknown
+
+    def _collate_fn_infer(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
+        known, = super()._collate_fn_infer(batch)
+        noise = self._get_noise(len(batch), known)
+        return noise, known
+
+    def _get_noise(self, batch_size: int, known: Tensor) -> Tensor:
         z_dim = self._unknown_dim + self._known_dim + 1
         noise = []
-        for i in range(len(batch)):
-            seq_len = unknown[i, :, -1].sum()
+        for i in range(batch_size):
+            seq_len = known[i, :, -1].sum()
             temp = torch.zeros(known.shape[1], z_dim)
             temp_z = np.random.uniform(0., 10, (seq_len, z_dim))
             temp[:seq_len] = temp_z
+            temp[:, :self._known_dim + 1] = known
             noise.append(temp)
-        return torch.stack(noise), known, unknown
+        return torch.stack(noise)
 
     def _prepare_epoch(self, dataloader: DataLoader, base_step: int, global_step: int, save_freq: int):
         if base_step < global_step:
@@ -352,3 +372,44 @@ class TimeGANTrainer(SeriesTrainer):
             used = seq[maintained, :-1]
             out.append(used)
         return torch.cat(out)
+
+    def inference(self, known: Tensor, batch_size: int = 500) -> InferenceOutput:
+        dataloader = self._make_infer_dataloader(known, batch_size, False)
+        autocast = torch.cuda.is_available() and self._autocast
+        if dist.is_main_process():
+            dataloader = tqdm(dataloader)
+            dataloader.set_description(f'Inference on {self._descr}')
+
+        self._embedder.eval()
+        self._recovery.eval()
+        self._generator.eval()
+        self._supervisor.eval()
+        self._discriminator.eval()
+        fakes, y_fakes = [], []
+        for step, (noise, known) in enumerate(dataloader):
+            with torch.cuda.amp.autocast(enabled=autocast):
+                e_hat, _ = self._generator(noise)
+                e_hat = e_hat.view(batch_size, -1, self._hidden_dim)
+                h_hat, _ = self._supervisor(e_hat)
+                h_hat = h_hat.view(batch_size, -1, self._hidden_dim)
+                y_fake = self._discriminator(h_hat).view(batch_size, -1, 1)
+                x_hat, _ = self._recover(h_hat)
+                x_hat = x_hat.view(batch_size, -1, self._unknown_dim + 1)
+                fake = torch.cat([known[:, :, -1], x_hat[:, :, -1], known[:, :, -1:]], dim=-1)
+                fake = self._expand_series(fake)
+                fakes.append(fake)
+                y_fakes.append(y_fake)
+
+        self._embedder.train()
+        self._recovery.train()
+        self._generator.train()
+        self._supervisor.train()
+        self._discriminator.train()
+
+        out_fake = torch.cat(fakes) if len(fakes) > 0 else \
+            torch.zeros(0, self._known_dim + self._cond_dim + self._unknown_dim)
+        out_y = torch.cat(y_fakes) if len(y_fakes) > 0 else torch.zeros(0)
+        return TimeGANOutput(
+            fake=out_fake,
+            discr_out=out_y
+        )
