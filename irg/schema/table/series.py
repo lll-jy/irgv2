@@ -117,17 +117,10 @@ class SyntheticSeriesTable(SeriesTable, SyntheticTable):
             normalized_core = normalized_core.output
             regroup = False
         else:
-            normalized_core = normalized_core.view(1, *normalized_core.shape)
             lengths = [normalized_core.shape[1]]
             regroup = True
 
-        flattened = []
-        for group, length in zip(normalized_core, lengths):
-            group = group[:length, -self._unknown_dim:].cpu()
-            flattened.append(group)
-
-        flattened = torch.cat(flattened)
-        columns, recovered_df = self._recover_core(flattened)
+        columns, recovered_df = self._recover_core(normalized_core)
 
         if regroup:
             lengths = []
@@ -141,4 +134,4 @@ class SyntheticSeriesTable(SeriesTable, SyntheticTable):
             recovered_df.loc[acc:acc+length-1, self._series_id] = self._attributes[self._series_id]\
                 .generate(length).tolist()
 
-        return self._post_inverse_transform(recovered_df, columns, replace_content, flattened)
+        return self._post_inverse_transform(recovered_df, columns, replace_content, normalized_core)

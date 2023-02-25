@@ -261,8 +261,8 @@ class DegreeSteppedTrainer(DegreeTrainer):
             fkcomb_degrees = self._infer_pred_model(current_context, i)
             # factor *= scaling[fk.parent]
             factor = scaling[fk.parent]
-            fkcomb_degrees = fkcomb_degrees
-            real = self._real_sum[i] / factor
+            fkcomb_degrees = fkcomb_degrees / factor
+            real = self._real_sum[i]
             fkcomb_degrees, _ = self._round_sumrange(fkcomb_degrees, real * (1 - tolerance), real * (1 + tolerance),
                                                      till_in_range=True)
             print('so I want here', self._name, self._real_sum[i], factor, real, 'got', fkcomb_degrees.sum())

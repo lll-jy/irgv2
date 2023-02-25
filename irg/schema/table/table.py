@@ -116,7 +116,6 @@ class Table:
         self._deg_norm_by_attr_files: Dict[TwoLevelName, str] = {}
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
-        self._unknown_dim = 0
 
     @property
     def ttype(self) -> str:
@@ -139,7 +138,7 @@ class Table:
             '_known_cols', '_unknown_cols', '_augment_fitted',
             '_augmented_attributes', '_degree_attributes',
             '_aug_norm_by_attr_files', '_deg_norm_by_attr_files',
-            '_augmented_ids', '_degree_ids', '_unknown_dim'
+            '_augmented_ids', '_degree_ids'
         ]
         for attr in attr_to_copy:
             setattr(copied, attr, getattr(self, attr))
@@ -701,11 +700,9 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
-            self._unknown_dim = unknown_data.shape[-1]
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)
-            self._unknown_dim = norm_data.shape[-1]
             return (torch.zeros(len(norm_data), 0), convert_data_as(norm_data, 'torch'),
                     self._attr2catdim(self._attributes))
 
@@ -836,7 +833,6 @@ class SyntheticTable(Table):
         target._degree_attributes = src._degree_attributes
         target._augmented_ids, target._degree_ids = src._augmented_ids, src._degree_ids
         target._length = src._length
-        target._unknown_dim = src._unknown_dim
         return target
 
     def update_augmented(self, augmented: pd.DataFrame):
@@ -900,7 +896,7 @@ class SyntheticTable(Table):
             raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
         if isinstance(normalized_core, InferenceOutput):
             normalized_core = normalized_core.output
-        normalized_core = normalized_core[:, -self._unknown_dim:].cpu()
+        normalized_core = normalized_core.cpu()
         columns, recovered_df = self._recover_core(normalized_core)
         self._post_inverse_transform(recovered_df, columns, replace_content, normalized_core)
 

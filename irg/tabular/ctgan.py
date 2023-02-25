@@ -117,10 +117,10 @@ class DataSampler(CTGANDataSampler):
 
 
 class CTGANOutput(InferenceOutput):
-    def __init__(self, fake: Tensor, discr_out: Optional[Tensor] = None):
-        super().__init__(fake)
+    def __init__(self, output: Tensor, fake: Tensor, discr_out: Optional[Tensor] = None):
+        super().__init__(output)
         self.fake = fake
-        """Fake data generated."""
+        """Fake data generated including known and condvec."""
         self.discr_out = discr_out
         """Discriminator output."""
 
@@ -526,4 +526,4 @@ class CTGANTrainer(TabularTrainer):
             torch.zeros(0, self._known_dim + self._cond_dim + self._unknown_dim)
         out_y = torch.cat(y_fakes) if len(y_fakes) > 0 else torch.zeros(0)
 
-        return CTGANOutput(out_fake, out_y)
+        return CTGANOutput(out_fake[:, -self._unknown_dim:], out_fake, out_y)

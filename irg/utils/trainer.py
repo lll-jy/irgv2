@@ -27,7 +27,7 @@ class InferenceOutput(ABC):
     """
     Inference output structure.
     """
-    def __init__(self, output: Union[List[Tensor], Tensor]):
+    def __init__(self, output: Tensor):
         self.output = output
         """Output as single Tensor."""
 
@@ -36,7 +36,7 @@ class SeriesInferenceOutput(InferenceOutput):
     """
     Inference output for series.
     """
-    def __init__(self, output: List[Tensor], lengths: List[int]):
+    def __init__(self, output: Tensor, lengths: List[int]):
         super().__init__(output)
         self.lengths = lengths
 

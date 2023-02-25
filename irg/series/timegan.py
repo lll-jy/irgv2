@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger()
 
 
 class TimeGANOutput(SeriesInferenceOutput):
-    def __init__(self, fake: List[Tensor], lengths: List[int], discr_out: Optional[List[Tensor]] = None):
+    def __init__(self, fake: Tensor, lengths: List[int], discr_out: Optional[Tensor] = None):
         super().__init__(fake, lengths)
         self.fake = fake
         """Fake data generated."""
@@ -349,13 +349,13 @@ class TimeGANTrainer(SeriesTrainer):
         return out_dict, x_hat[:, :, :-1]
 
     def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> (Tensor, Tensor):
-        known = torch.cat(self._expand_series(known, real[:, :, -1]))
-        real = torch.cat(self._expand_series(real))
-        fake = torch.cat(self._expand_series(fake[:, :, :-1], real[:, :, -1]))
+        known, _ = self._expand_series(known, real[:, :, -1])
+        real, _ = self._expand_series(real)
+        fake, _ = self._expand_series(fake[:, :, :-1], real[:, :, -1])
         return self._meta_loss(known, real, fake)
 
     @staticmethod
-    def _expand_series(x: Tensor, indicator: Optional[Tensor] = None) -> (List[Tensor], List[int]):
+    def _expand_series(x: Tensor, indicator: Optional[Tensor] = None) -> (Tensor, List[int]):
         if indicator is None:
             indicator = x[:, :, -1]
             x = x[:, :, :-1]
@@ -368,17 +368,16 @@ class TimeGANTrainer(SeriesTrainer):
             while width > 0:
                 find = maintained.index([False] * width)
                 if find > 0:
-                    zeros = torch.zeros(seq.shape[0] - find, seq.shape[1], dtype=seq.dtype, device=seq.device)
-                    seq = torch.cat([seq[:find], zeros])
+                    seq = seq[:find]
                     length = find
                     break
                 else:
                     width -= 1
             out.append(seq)
             lengths.append(length)
-        return out, lengths
+        return torch.cat(out), lengths
 
-    def inference(self, known: Tensor, batch_size: int = 500) -> InferenceOutput:
+    def inference(self, known: Tensor, batch_size: int = 500) -> TimeGANOutput:
         dataloader = self._make_infer_dataloader(known, batch_size, False)
         autocast = torch.cuda.is_available() and self._autocast
         if dist.is_main_process():
@@ -414,7 +413,7 @@ class TimeGANTrainer(SeriesTrainer):
         self._discriminator.train()
 
         return TimeGANOutput(
-            fake=fakes,
-            discr_out=y_fakes,
+            fake=torch.cat(fakes),
+            discr_out=torch.cat(y_fakes),
             lengths=lengths
         )
