@@ -1,0 +1,10 @@
+{
+  "trainer_type": "TimeGAN",
+  "hidden_dim": 40,
+  "n_layer": 1,
+  "optimizer": "Adam",
+  "scheduler": "ConstantLR",
+  "lr": 2e-4,
+  "betas": [0.5, 0.9],
+  "weight_decay": 0
+}

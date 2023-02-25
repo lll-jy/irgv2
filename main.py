@@ -43,12 +43,12 @@ def _parse_train_args(parser: ArgumentParser):
     group.add_argument('--skip_train', default=True, action='store_false', dest='do_train',
                        help='Whether to skip training process.')
 
-    def _add_trainer_args(short: str, descr: str):
+    def _add_trainer_args(short: str, descr: str, choices: List[str]):
         trainer_group = group.add_argument_group(f'{descr} model trainer constructors')
         trainer_group.add_argument(f'--default_{short}_trainer_args', default=None, type=str,
                                    help='Default arguments saved as JSON file.')
         trainer_group.add_argument(f'--default_{short}_trainer_trainer_type', default=None, type=str,
-                                   choices=['CTGAN', 'TVAE', 'MLP'])
+                                   choices=choices)
         trainer_group.add_argument(f'--default_{short}_trainer_distributed', default=None, type=bool)
         trainer_group.add_argument(f'--default_{short}_trainer_autocast', default=None, type=bool)
         trainer_group.add_argument(f'--default_{short}_trainer_log_dir', default=None, type=str)
@@ -68,10 +68,12 @@ def _parse_train_args(parser: ArgumentParser):
         train_group.add_argument(f'--{short}_train_args', type=str, help='Arguments saved as JSON files as a dict'
                                                                          ' per table.')
 
-    _add_trainer_args('tab', 'Tabular')
-    _add_trainer_args('deg', 'Degree')
+    _add_trainer_args('tab', 'Tabular', ['CTGAN', 'TVAE', 'MLP'])
+    _add_trainer_args('deg', 'Degree', ['as_tab', 'neighbors', 'stepped'])
+    _add_trainer_args('ser', 'Series', ['TimeGAN'])
     _add_train_args('tab', 'Tabular')
     _add_train_args('deg', 'Degree')
+    _add_train_args('ser', 'Series')
 
 
 def _parse_generate_args(parser: ArgumentParser):
@@ -222,8 +224,10 @@ def _train_gen(args: Namespace):
         database=augmented_db, do_train=args.do_train,
         tab_trainer_args=_cfgfile2argdict(args.default_tab_trainer_args, args.tab_trainer_args, args, 'tab_trainer'),
         deg_trainer_args=_cfgfile2argdict(args.default_deg_trainer_args, args.deg_trainer_args, args, 'deg_trainer'),
+        ser_trainer_args=_cfgfile2argdict(args.default_ser_trainer_args, args.ser_trainer_args, args, 'ser_trainer'),
         tab_train_args=_cfgfile2argdict(args.default_tab_train_args, args.tab_train_args, args, 'tab_train'),
-        deg_train_args=_cfgfile2argdict(args.default_deg_train_args, args.deg_train_args, args, 'deg_train')
+        deg_train_args=_cfgfile2argdict(args.default_deg_train_args, args.deg_train_args, args, 'deg_train'),
+        ser_train_args=_cfgfile2argdict(args.default_ser_train_args, args.ser_train_args, args, 'ser_train')
     )
     _LOGGER.info('Finished loading models.')
 

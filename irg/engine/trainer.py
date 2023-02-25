@@ -9,13 +9,17 @@ from torch import Tensor
 from ..schema import Database, Table, SeriesTable
 from ..tabular import create_trainer as create_tab_trainer, TabularTrainer
 from ..degree import create_trainer as create_deg_trainer, DegreeTrainer
+from ..series import create_trainer as create_ser_trainer, SeriesTrainer
+
 
 _LOGGER = logging.getLogger()
 
 
 def train(database: Database, do_train: bool,
           tab_trainer_args: Optional[Dict[str, Dict]] = None, deg_trainer_args: Optional[Dict[str, Dict]] = None,
-          tab_train_args: Optional[Dict[str, Dict]] = None, deg_train_args: Optional[Dict[str, Dict]] = None) -> \
+          ser_trainer_args: Optional[Dict[str, Dict]] = None,
+          tab_train_args: Optional[Dict[str, Dict]] = None, deg_train_args: Optional[Dict[str, Dict]] = None,
+          ser_train_args: Optional[Dict[str, Dict]] = None) -> \
         Tuple[Dict[str, TabularTrainer], Dict[str, DegreeTrainer]]:
     """
     Train database generator.
@@ -39,10 +43,15 @@ def train(database: Database, do_train: bool,
         tab_trainer_args = defaultdict(lambda: {}, tab_trainer_args)
     if not isinstance(deg_trainer_args, DefaultDict):
         deg_trainer_args = defaultdict(lambda: {}, deg_trainer_args)
+    if not isinstance(ser_trainer_args, DefaultDict):
+        ser_trainer_args = defaultdict(lambda: {}, ser_trainer_args)
     if not isinstance(tab_train_args, DefaultDict):
         tab_train_args = defaultdict(lambda: {}, tab_train_args)
     if not isinstance(deg_train_args, DefaultDict):
         deg_train_args = defaultdict(lambda: {}, deg_train_args)
+    if not isinstance(ser_train_args, DefaultDict):
+        ser_train_args = defaultdict(lambda: {}, ser_train_args)
+
     _LOGGER.debug('Finished constructing arguments.')
 
     tabular_models, deg_models = {}, {}
@@ -57,13 +66,17 @@ def train(database: Database, do_train: bool,
                 tabular_models[name] = _train_model(tabular_known, tabular_unknown, cat_dims, do_train,
                                                     tab_trainer_args[name], tab_train_args[name], name)
                 _LOGGER.debug(f'Loaded tabular model for {name}.')
-                if not table.is_independent():
-                    deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name, **deg_train_args[name])
-                    _LOGGER.debug(f'Loaded degree model for {name}.')
         else:
             table = SeriesTable.load(table)
             known, unknown, cat_dims, base_ids, seq_ids = table.sg_data()
+            known, unknown = known.float(), unknown.float()
+            tabular_models[name] = _train_series_model(known, unknown, cat_dims, base_ids, seq_ids, name,
+                                                       ser_trainer_args[name], ser_train_args[name])
+            _LOGGER.debug(f'Loaded series model for {name}.')
 
+        if not table.is_independent():
+            deg_models[name] = _train_degrees(table, database, deg_trainer_args[name], name, **deg_train_args[name])
+            _LOGGER.debug(f'Loaded degree model for {name}.')
     return tabular_models, deg_models
 
 
@@ -74,6 +87,16 @@ def _train_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]]
                                  in_dim=known.shape[1], out_dim=unknown.shape[1],
                                  **trainer_args)
     # if do_train or True:
+    trainer.train(known, unknown, **train_args)
+    return trainer
+
+
+def _train_series_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]],
+                        base_ids: Tuple[List[int], List[int]], seq_ids: Tuple[List[int], List[int]],
+                        descr: str, trainer_args: Dict, train_args: Dict) -> SeriesTrainer:
+    known_dim, unknown_dim = known.shape[-1], unknown.shape[-1] - 1
+    trainer = create_ser_trainer(cat_dims=cat_dims, known_dim=known_dim, unknown_dim=unknown_dim, descr=descr,
+                                 base_ids=base_ids, seq_ids=seq_ids, **trainer_args)
     trainer.train(known, unknown, **train_args)
     return trainer
 
