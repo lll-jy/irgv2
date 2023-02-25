@@ -120,7 +120,7 @@ class SyntheticSeriesTable(SeriesTable, SyntheticTable):
             lengths = [normalized_core.shape[1]]
             regroup = True
 
-        columns, recovered_df = self._recover_core(normalized_core)
+        columns, recovered_df, normalized_core = self._recover_core(normalized_core)
 
         if regroup:
             lengths = []

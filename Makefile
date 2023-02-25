@@ -3,8 +3,10 @@ EXP_NAME=small
 DATA_VERSION=samples
 TAB_TRAINER_CFG=default
 DEG_TRAINER_CFG=default
+SER_TRAINER_CFG=default
 TAB_TRAIN_CFG=default
 DEG_TRAIN_CFG=default
+SER_TRAIN_CFG=default
 SCALING=1
 EVALUATOR_CFG=default
 EVALUATE_CFG=default
@@ -90,8 +92,10 @@ train:
         --aug_resume \
         --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_ser_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --default_ser_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --skip_generate >> log.txt
 	du -sh .temp${OUT_SUFFIX}
 	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
@@ -106,12 +110,16 @@ train_cfg:
         --aug_resume \
         --default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
         --default_deg_trainer_args config/trainer/${DEG_TRAINER_CFG}.json \
+        --default_ser_trainer_args config/trainer/${SER_TRAINER_CFG}.json \
         --default_tab_train_args config/train/${TAB_TRAIN_CFG}.json \
         --default_deg_train_args config/train/${DEG_TRAIN_CFG}.json \
+        --default_ser_train_args config/train/${SER_TRAIN_CFG}.json \
         --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_ser_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --default_ser_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/ser \
         --skip_generate >> log.txt
 	du -sh .temp${OUT_SUFFIX}
 	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
@@ -146,8 +154,10 @@ generate:
         --default_deg_train_resume True \
         --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_ser_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --default_ser_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/ser \
         --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/generated \
         --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/fake_db >> log.txt
 	du -sh .temp${OUT_SUFFIX}
@@ -164,16 +174,20 @@ generate_cfg:
         --aug_resume \
 		--default_tab_trainer_args config/trainer/${TAB_TRAINER_CFG}.json \
 		--default_deg_trainer_args config/trainer/${DEG_TRAINER_CFG}.json \
+		--default_ser_trainer_args config/trainer/${SER_TRAINER_CFG}.json \
 		--default_tab_train_args config/train/${TAB_TRAIN_CFG}.json \
 		--default_deg_train_args config/train/${DEG_TRAIN_CFG}.json \
+		--default_ser_train_args config/train/${SER_TRAIN_CFG}.json \
         --skip_train \
         --default_tab_train_resume True \
         --default_deg_train_resume True \
         --default_scaling ${SCALING} \
         --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
+        --default_ser_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
+        --default_ser_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/ser \
         --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/generated \
         --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/fake_db >> log.txt
 	du -sh .temp${OUT_SUFFIX}

@@ -845,7 +845,7 @@ class SyntheticTable(Table):
         """
         augmented.to_pickle(self._augmented_path())
 
-    def _recover_core(self, normalized_core: Tensor) -> (Dict[str, List[str]], pd.DataFrame):
+    def _recover_core(self, normalized_core: Tensor) -> (Dict[str, List[str]], pd.DataFrame, pd.DataFrame):
         columns = {
             n: v.transformed_columns
             for n, v in self._attributes.items()
@@ -875,7 +875,7 @@ class SyntheticTable(Table):
         for x in self.id_cols:
             if x in self._unknown_cols:
                 recovered_df[x] = self._attributes[x].generate(len(normalized_core))
-        return columns, recovered_df
+        return columns, recovered_df, normalized_core
 
     def inverse_transform(self, normalized_core: Union[Tensor, InferenceOutput], replace_content: bool = True) -> \
             pd.DataFrame:
@@ -897,11 +897,11 @@ class SyntheticTable(Table):
         if isinstance(normalized_core, InferenceOutput):
             normalized_core = normalized_core.output
         normalized_core = normalized_core.cpu()
-        columns, recovered_df = self._recover_core(normalized_core)
-        self._post_inverse_transform(recovered_df, columns, replace_content, normalized_core)
+        columns, recovered_df, normalized_core = self._recover_core(normalized_core)
+        return self._post_inverse_transform(recovered_df, columns, replace_content, normalized_core)
 
     def _post_inverse_transform(self, recovered_df: pd.DataFrame, columns: Dict[str, List[str]],
-                                replace_content: bool, normalized_core: Tensor) -> pd.DataFrame:
+                                replace_content: bool, normalized_core: pd.DataFrame) -> pd.DataFrame:
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
         for i, det in enumerate(self._determinants):
             leader = det[0]
