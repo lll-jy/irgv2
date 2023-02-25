@@ -22,13 +22,12 @@ _LOGGER = logging.getLogger()
 
 
 class TimeGANOutput(InferenceOutput):
-    def __init__(self, fake: Tensor, discr_out: Optional[Tensor] = None):
+    def __init__(self, fake: List[Tensor], discr_out: Optional[List[Tensor]] = None):
         super().__init__(fake)
         self.fake = fake
         """Fake data generated."""
         self.discr_out = discr_out
         """Discriminator output."""
-
 
 
 class TimeGANTrainer(SeriesTrainer):
@@ -195,7 +194,7 @@ class TimeGANTrainer(SeriesTrainer):
                 dataloader = tqdm(dataloader)
                 dataloader.set_description(descr)
             for step, (known_batch, unknown_batch) in enumerate(dataloader):
-                data = torch.cat([known_batch[:, :, :-1], unknown_batch], dim=-1)
+                data = torch.cat([known_batch, unknown_batch], dim=-1)
                 h, _ = self._embedder(data)
                 h = h.view(*data.shape[:2], self._hidden_dim)
                 h_hat, _ = self._supervisor(h)
@@ -229,11 +228,11 @@ class TimeGANTrainer(SeriesTrainer):
         z_dim = self._unknown_dim + self._known_dim + 1
         noise = []
         for i in range(batch_size):
-            seq_len = known[i, :, -1].sum()
+            seq_len = known.shape[-1]
             temp = torch.zeros(known.shape[1], z_dim)
             temp_z = np.random.uniform(0., 10, (seq_len, z_dim))
             temp[:seq_len] = temp_z
-            temp[:, :self._known_dim + 1] = known
+            temp[:, :self._known_dim] = known
             noise.append(temp)
         return torch.stack(noise)
 
@@ -248,7 +247,7 @@ class TimeGANTrainer(SeriesTrainer):
             noise, known, unknown = batch
             batch_size = noise.shape[0]
 
-            data = torch.cat([known[:, :, :-1], unknown], dim=-1)
+            data = torch.cat([known, unknown], dim=-1)
             g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v = self._joint_step(batch_size, noise, data, unknown)
             self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_g, self._gs_g, self._lrs_g,
                             retain_graph=True)
@@ -258,7 +257,7 @@ class TimeGANTrainer(SeriesTrainer):
                             retain_graph=True)
 
             h, x_tilde = self._recover(data)
-            e_loss = self._calculate_recon_loss(data[:, :, known.shape[-1]-1:], x_tilde, True) / 10
+            e_loss = self._calculate_recon_loss(data[:, :, known.shape[-1]:], x_tilde, True) / 10
             h_sup, _ = self._supervisor(h)
             h_sup = h_sup.view(batch_size, -1, self._hidden_dim)
             g_loss_s = F.mse_loss(h[:, 1:, :], h_sup[:, :-1, :])
@@ -275,21 +274,21 @@ class TimeGANTrainer(SeriesTrainer):
         y_fake = self._discriminator(h_hat)
         y_fake = y_fake.view(batch_size, -1, 1)
         x_hat, _ = self._recovery(h_hat)
-        x_hat = x_hat.view(batch_size, -1, self._known_dim + 1)
+        x_hat = x_hat.view(batch_size, -1, self._unknown_dim + 1)
         h, _ = self._embedder(data)
         h = h.view(batch_size, -1, self._hidden_dim)
         h_sup, _ = self._supervisor(h)
         h_sup = h_sup.view(batch_size, -1, self._hidden_dim)
         g_loss_s = F.mse_loss(h[:, 1:, :], h_sup[:, :-1, :])
         g_loss_u = F.binary_cross_entropy_with_logits(y_fake, torch.ones_like(y_fake))
-        g_loss_v1 = (x_hat.std([0], unbiased=False).abs() + 1e-6 - (unknown[:, :, :-1].std([0]) + 1e-6)).mean()
-        g_loss_v2 = (x_hat.mean([0]) - unknown[:, :, :-1].mean([0])).abs().mean()
+        g_loss_v1 = (x_hat.std([0], unbiased=False).abs() + 1e-6 - (unknown.std([0]) + 1e-6)).mean()
+        g_loss_v2 = (x_hat.mean([0]) - unknown.mean([0])).abs().mean()
         g_loss_v = g_loss_v1 + g_loss_v2
         return g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v
 
     def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
         noise, known, unknown = batch
-        data = torch.cat([known[:, :, :-1], unknown], dim=-1)
+        data = torch.cat([known, unknown], dim=-1)
         batch_size = noise.shape[0]
         h, _ = self._embedder(data)
         h = h.view(batch_size, -1, self._hidden_dim)
@@ -350,28 +349,30 @@ class TimeGANTrainer(SeriesTrainer):
         return out_dict, x_hat[:, :, :-1]
 
     def _meta_loss(self, known: Tensor, real: Tensor, fake: Tensor) -> (Tensor, Tensor):
-        known = self._expand_series(known)
-        real = self._expand_series(real)
-        fake = self._expand_series(fake)
+        known = torch.cat(self._expand_series(known, real[:, :, -1]))
+        real = torch.cat(self._expand_series(real))
+        fake = torch.cat(self._expand_series(fake[:, :, :-1], real[:, :, -1]))
         return self._meta_loss(known, real, fake)
 
     @staticmethod
-    def _expand_series(x: Tensor) -> Tensor:
+    def _expand_series(x: Tensor, indicator: Optional[Tensor] = None) -> List[Tensor]:
+        if indicator is None:
+            indicator = x[:, :, -1]
+            x = x[:, :, :-1]
         out = []
-        for seq in x:
-            maintained = seq[:, -1] > 0.5
-            ml = maintained.tolist()
+        for seq, ind in (x, indicator):
+            maintained = (ind > 0.5).tolist()
             width = 5
             while width > 0:
-                find = ml.index([False] * width)
+                find = maintained.index([False] * width)
                 if find > 0:
-                    maintained[find:] = 0
+                    zeros = torch.zeros(seq.shape[0] - find, seq.shape[1], dtype=seq.dtype, device=seq.device)
+                    seq = torch.cat([seq[:find], zeros])
                     break
                 else:
                     width -= 1
-            used = seq[maintained, :-1]
-            out.append(used)
-        return torch.cat(out)
+            out.append(seq)
+        return out
 
     def inference(self, known: Tensor, batch_size: int = 500) -> InferenceOutput:
         dataloader = self._make_infer_dataloader(known, batch_size, False)
@@ -395,10 +396,11 @@ class TimeGANTrainer(SeriesTrainer):
                 y_fake = self._discriminator(h_hat).view(batch_size, -1, 1)
                 x_hat, _ = self._recover(h_hat)
                 x_hat = x_hat.view(batch_size, -1, self._unknown_dim + 1)
-                fake = torch.cat([known[:, :, -1], x_hat[:, :, -1], known[:, :, -1:]], dim=-1)
+                fake = torch.cat([known, x_hat], dim=-1)
+                y_fake = self._expand_series(y_fake, fake[:, :, -1])
                 fake = self._expand_series(fake)
-                fakes.append(fake)
-                y_fakes.append(y_fake)
+                fakes.extend(fake)
+                y_fakes.extend(y_fake)
 
         self._embedder.train()
         self._recovery.train()
@@ -406,10 +408,7 @@ class TimeGANTrainer(SeriesTrainer):
         self._supervisor.train()
         self._discriminator.train()
 
-        out_fake = torch.cat(fakes) if len(fakes) > 0 else \
-            torch.zeros(0, self._known_dim + self._cond_dim + self._unknown_dim)
-        out_y = torch.cat(y_fakes) if len(y_fakes) > 0 else torch.zeros(0)
         return TimeGANOutput(
-            fake=out_fake,
-            discr_out=out_y
+            fake=fakes,
+            discr_out=y_fakes
         )

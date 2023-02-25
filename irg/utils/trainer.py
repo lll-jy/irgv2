@@ -27,7 +27,7 @@ class InferenceOutput(ABC):
     """
     Inference output structure.
     """
-    def __init__(self, output: Tensor):
+    def __init__(self, output: Union[List[Tensor], Tensor]):
         self.output = output
         """Output as single Tensor."""
 
