@@ -67,9 +67,16 @@ class DegreeSteppedTrainer(DegreeTrainer):
             train_cols.extend([(a, b, c) for a, b, c in deg_norm.columns if a.startswith(f'fk{i}:')])
             train_data = deg_norm[train_cols]
             fk_cols.extend(fk.left)
-            degrees = deg_data.groupby(fk_cols)[[('', 'degree')]].transform('sum')[('', 'degree')]
-            self._real_sum[i] = degrees.sum()
-            self._norm[i].fit(degrees.to_numpy().reshape(-1, 1))
+            grouped = deg_data[fk_cols + [('', 'degree')]].groupby(fk_cols, as_index=False).sum()
+            self._real_sum[i] = grouped[('', 'degree')].sum()
+            degrees = deg_data[fk_cols + [('', 'degree')]].groupby(fk_cols).transform('sum')[('', 'degree')]
+            assert len(degrees) == len(train_data), f'Size of prediction models must match, ' \
+                                                    f'got {len(degrees)} != {len(train_data)} in' \
+                                                    f' {self._name}:{fk.parent}-{fk.child}'
+            norm_from = grouped[('', 'degree')]
+            if i > 0:
+                norm_from = norm_from[norm_from > 0]
+            self._norm[i].fit(norm_from.to_numpy().reshape(-1, 1))
             self._fit_pred_model(train_data, degrees, i)
 
             if i == len(self._foreign_keys) - 1:
@@ -256,25 +263,19 @@ class DegreeSteppedTrainer(DegreeTrainer):
             factor *= scaling[fk.parent]
             fkcomb_degrees = fkcomb_degrees / factor
             real = self._real_sum[i] / factor
-            if i > 0:
-                fkcomb_degrees = fkcomb_degrees.apply(lambda x: 1 if x < 1 else x)
+            # if i > 0:
+            #     fkcomb_degrees = fkcomb_degrees.apply(lambda x: 1 if x < 1 else x)
+            raw_gen = fkcomb_degrees
             fkcomb_degrees, _ = self._round_sumrange(fkcomb_degrees, real * (1 - tolerance), real * (1 + tolerance),
                                                      till_in_range=True)
 
             known_so_far[fk.left] = known_so_far[[(f'fk{i}:{t}', c) for t, c in fk.right]]
-
-            print('!!!! degrees fk', self._name, fk.parent, fk.child)
-            print(real, fkcomb_degrees.sum())
 
             if i == len(self._foreign_keys) - 1:
                 pred_deg = fkcomb_degrees * scaling[self._name]
                 real = real * scaling[self._name]
                 pred_deg, _ = self._round_sumrange(pred_deg, real * (1 - tolerance), real * (1 + tolerance),
                                                    till_in_range=True)
-                print('!!!! degrees', self._name, self._real_sum[i], real, pred_deg.sum())
-                rs = real
-                ps = pred_deg.sum()
-                assert (1 - tolerance) * rs <= ps <= (1 + tolerance) * rs, f'predicted dimensions, {rs}, {ps}'
                 break
             
             next_table = context.augmented_till(self._foreign_keys[i+1].parent, self._name, with_id='none')

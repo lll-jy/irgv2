@@ -14,6 +14,7 @@ MTYPE=affecting
 BASE_DIR=examples
 OUT_SUFFIX=.nosync
 SINGLE_NAME=adults
+GENERATE_VERSION=
 
 prepare_small_alset:
 	python3.9 process.py database alset \
@@ -119,7 +120,7 @@ train_cfg:
 inspect_sizes:
 	echo data:
 	-du -sh ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE}
-	-du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/generated
+	-du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/generated
 	echo cache:
 	-du -sh .temp${OUT_SUFFIX}
 	echo checkpoints:
@@ -130,11 +131,11 @@ inspect_sizes:
 	-du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg
 	echo database:
 	-du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db
-	-du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db
+	-du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/fake_db
 
 
 generate:
-	-mkdir -p ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	-mkdir -p ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}
 	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 train_gen \
         --db_config_path ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}_db_config.json \
         --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
@@ -147,15 +148,15 @@ generate:
         --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
         --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
-        --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/generated \
-        --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db >> log.txt
+        --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/generated \
+        --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/fake_db >> log.txt
 	du -sh .temp${OUT_SUFFIX}
 	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
-	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}
 
 
 generate_cfg:
-	-mkdir -p ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	-mkdir -p ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}
 	-python3.9 -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 train_gen \
         --db_config_path ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}_db_config.json \
         --data_dir ${BASE_DIR}/data${OUT_SUFFIX}/${DB_NAME}/${DATA_VERSION}${USE_SAMPLE} \
@@ -173,11 +174,11 @@ generate_cfg:
         --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
         --default_tab_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/tab \
         --default_deg_trainer_ckpt_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/ckpt/deg \
-        --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/generated \
-        --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db >> log.txt
+        --save_generated_to ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/generated \
+        --save_synth_db ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/fake_db >> log.txt
 	du -sh .temp${OUT_SUFFIX}
 	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
-	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}
 
 
 evaluate:
@@ -186,7 +187,7 @@ evaluate:
 	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
 	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 evaluate \
 		--real_db_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
-		--fake_db_dir ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db \
+		--fake_db_dir ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/fake_db \
 		--save_eval_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/results \
 		--save_complete_result_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/complete \
 		--save_tables_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tables \
@@ -194,7 +195,7 @@ evaluate:
 		--save_all_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/result.pkl >> log.txt
 	du -sh .temp${OUT_SUFFIX}
 	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
-	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}
 	du -sh ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
 
 
@@ -204,7 +205,7 @@ evaluate_cfg:
 	-mkdir -p ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
 	-python3.9  -W ignore main.py --log_level WARN --temp_cache .temp${OUT_SUFFIX} --num_processes 10 evaluate \
 		--real_db_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${DB_VERSION}/real_db \
-		--fake_db_dir ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/fake_db \
+		--fake_db_dir ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/fake_db \
 		--evaluator_path config/evaluator/${EVALUATOR_CFG}.json \
 		--evaluate_path config/evaluator/${EVALUATE_CFG}.json \
 		--save_eval_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/results \
@@ -214,7 +215,7 @@ evaluate_cfg:
 		--save_all_res_to ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/result.pkl >> log.txt
 	du -sh .temp${OUT_SUFFIX}
 	du -sh ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
-	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
+	du -sh ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}
 	du -sh ${BASE_DIR}/evaluate${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}
 
 
@@ -241,7 +242,7 @@ clear_ckpt: kill
 
 
 clear_gen: kill
-	-rm -r ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/
+	-rm -r ${BASE_DIR}/generated${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}${GENERATE_VERSION}/
 
 
 clear_eval: kill

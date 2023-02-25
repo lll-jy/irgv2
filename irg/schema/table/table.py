@@ -416,14 +416,13 @@ class Table:
         if len(self._known_cols) > 0 and augmented_attributes:
             groupby_cols = [(self._name, col) for col in self._known_cols]
             augmented[('', 'degree')] = 0
-            augmented[('', 'degree')] = augmented.groupby(groupby_cols, dropna=False)[
-                [('', 'degree')]].transform('count')[('', 'degree')]
-            deg_deg = degree.merge(augmented[groupby_cols + [('', 'degree')]], on=groupby_cols)[('', 'degree')]
+            transformed = augmented.groupby(groupby_cols, dropna=False, as_index=False).count()#.transform('count')
+            assert set(groupby_cols) <= set(augmented.columns.tolist())
+            assert set(groupby_cols) <= set(transformed.columns.tolist())
+            deg_deg = degree.merge(transformed, on=groupby_cols, how='left')[('', 'degree')]
             augmented = augmented.drop(columns=[('', 'degree')])
+            assert len(deg_deg) == len(degree), f'{len(deg_deg)} {len(degree)}'
             degree[('', 'degree')] = deg_deg
-            print('==== run here', self._name, deg_deg.sum(), len(deg_deg), len(degree), flush=True)
-            # for group, data in augmented.groupby(groupby_cols, dropna=False):
-            #     degree.loc[(degree[groupby_cols] == group).all(axis=1).tolist(), ('', 'degree')] = len(data)
             if ('', 'degree') in degree:
                 degree.loc[:, ('', 'degree')] = degree['', 'degree'].fillna(0)
 
@@ -438,7 +437,6 @@ class Table:
                 'min_val': 0,
                 'name': 'degree'
             }
-            print('to deg attr', self._degree_attr_path(), flush=True)
             self._degree_attributes[('', 'degree')] = create_attribute(
                 deg_meta,
                 values=degree.loc[:, ('', 'degree')],

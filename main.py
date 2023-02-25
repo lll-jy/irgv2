@@ -80,7 +80,7 @@ def _parse_generate_args(parser: ArgumentParser):
                        help='Whether to skip generating process.')
     group.add_argument('--save_generated_to', default='generated', type=str,
                        help='Save generated tables to the directory.')
-    group.add_argument('--default_scaling', default=1, type=int, help='Default scaling factor.')
+    group.add_argument('--default_scaling', default=1, type=float, help='Default scaling factor.')
     group.add_argument('--scaling', type=str, nargs='*', default=[],
                        help='Scaling factors, where each non-default scaling factor is represented by 2-tuple'
                             'of table name and the factor. For example, set scaling factor of "t1" to 0.3, give'

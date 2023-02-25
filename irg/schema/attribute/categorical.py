@@ -60,7 +60,6 @@ class CategoricalTransformer(BaseTransformer):
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         self.set_categories([x for x in original.unique() if not pd.isnull(x)])
-        print('categories', self.fill_nan_val, [*self._id2label.values()], flush=True)
         original.to_pickle(self._data_path)
         nan_info['is_nan'] = nan_info.apply(
             lambda row: row['is_nan'] if row['is_nan'] else

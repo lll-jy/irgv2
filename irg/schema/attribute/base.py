@@ -241,9 +241,6 @@ class BaseTransformer:
             if nan_ratio is None:
                 original = pd.read_pickle(self._data_path)
                 nan_cnt = original.isna().sum()
-                print('orig size', nan_cnt, len(original), self._data_path)
-                if 'module_enrolment' in self._data_path:
-                    print(original.value_counts().to_dict())
                 nan_ratio = nan_cnt / len(original)
             loose_nan_ratio = min(1., nan_ratio * 1.1)
             if 0 < nan_ratio < 1:
@@ -261,7 +258,6 @@ class BaseTransformer:
                 )
                 isna = data['is_nan'] != data['is_nan']
                 isna[isna_indices] = True
-                print('isnan !!!', isna.sum(), len(isna), self._data_path, flush=True)
             elif nan_ratio <= 0:
                 isna = data['is_nan'] != data['is_nan']
             else:
@@ -396,11 +392,6 @@ class BaseAttribute(ABC):
         """
         values = values.apply(lambda x: np.nan if any(x == v for v in ['nan', '']) else x)
 
-        print('!! values', self.name, values.isna().sum(), len(values))
-        if any(x in self.atype for x in ['num', 'dat', 'raw']):
-            print(values.describe(percentiles=[], datetime_is_numeric=True).to_dict())
-        elif 'id' not in self.atype:
-            print(values.value_counts(dropna=False)[:10].to_dict())
         if os.path.exists(self._transformer_path):
             with open(self._transformer_path, 'rb') as f:
                 self._transformer = pickle.load(f)
