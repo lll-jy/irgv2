@@ -2,13 +2,13 @@
 
 from collections import defaultdict
 import os
-from typing import Dict, Optional, DefaultDict, Any, List
+from typing import Dict, Optional, DefaultDict, Any
 
 import torch
 
 from ..degree import DegreeTrainer
 from ..tabular import TabularTrainer
-from ..schema import Table, SyntheticTable, Database, SyntheticDatabase
+from ..schema import Table, SyntheticTable, Database, SyntheticDatabase, SeriesTable
 from ..schema.database import SYN_DB_TYPE_BY_NAME
 
 
@@ -43,10 +43,14 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
     os.makedirs(save_db_to, exist_ok=True)
 
     for name, table in real_db.tables():
-        table = Table.load(table)
+        if real_db.is_series(name):
+            table_class = Table
+        else:
+            table_class = SeriesTable
+        table = table_class.load(table)
         table_temp_cache = os.path.join(temp_cache, name)
         if os.path.exists(os.path.join(save_db_to, f'{name}.pkl')):
-            gen_table = Table.load(os.path.join(save_db_to, f'{name}.pkl'))
+            gen_table = table_class.load(os.path.join(save_db_to, f'{name}.pkl'))
         elif table.ttype == 'base':
             gen_table = table.shallow_copy()
             gen_table.update_temp_cache(table_temp_cache)
@@ -54,7 +58,6 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
             gen_table = _generate_independent_table(tab_models[name], table, scaling[name], tab_batch_sizes[name],
                                                     table_temp_cache)
         else:
-            a, b, c = table.ptg_data()
             gen_table = _generate_dependent_table(tab_models[name], deg_models[name], table, scaling,
                                                   tab_batch_sizes[name], deg_batch_sizes[name], syn_db,
                                                   table_temp_cache)
@@ -94,7 +97,7 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: DegreeTr
     known_tab, augmented = deg_trainer.predict(syn_table, syn_db, scaling)
     syn_table.update_augmented(augmented)
 
-    output = tab_trainer.inference(known_tab, tab_batch_size).output[:, -tab_trainer.unknown_dim:].cpu()
+    output = tab_trainer.inference(known_tab, tab_batch_size)
     syn_table.inverse_transform(output, replace_content=True)
     syn_table.update_deg_and_aug()
     return syn_table

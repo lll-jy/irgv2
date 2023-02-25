@@ -1,9 +1,10 @@
 """Utility functions."""
 
-from .trainer import Trainer, InferenceOutput
+from .trainer import Trainer, InferenceOutput, SeriesInferenceOutput
 
 
 __all__ = (
     'Trainer',
-    'InferenceOutput'
+    'InferenceOutput',
+    'SeriesInferenceOutput'
 )

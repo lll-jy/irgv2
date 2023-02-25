@@ -23,6 +23,7 @@ from ...utils.misc import Data2D, Data2DName, convert_data_as, inverse_convert_d
 from ...utils.errors import NoPartiallyKnownError, NotFittedError
 from ...utils.dist import fast_map_dict, fast_map
 from ...utils.io import pd_to_pickle, pd_read_compressed_pickle, HiddenPrints
+from ...utils import InferenceOutput
 
 TwoLevelName = Tuple[str, str]
 """Two-level name type, which is a tuple of two strings."""
@@ -115,6 +116,7 @@ class Table:
         self._deg_norm_by_attr_files: Dict[TwoLevelName, str] = {}
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
+        self._unknown_dim = 0
 
     @property
     def ttype(self) -> str:
@@ -137,7 +139,7 @@ class Table:
             '_known_cols', '_unknown_cols', '_augment_fitted',
             '_augmented_attributes', '_degree_attributes',
             '_aug_norm_by_attr_files', '_deg_norm_by_attr_files',
-            '_augmented_ids', '_degree_ids'
+            '_augmented_ids', '_degree_ids', '_unknown_dim'
         ]
         for attr in attr_to_copy:
             setattr(copied, attr, getattr(self, attr))
@@ -699,9 +701,11 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
+            self._unknown_dim = unknown_data.shape[-1]
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)
+            self._unknown_dim = norm_data.shape[-1]
             return (torch.zeros(len(norm_data), 0), convert_data_as(norm_data, 'torch'),
                     self._attr2catdim(self._attributes))
 
@@ -779,7 +783,7 @@ class Table:
         """
         with open(path, 'rb') as f:
             loaded = pickle.load(f)
-            loaded.__class__ = Table
+            loaded.__class__ = cls
         return loaded
 
     def __len__(self):
@@ -796,13 +800,6 @@ class SyntheticTable(Table):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._real_cache = '.temp' if 'temp_cache' not in kwargs else kwargs['temp_cache']
-
-    @classmethod
-    def load(cls, path: str) -> "SyntheticTable":
-        with open(path, 'rb') as f:
-            loaded = pickle.load(f)
-            loaded.__class__ = SyntheticTable
-        return loaded
 
     def _describer_path(self, idx: int) -> str:
         return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
@@ -827,15 +824,20 @@ class SyntheticTable(Table):
                                    id_cols={*table._id_cols}, attributes=table._attr_meta,
                                    determinants=table._determinants, formulas=table._formulas,
                                    temp_cache=temp_cache if temp_cache is not None else table._temp_cache)
-        synthetic._fitted, synthetic._augment_fitted = table._fitted, table._augment_fitted
-        synthetic._attributes = table._attributes
-        synthetic._real_cache = table._temp_cache
-        synthetic._known_cols, synthetic._unknown_cols = table._known_cols, table._unknown_cols
-        synthetic._augmented_attributes = table._augmented_attributes
-        synthetic._degree_attributes = table._degree_attributes
-        synthetic._augmented_ids, synthetic._degree_ids = table._augmented_ids, table._degree_ids
-        synthetic._length = table._length
-        return synthetic
+        return cls._copy_attributes(table, synthetic)
+
+    @staticmethod
+    def _copy_attributes(src: Table, target: "SyntheticTable") -> "SyntheticTable":
+        target._fitted, target._augment_fitted = src._fitted, src._augment_fitted
+        target._attributes = src._attributes
+        target._real_cache = src._temp_cache
+        target._known_cols, target._unknown_cols = src._known_cols, src._unknown_cols
+        target._augmented_attributes = src._augmented_attributes
+        target._degree_attributes = src._degree_attributes
+        target._augmented_ids, target._degree_ids = src._augmented_ids, src._degree_ids
+        target._length = src._length
+        target._unknown_dim = src._unknown_dim
+        return target
 
     def update_augmented(self, augmented: pd.DataFrame):
         """
@@ -847,21 +849,7 @@ class SyntheticTable(Table):
         """
         augmented.to_pickle(self._augmented_path())
 
-    def inverse_transform(self, normalized_core: Tensor, replace_content: bool = True) -> pd.DataFrame:
-        """
-        Inversely transform normalized data to original data format.
-
-        **Args**:
-
-        - `normalized_core` (`torch.Tensor`): Normalized core data in terms of tensor.
-        - `replace_content` (`bool`): Whether to replace the content of this `Table`. Default is `True`.
-
-        **Return**: The inversely transformed data.
-
-        **Raise**: [`NotFittedError`](../utils/errors#irg.utils.errors.NotFittedError) if the table is not yet fitted.
-        """
-        if not self._fitted:
-            raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
+    def _recover_core(self, normalized_core: Tensor) -> (Dict[str, List[str]], pd.DataFrame):
         columns = {
             n: v.transformed_columns
             for n, v in self._attributes.items()
@@ -891,7 +879,33 @@ class SyntheticTable(Table):
         for x in self.id_cols:
             if x in self._unknown_cols:
                 recovered_df[x] = self._attributes[x].generate(len(normalized_core))
+        return columns, recovered_df
 
+    def inverse_transform(self, normalized_core: Union[Tensor, InferenceOutput], replace_content: bool = True) -> \
+            pd.DataFrame:
+        """
+        Inversely transform normalized data to original data format.
+
+        **Args**:
+
+        - `normalized_core` (`Union[Tensor, InferenceOutput]`): Inference output.
+          It should contain a tensor with normalized core data.
+        - `replace_content` (`bool`): Whether to replace the content of this `Table`. Default is `True`.
+
+        **Return**: The inversely transformed data.
+
+        **Raise**: [`NotFittedError`](../utils/errors#irg.utils.errors.NotFittedError) if the table is not yet fitted.
+        """
+        if not self._fitted:
+            raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
+        if isinstance(normalized_core, InferenceOutput):
+            normalized_core = normalized_core.output
+        normalized_core = normalized_core[:, -self._unknown_dim:].cpu()
+        columns, recovered_df = self._recover_core(normalized_core)
+        self._post_inverse_transform(recovered_df, columns, replace_content, normalized_core)
+
+    def _post_inverse_transform(self, recovered_df: pd.DataFrame, columns: Dict[str, List[str]],
+                                replace_content: bool, normalized_core: Tensor) -> pd.DataFrame:
         os.makedirs(os.path.join(self._temp_cache, 'temp_det'), exist_ok=True)
         for i, det in enumerate(self._determinants):
             leader = det[0]

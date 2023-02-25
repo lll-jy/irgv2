@@ -1,21 +1,19 @@
 """Series tabular table data structure that holds data and metadata of tables in a database."""
-
-from typing import Collection, Dict, Iterable, List, Optional, Tuple
+import os
+from typing import Collection, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 import torch
 from torch import Tensor
 
-from .table import Table
+from .table import Table, SyntheticTable
+from ...utils.errors import NotFittedError
+from ...utils import SeriesInferenceOutput
 
 
 class SeriesTable(Table):
     def __init__(self, name: str, series_id: str, base_cols: Optional[Collection[str]] = None,
                  id_cols: Optional[Iterable[str]] = None, attributes: Optional[Dict[str, dict]] = None,
-                 data: Optional[pd.DataFrame] = None,
-                 # determinants: Optional[List[List[str]]] = None,
-                 # formulas: Optional[Dict[str, str]] = None,
-                 # temp_cache: str = '.temp'
                  **kwargs):
         if base_cols is None:
             base_cols = set()
@@ -81,3 +79,66 @@ class SeriesTable(Table):
         all_unknown = torch.stack(all_unknown)
         return all_known, all_unknown, cat_dims, (base_known_ids, base_unknown_ids), (seq_known_ids, seq_unknown_ids)
 
+
+class SyntheticSeriesTable(SeriesTable, SyntheticTable):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._real_cache = '.temp' if 'temp_cache' not in kwargs else kwargs['temp_cache']
+
+    def _describer_path(self, idx: int) -> str:
+        return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
+
+    def _degree_attr_path(self) -> str:
+        return os.path.join(self._real_cache, 'deg_attr.pkl')
+
+    @classmethod
+    def from_real(cls, table: SeriesTable, temp_cache: Optional[str] = None) -> "SyntheticSeriesTable":
+        synthetic = SyntheticSeriesTable(
+            name=table._name, ttype=table._ttype, need_fit=False,
+            id_cols={*table._id_cols}, attributes=table._attr_meta,
+            determinants=table._determinants, formulas=table._formulas,
+            temp_cache=temp_cache if temp_cache is not None else table._temp_cache,
+            series_id=table._series_id, base_cols=table._base_cols
+        )
+        return cls._copy_attributes(table, synthetic)
+
+    @staticmethod
+    def _copy_attributes(src: SeriesTable, target: "SyntheticSeriesTable") -> "SyntheticSeriesTable":
+        super()._copy_attributes(src, target)
+        target._index_groups = src._index_groups
+        return target
+
+    def inverse_transform(self, normalized_core: Union[Tensor, SeriesInferenceOutput], replace_content: bool = True) -> \
+            pd.DataFrame:
+        if not self._fitted:
+            raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
+        if isinstance(normalized_core, SeriesInferenceOutput):
+            lengths = normalized_core.lengths
+            normalized_core = normalized_core.output
+            regroup = False
+        else:
+            normalized_core = normalized_core.view(1, *normalized_core.shape)
+            lengths = [normalized_core.shape[1]]
+            regroup = True
+
+        flattened = []
+        for group, length in zip(normalized_core, lengths):
+            group = group[:length, -self._unknown_dim:].cpu()
+            flattened.append(group)
+
+        flattened = torch.cat(flattened)
+        columns, recovered_df = self._recover_core(flattened)
+
+        if regroup:
+            lengths = []
+            new_data = []
+            for _, data in recovered_df.groupby(self._base_cols, dropna=False):
+                lengths.append(len(data))
+                new_data.append(data)
+            recovered_df = pd.concat(new_data, ignore_index=True).reset_index(drop=True)
+        acc = 0
+        for length in lengths:
+            recovered_df.loc[acc:acc+length-1, self._series_id] = self._attributes[self._series_id]\
+                .generate(length).tolist()
+
+        return self._post_inverse_transform(recovered_df, columns, replace_content, flattened)

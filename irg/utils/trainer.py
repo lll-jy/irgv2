@@ -32,6 +32,15 @@ class InferenceOutput(ABC):
         """Output as single Tensor."""
 
 
+class SeriesInferenceOutput(InferenceOutput):
+    """
+    Inference output for series.
+    """
+    def __init__(self, output: List[Tensor], lengths: List[int]):
+        super().__init__(output)
+        self.lengths = lengths
+
+
 class Trainer(ABC):
     """PyTorch Trainer helper."""
     def __init__(self, distributed: bool = False, autocast: bool = False,
