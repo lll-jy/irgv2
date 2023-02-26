@@ -21,25 +21,56 @@ class SeriesTable(Table):
         self._series_id = series_id
         if id_cols is None:
             id_cols = set()
-        id_cols |= {series_id}
         if attributes is None:
             attributes = {}
 
-        assert '.series_degree' not in attributes
+        assert all(x not in attributes for x in {'.series_degree', '.series_increase', '.group_id', '.series_base'})
         attributes['.series_degree'] = {
             'type': 'numerical',
             'min_val': 0,
             'name': '.series_degree'
         }
 
+        series_id_attr = {} if series_id not in attributes else attributes[series_id]
+        increase_type = 'numerical'
+        if attributes.get(series_id) is not None and series_id_attr.get('type') is not None:
+            if series_id_attr['type'] in {'datetime', 'timedelta'}:
+                increase_type = 'timedelta'
+            elif series_id_attr['type'] == 'id':
+                increase_type = 'id'
+            elif series_id_attr['type'] != 'mumerical':
+                raise NotImplementedError(f'Attribute of type {series_id_attr["type"]} cannot be used '
+                                          f'as series ID. Please use something which difference can be calculated.')
+        attributes['.series_increase'] = {
+            'type': increase_type,
+            'min_val': 0,
+            'name': '.series_increase'
+        }
+        attributes['.series_base'] = {
+            **{k: v for k, v in series_id_attr.items() if k != 'name'},
+            'name': '.series_base'
+        }
+
         self._index_groups = []
         super().__init__(name=name, ttype='series', id_cols=id_cols, attributes=attributes, **kwargs)
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
-        data['.series_degree'] = 1
-        for _, group in data.groupby(self._base_cols):
-            data[group.index, '.series_degree'] = len(group)
-            self._index_groups.append(group.sort_values(by=[self._series_id]).index)
+        new_data = []
+        acc = 0
+        assert not ({'.series_degree', '.series_increase', '.group_id', '.series_base'} & set(data.columns))
+        for _, group in data.groupby(self._base_cols, as_index=False):
+            sorted_group = group.sort_values(by=[self._series_id]).reset_index(drop=True)
+            sorted_group.loc[:, '.series_degree'] = len(group)
+            sorted_series_id = sorted_group[self._series_id].values
+            sorted_group.loc[:, '.series_increase'] = 0
+            sorted_group.loc[:, '.series_base'] = sorted_series_id[0]
+            sorted_group.loc[1:, '.series_increase'] = sorted_series_id[1:] - sorted_series_id[:-1]
+            sorted_group.loc[:, '.group_id'] = len(new_data)
+            new_data.append(sorted_group)
+            self._index_groups.append(pd.Index(range(acc, acc + len(group))))
+            acc += len(group)
+        data = pd.concat(new_data)
+        data = data.set_index('.group_id')
         super().fit(data, force_redo, **kwargs)
 
     def sg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]],
@@ -129,9 +160,17 @@ class SyntheticSeriesTable(SeriesTable, SyntheticTable):
                 lengths.append(len(data))
                 new_data.append(data)
             recovered_df = pd.concat(new_data, ignore_index=True).reset_index(drop=True)
+
         acc = 0
         for length in lengths:
-            recovered_df.loc[acc:acc+length-1, self._series_id] = self._attributes[self._series_id]\
-                .generate(length).tolist()
+            if self._series_id in self._id_cols:
+                recovered_df.loc[acc:acc+length-1, self._series_id] = self._attributes[self._series_id]\
+                    .generate(length).tolist()
+            else:
+                base = recovered_df.loc[acc:acc+length-1, '.series_base'].mean()
+                recovered_df.loc[acc, self._series_id] = base
+                for i in range(1, length):
+                    recovered_df.loc[acc+i, self._series_id] = \
+                        recovered_df.loc[acc+i-1, self._series_id] + recovered_df.loc[acc+i, '.series_increase']
 
         return self._post_inverse_transform(recovered_df, columns, replace_content, normalized_core)

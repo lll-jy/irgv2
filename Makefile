@@ -17,6 +17,7 @@ BASE_DIR=examples
 OUT_SUFFIX=.nosync
 SINGLE_NAME=adults
 GENERATE_VERSION=
+SP_SCALE=
 
 prepare_small_alset:
 	python3.9 process.py database alset \
@@ -182,6 +183,7 @@ generate_cfg:
         --default_tab_train_resume True \
         --default_deg_train_resume True \
         --default_scaling ${SCALING} \
+        --scaling ${SP_SCALE} \
         --default_tab_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \
         --default_deg_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/deg \
         --default_ser_trainer_log_dir ${BASE_DIR}/model${OUT_SUFFIX}/${DB_NAME}/${EXP_NAME}/tf/tab \

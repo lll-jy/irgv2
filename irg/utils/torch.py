@@ -190,3 +190,21 @@ class TimeGanNet(nn.Module):
         out = self.act(out)
         return out, hidden
 
+
+class SequenceEmbedding(nn.Module):
+    """Adapted from https://pytorch.org/tutorials/beginner/nlp/word_embeddings_tutorial.html"""
+    def __init__(self, vocab_size: int, embedding_dim: int = 50, context_size: int = 4, hidden_dim: int = 128):
+        super().__init__()
+        self.embeddings = nn.Embedding(vocab_size, embedding_dim)
+        self.linear1 = nn.Linear(context_size * embedding_dim, hidden_dim)
+        self.linear2 = nn.Linear(hidden_dim, vocab_size)
+
+    def forward(self, x: Tensor) -> Tensor:
+        embeds = self.embeddings(x).view(x.shape[0], -1)
+        out = F.relu(self.linear1(embeds))
+        out = self.linear2(out)
+        return F.log_softmax(out, dim=1)
+
+    def decode(self, emb: Tensor) -> Tensor:
+        pass
+

@@ -2,17 +2,21 @@
 from abc import ABC
 import os
 import pickle
-from typing import Optional, Dict, List, Union, Tuple, Literal
+from typing import Optional, Dict, List, Union, Tuple, Literal, Any
 
 import numpy as np
 import pandas as pd
 import torch
+from torch.optim import Adam
+from torch import nn
+from tqdm import tqdm
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import euclidean_distances
 from nltk import word_tokenize, wordpunct_tokenize, casual_tokenize
 
 from .base import BaseAttribute, BaseTransformer
 from ...utils.io import load_from, pd_to_pickle
+from ...utils.torch import SequenceEmbedding
 
 
 class _TextTransformer(BaseTransformer, ABC):
@@ -305,4 +309,178 @@ class ShortTextAttribute(BaseAttribute):
         new_attr = super().__copy__()
         new_attr.__class__ = ShortTextAttribute
         new_attr._kwargs = self._kwargs
+        return new_attr
+
+
+class EmbeddingTransformer(BaseTransformer):
+    """
+    Embedding transformer, for series table.
+    The tokens are likely to form a sequence like words in a language.
+    This transformer will be trained as an CBOW.
+
+    The transformed columns (after `is_nan`) form embedding vectors.
+    """
+    def __init__(self, temp_cache: str = '.temp', embedding_dim: int = 50, half_window_size: int = 3,
+                 hidden_dim: int = 128, lr: float = 0.001, epoch: int = 10, batch_size: int = 64):
+        """
+        **Args**:
+
+        - `temp_cache` (`str`): Same for `BaseTransformer`.
+        - `embedding_dim` (`int`): Embedding dimensions. Default is 50.
+        - `half_window_size` (`int`): Half window size for the embedding model trained based on N-Gram. Default is 3.
+        - `hidden_dim` (`int`): Hidden dimension for embedding. Default is 128.
+        - `lr` (`float`): Learning rate. We will use Adam optimizer. Default is 0.001.
+        - `epoch` (`int`): Number of epochs to train. Default is 10.
+        - `batch_size (`int`): Batch size during training. Default is 64.
+        """
+        self._embedding_dim = embedding_dim
+        self._half_window_size = half_window_size
+        self._hidden_dim = hidden_dim
+        self._lr = lr
+        self._epoch, self._batch_size = epoch, batch_size
+        self._label2id, self._id2label = None, None
+        self._bos_id, self._pad_id, self._eos_id = 0, 1, 2
+        self._model = None
+        super().__init__(temp_cache)
+
+    def _save_additional_info(self):
+        with open(os.path.join(self._temp_cache, 'info.pkl'), 'wb') as f:
+            pickle.dump({
+                'label2id': self._label2id,
+                'id2label': self._id2label,
+                'model': self._model
+            }, f)
+
+    def _load_additional_info(self):
+        if os.path.exists(os.path.join(self._temp_cache, 'info.pkl')):
+            with open(os.path.join(self._temp_cache, 'info.pkl'), 'rb') as f:
+                loaded = pickle.load(f)
+            self._label2id, self._id2label = loaded['label2id'], loaded['id2label']
+            self._model = loaded['model']
+        else:
+            self._label2id, self._id2label = {}, {}
+
+    def _unload_additional_info(self):
+        self._label2id, self._id2label = None, None
+        self._model = None
+
+    @property
+    def atype(self) -> str:
+        return 'embedding'
+
+    def _calc_dim(self) -> int:
+        return self._embedding_dim
+
+    def _calc_fill_nan(self, original: pd.Series) -> Any:
+        return 'nan'
+
+    def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        categories = nan_info['original'].unique()
+        for i, cat in enumerate(categories):
+            self._label2id[str(cat)] = i + 3
+            self._id2label[i + 3] = str(cat)
+        self._model = SequenceEmbedding(
+            vocab_size=len(categories) + 3,
+            embedding_dim=self._embedding_dim,
+            context_size=2 * self._half_window_size,
+            hidden_dim=self._hidden_dim
+        )
+        optimizer = Adam(
+            self._model.parameters(),
+            lr=self._lr
+        )
+
+        context = []
+        target = []
+        pad_num = min(0, self._half_window_size - 1)
+        prefix = [self._pad_id] * pad_num + [self._bos_id]
+        suffix = [self._eos_id] + [self._pad_id] * pad_num
+        for _, group in nan_info['original'].groupby(level=0, dropna=False):
+            length = len(group)
+            group = prefix + [
+                self._label2id[item]
+                for item in group.values
+            ] + suffix
+            for mid in range(pad_num + 1, pad_num + 1 + length):
+                context.append(group[mid-self._half_window_size-1:mid-1] + group[mid+1:mid+self._half_window_size+1])
+                target.append(group[mid])
+
+        context = torch.LongTensor(context)
+        target = torch.LongTensor(target)
+        loss_func = nn.NLLLoss
+        for epoch in range(self._epoch):
+            iterator = tqdm(range(0, len(context), self._batch_size), desc=f'Training Embedding [{epoch}]')
+            total_loss = torch.tensor(0)
+            for idx in iterator:
+                batch_context = context[idx:idx+self._batch_size]
+                batch_target = target[idx:idx+self._batch_size]
+                self._model.zero_grad()
+                log_probs = self._model(batch_context)
+                loss = loss_func(log_probs, batch_target)
+                loss.backward()
+                optimizer.step()
+                total_loss += loss
+                iterator.set_description(
+                    f'Training Embedding [{epoch}]: loss {loss.item():.3f}, '
+                    f'avg loss {total_loss.item()/(idx+batch_target.shape[0]):.3f}'
+                )
+
+    def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
+        emb_columns = [f'emb_{i}' for i in range(self._embedding_dim)]
+        transformed = pd.DataFrame(columns=['is_nan'] + emb_columns)
+        transformed['is_nan'] = nan_info['is_nan']
+        for i, v in nan_info.iterrows():
+            # (WT x W)-1 x (WT x W) x id = (WT x W)-1 x WT x emb
+            # id = W-1 x emb
+            transformed.loc[i, emb_columns] = self._model.embeddings.weight[self._label2id[str(v)]].flatten()
+        return transformed
+
+    def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
+        result = []
+        for row in data.iterrows():
+            distance = torch.norm(self._model.embeddings.weight.data[3:] - torch.tensor(row).view(1, -1), dim=1)
+            result.append(self._id2label[torch.argmin(distance) + 3])
+        return pd.Series(result)
+
+    def _categorical_dimensions(self) -> List[Tuple[int, int]]:
+        return [(0, 1)]
+
+
+class EmbeddingAttribute(BaseAttribute):
+    """
+    Embedding attribute, for series table.
+    The tokens are likely to form a sequence like words in a language.
+    """
+    def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp',
+                 embedding_dim: int = 50, half_window_size: int = 3,
+                 hidden_dim: int = 128, lr: float = 0.001, epoch: int = 10, batch_size: int = 64):
+        """
+        **Args**:
+
+        - `name` (`str`): Name of the attribute.
+        - `values` (`Optional[pd.Series]`): Data of the attribute (that is used for fitting normalization transformers).
+        - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
+        - `embedding_dim` (`int`): Hidden dimension of the embedding attribute.
+        - `half_window_size` (`int`): Half window size for the embedding model trained based on N-Gram. Default is 3.
+        - `hidden_dim` (`int`): Hidden dimension for embedding. Default is 128.
+        - `lr` (`float`): Learning rate. We will use Adam optimizer. Default is 0.001.
+        - `epoch` (`int`): Number of epochs to train. Default is 10.
+        - `batch_size (`int`): Batch size during training. Default is 64.
+        """
+        self._embedding_dim = embedding_dim
+        self._half_window_size = half_window_size
+        self._hidden_dim = hidden_dim
+        self._lr = lr
+        self._epoch, self._batch_size = epoch, batch_size
+        super().__init__(name, 'embedding', values, temp_cache)
+
+    def _create_transformer(self):
+        self._transformer = EmbeddingTransformer(
+            temp_cache=self._temp_cache, embedding_dim=self._embedding_dim, half_window_size=self._half_window_size,
+            hidden_dim=self._hidden_dim, lr=self._lr, epoch=self._epoch, batch_size=self._batch_size
+        )
+
+    def __copy__(self) -> "EmbeddingAttribute":
+        new_attr = super().__copy__()
+        new_attr.__class__ = EmbeddingAttribute
         return new_attr
