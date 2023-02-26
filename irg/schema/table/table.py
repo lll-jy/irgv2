@@ -205,7 +205,8 @@ class Table:
 
     @classmethod
     def learn_meta(cls, data: pd.DataFrame, id_cols: Optional[Iterable[str]] = None,
-                   force_cat: Optional[Iterable[str]] = None) -> Dict[str, Dict[str, Any]]:
+                   force_cat: Optional[Iterable[str]] = None, force_embed: Optional[Iterable[str]] = None) -> \
+            Dict[str, Dict[str, Any]]:
         """
         Learn attribute meta input from data.
 
@@ -215,22 +216,30 @@ class Table:
         - `id_cols` (`Optional[Iterable[str]]`): List/set of ID column names.
         - `force_cat` (`Optional[Iterable[str]]`): List/set of column names that are forced to be categorical
           (typically for categorical labels that are expressed as numbers).
+        - `force_emb` (`Optional[Iterable[str]]`): List/set of column names that are forced to be embeddings.
 
         **Return**: Learned description of attributes metadata of the table.
         """
         id_cols = [] if id_cols is None else id_cols
         force_cat = [] if force_cat is None else force_cat
+        force_emb = [] if force_embed is None else force_embed
         return fast_map_dict(
             func=cls._learn_attr_meta,
             dictionary=data.to_dict('series'),
-            func_kwargs=dict(id_cols=id_cols, force_cat=force_cat)
+            func_kwargs=dict(id_cols=id_cols, force_cat=force_cat, force_emb=force_embed)
         )
 
     @staticmethod
-    def _learn_attr_meta(attr_name: str, col_data: pd.Series, id_cols: Iterable[str], force_cat: Iterable[str]) \
+    def _learn_attr_meta(attr_name: str, col_data: pd.Series, id_cols: Iterable[str], force_cat: Iterable[str],
+                         force_emb: Iterable[str]) \
             -> Dict[str, Any]:
-        return learn_meta(col_data, attr_name in id_cols, attr_name) | \
-               {'name': attr_name} if attr_name not in force_cat else {'name': attr_name, 'type': 'categorical'}
+        learned = learn_meta(col_data, attr_name in id_cols, attr_name)
+        learned['name'] = attr_name
+        if attr_name in force_cat:
+            learned['type'] = 'categorical'
+        if attr_name in force_emb:
+            learned['type'] = 'embedding'
+        return learned
 
     def replace_data(self, new_data: pd.DataFrame, replace_attr: bool = True):
         """

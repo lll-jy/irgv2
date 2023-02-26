@@ -22,7 +22,8 @@ ALSET_PROCESSORS: Dict[str, FunctionType] = {
     'sis_milestone': data.sis_milestone,
     'uci_gym': data.uci_gym,
     'module_offer': data.module_offer,
-    'module_enrolment': data.module_enrolment
+    'module_enrolment': data.module_enrolment,
+    'wifi': data.wifi
 }
 """ALSET table data processors."""
 
@@ -37,7 +38,8 @@ ALSET_META_CONSTRUCTORS: Dict[str, FunctionType] = {
     'sis_milestone': metadata.sis_milestone,
     'uci_gym': metadata.uci_gym,
     'module_offer': metadata.module_offer,
-    'module_enrolment': metadata.module_enrolment
+    'module_enrolment': metadata.module_enrolment,
+    'wifi': metadata.wifi
 }
 """ALSET metadata constructors for each table."""
 
@@ -52,7 +54,8 @@ ALSET_PROCESS_NAME_MAP: Dict[str, str] = {
     'sis_milestone': 'sis/milestone',
     'uci_gym': 'sis/uci_gym',
     'module_offer': 'sis/module_enrolment',
-    'module_enrolment': 'sis/module_enrolment'
+    'module_enrolment': 'sis/module_enrolment',
+    'wifi': 'sis/wifi'
 }
 """ALSET source data file names (without extension) for all tables."""
 
