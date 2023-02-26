@@ -12,4 +12,13 @@ def wifi(src: pd.DataFrame) -> pd.DataFrame:
     src = src.drop(columns=['ipaddress_token', 'mac_token', 'sessionendtime'])
     datetime_cols = ['sessionstarttime', 'day']
     src = src.astype({d: 'datetime64[ns]' for d in datetime_cols})
-    return datetime_cols
+    return src
+
+
+def luminus(src: pd.DataFrame) -> pd.DataFrame:
+    """
+    **Processed table**:
+
+    LumiNUS actions.
+    """
+    return src.astype({'recorddate_r': 'datetime64[ns]'})

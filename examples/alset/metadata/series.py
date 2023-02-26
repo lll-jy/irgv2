@@ -14,6 +14,28 @@ def wifi(src: pd.DataFrame) -> Dict[str, Any]:
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'primary_keys': ['student_token'],
+        'primary_keys': ['student_token', 'sessionstarttime'],
         'ttype': 'series',
+        'series_id': ['sessionstarttime'],
+        'base_cols': ['student_token', 'day'],
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'personal_data'
+        }]
+    }
+
+
+def luminus(src: pd.DataFrame) -> Dict[str, Any]:
+    attributes = Table.learn_meta(src, ['student_token'])
+    return {
+        'id_cols': ['student_token'],
+        'attributes': attributes,
+        'primary_keys': ['student_token', 'recorddate_r'],
+        'ttype': 'series',
+        'series_id': ['recorddate_r'],
+        'base_cols': ['student_token', 'recorddate_r'],
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'personal_data'
+        }]
     }
