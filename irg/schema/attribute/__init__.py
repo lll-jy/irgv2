@@ -11,7 +11,7 @@ from .identity import SerialIDAttribute, RawAttribute
 from .categorical import CategoricalAttribute
 from .numerical import NumericalAttribute
 from .datetime import DatetimeAttribute, TimedeltaAttribute
-from .encoding import EncodingAttribute
+from .encoding import EncodingAttribute, EmbeddingAttribute
 from ...utils.misc import reformat_datetime as _reformat_datetime
 
 __all__ = (
@@ -23,6 +23,7 @@ __all__ = (
     'DatetimeAttribute',
     'TimedeltaAttribute',
     'EncodingAttribute',
+    'EmbeddingAttribute',
     'create',
     'learn_meta'
 )
@@ -131,6 +132,21 @@ _ENC_ATTR_CONF = {
     'required': ['name', 'type', 'vocab_file'],
     'additionalProperties': False
 }
+_EMB_ATTR_CONF = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'type': {'enum': ['embedding']},
+        'embedding_dim': {'type': 'integer'},
+        'half_window_size': {'type': 'integer'},
+        'hidden_dim': {'type': 'integer'},
+        'lr': {'type': 'number'},
+        'epoch': {'type': 'integer'},
+        'batch_size': {'type': 'integer'},
+    },
+    'required': ['name', 'type'],
+    'additionalProperties': False
+}
 _ATTR_CONF_BY_TYPE = {
     'id': _ID_ATTR_CONF,
     'raw': _RAW_ATTR_CONF,
@@ -138,7 +154,8 @@ _ATTR_CONF_BY_TYPE = {
     'numerical': _NUM_ATTR_CONF,
     'datetime': _DT_ATTR_CONF,
     'timedelta': _TD_ATTR_CONF,
-    'encoding': _ENC_ATTR_CONF
+    'encoding': _ENC_ATTR_CONF,
+    'embedding': _EMB_ATTR_CONF
 }
 _ATTR_TYPE_BY_NAME: Dict[str, BaseAttribute.__class__] = {
     'id': SerialIDAttribute,
@@ -147,12 +164,14 @@ _ATTR_TYPE_BY_NAME: Dict[str, BaseAttribute.__class__] = {
     'numerical': NumericalAttribute,
     'datetime': DatetimeAttribute,
     'timedelta': TimedeltaAttribute,
-    'encoding': EncodingAttribute
+    'encoding': EncodingAttribute,
+    'embedding': EmbeddingAttribute
 }
 _DTYPE_MAP = {
     'categorical': ['categorical', 'object', 'str'],
     'numerical': ['int64', 'Int64', 'unit64', 'float64', 'Float64', 'int32', 'Int32', 'float32', 'Float32'],
-    'datetime': ['datetime64', 'datetime64[ns]']
+    'datetime': ['datetime64', 'datetime64[ns]'],
+    'timedelta': ['timedelta64', 'timedelta64[ns]']
 }
 
 

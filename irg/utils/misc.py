@@ -18,7 +18,8 @@ __all__ = (
     'convert_data_as',
     'inverse_convert_data',
     'calculate_mean',
-    'make_dataloader'
+    'make_dataloader',
+    'reformat_datetime'
 )
 
 
