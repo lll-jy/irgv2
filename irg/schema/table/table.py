@@ -494,13 +494,12 @@ class Table:
         - `force_redo` (`bool`): Whether to re-fit the table if the table is already fitted. Default is `False`.
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
-        print('fit normal', flush=True)
         if (self._fitted and not force_redo) or not self._need_fit:
-            print('skipped!!', flush=True)
             _LOGGER.info(f'Table {self._name} is already fitted. Duplicated fitting is skipped.')
             return
         self._length = len(data)
         data = data[[*self._attributes.keys()]]
+        print('!!! so I get attributes', data.columns.tolist(), flush=True)
         data.to_pickle(self._data_path())
         fast_map_dict(
             func=self._fit_attribute,

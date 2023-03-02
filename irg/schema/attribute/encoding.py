@@ -392,19 +392,19 @@ class EmbeddingTransformer(BaseTransformer):
 
         context = []
         target = []
-        pad_num = min(0, self._half_window_size - 1)
+        pad_num = max(0, self._half_window_size - 1)
         prefix = [self._pad_id] * pad_num + [self._bos_id]
         suffix = [self._eos_id] + [self._pad_id] * pad_num
-        print('indices', original.index, flush=True)
-        print('nan info indices', nan_info.index, flush=True)
         for _, group in nan_info['original'].groupby(level=0, dropna=False):
             length = len(group)
             group = prefix + [
                 self._label2id[item]
                 for item in group.values
             ] + suffix
+            print('full group::', length, len(group), pad_num, flush=True)
             for mid in range(pad_num + 1, pad_num + 1 + length):
-                context.append(group[mid-self._half_window_size-1:mid-1] + group[mid+1:mid+self._half_window_size+1])
+                print('full range', mid-self._half_window_size, mid+self._half_window_size+1, len(group), flush=True)
+                context.append(group[mid-self._half_window_size:mid-1] + group[mid+1:mid+self._half_window_size+1])
                 target.append(group[mid])
 
         context = torch.LongTensor(context)

@@ -16,7 +16,6 @@ class SeriesTable(Table):
     def __init__(self, name: str, series_id: str, base_cols: Optional[Collection[str]] = None,
                  id_cols: Optional[Iterable[str]] = None, attributes: Optional[Dict[str, dict]] = None,
                  **kwargs):
-        print('!!! initialize series table', flush=True)
         if base_cols is None:
             base_cols = set()
         self._base_cols = base_cols
@@ -63,30 +62,37 @@ class SeriesTable(Table):
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         print('fit series', flush=True)
-        new_data = []
-        acc = 0
-        assert not ({'.series_degree', '.series_increase', '.group_id', '.series_base'} & set(data.columns))
-        if self._base_cols:
-            grouped = data.groupby([*self._base_cols], as_index=False)
-        else:
-            grouped = [(i, x.to_frame().T) for i, x in data.iterrows()]
-        for _, group in tqdm(grouped, desc=f'Grouping series {self._name}'):
-            sorted_group = group.sort_values(by=[self._series_id]).reset_index(drop=True)
-            sorted_group.loc[:, '.series_degree'] = len(group)
-            sorted_series_id = sorted_group[self._series_id].values
-            sorted_group.loc[:, '.series_increase'] = 0
-            sorted_group.loc[:, '.series_base'] = sorted_series_id[0]
-            sorted_group.loc[1:, '.series_increase'] = sorted_series_id[1:] - sorted_series_id[:-1]
-            sorted_group.loc[:, '.group_id'] = len(new_data)
-            new_data.append(sorted_group)
-            self._index_groups.append(pd.Index(range(acc, acc + len(group))))
-            acc += len(group)
-        data = pd.concat(new_data)
-        data = data.set_index('.group_id')
-        print('index!!', data.index, flush=True)
+        do_group = True
+        if os.path.exists(self._data_path()):
+            loaded_data = pd.read_pickle(self._data_path())
+            print('!!! exists', [*data.columns], flush=True)
+            if {'.series_degree', '.series_increase', '.series_base'} <= set(data.columns):
+                do_group = False
+                data = loaded_data
+
+        if do_group:
+            new_data = []
+            acc = 0
+            assert not ({'.series_degree', '.series_increase', '.group_id', '.series_base'} & set(data.columns))
+            if self._base_cols:
+                grouped = data.groupby([*self._base_cols], as_index=False)
+            else:
+                grouped = [(i, x.to_frame().T) for i, x in data.iterrows()]
+            for _, group in tqdm(grouped, desc=f'Grouping series {self._name}'):
+                sorted_group = group.sort_values(by=[self._series_id]).reset_index(drop=True)
+                sorted_group.loc[:, '.series_degree'] = len(group)
+                sorted_series_id = sorted_group[self._series_id].values
+                sorted_group.loc[:, '.series_increase'] = 0
+                sorted_group.loc[:, '.series_base'] = sorted_series_id[0]
+                sorted_group.loc[1:, '.series_increase'] = sorted_series_id[1:] - sorted_series_id[:-1]
+                sorted_group.loc[:, '.group_id'] = len(new_data)
+                new_data.append(sorted_group)
+                self._index_groups.append(pd.Index(range(acc, acc + len(group))))
+                acc += len(group)
+            data = pd.concat(new_data)
+            data = data.set_index('.group_id')
+            print('index!!', data.index, flush=True)
         super().fit(data, force_redo, **kwargs)
-        # self._fitted = True
-        # self._length = len(data)
 
     def sg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]],
                                Tuple[List[int], List[int]], Tuple[List[int], List[int]]]:

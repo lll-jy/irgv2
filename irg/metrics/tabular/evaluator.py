@@ -1,14 +1,64 @@
 """Evaluator for synthetic table."""
-
-from typing import List, Optional, Dict, Tuple, Any, Union, Literal
+from itertools import combinations, chain
+from typing import List, Optional, Dict, Tuple, Any, Union, Literal, Collection
 import os
 
 import pandas as pd
+from rdt import HyperTransformer
+from rdt.transformers.categorical import OneHotEncodingTransformer
+from rdt.transformers.datetime import DatetimeRoundedTransformer
+from sdv.evaluation import evaluate as sdv_evaluate
 
 from ...schema import Table, SyntheticTable
 from .metrics import BaseMetric, StatsMetric, CorrMatMetric, InvalidCombMetric, DetectionMetric, MLClfMetric, \
     MLRegMetric, CardMetric, DegreeMetric
 from ...utils.misc import calculate_mean
+
+
+class TableEvaluator:
+    def __init__(self, real: pd.DataFrame, id_cols: Collection[str]):
+        self._transformer = HyperTransformer(default_data_type_transformers={
+            'categorical': OneHotEncodingTransformer(),
+            'datetime': DatetimeRoundedTransformer()
+        })
+        self._id_cols = id_cols
+        self._degrees = {
+            id_name: real[id_name].value_counts(dropna=False)
+            for id_name in chain.from_iterable(combinations(id_cols, r) for r in range(1, len(id_cols)+1))
+        }
+        real = real.drop(columns=id_cols)
+        self._transformer.fit(real)
+        self._real = real
+
+    def evaluate(self, fake: pd.DataFrame):
+        fake_degrees = {
+            id_name: fake[id_name].value_counts(dropna=False)
+            for id_name in chain.from_iterable(combinations(self._id_cols, r) for r in range(1, len(self._id_cols)+1))
+        }
+        degree_summary = {}
+        for ids, real_vc in self._degrees.items():
+            deg_eval = sdv_evaluate(
+                fake_degrees[ids].to_frame(), real_vc.to_frame(),
+                metrics=['KSTest', 'GMLogLikelihood'], aggregate=False
+            )
+            degree_summary['--'.join(ids)] = {
+                'KS': deg_eval[deg_eval['metric'] == 'KSTest'].iloc[0]['raw_score'],
+                'GM': deg_eval[deg_eval['metric'] == 'GMLogLikelihood'].iloc[0]['raw_score']
+            }
+
+        stat_summary = {}
+        eval_res = sdv_evaluate(
+            fake.drop(columns=self._id_cols), self._real,
+            metrics=[
+                'CSTest', 'KSTest', 'BNLogLikelihood', 'GMLogLikelihood', 'LogisticDetection'
+            ], aggregate=False
+        )
+        for _, row in eval_res.iterrows():
+            stat_summary[row['metric']] = row['raw_score']
+        return {
+            'degree': degree_summary,
+            'stat': stat_summary
+        }
 
 
 class SyntheticTableEvaluator:
