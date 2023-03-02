@@ -57,7 +57,7 @@ ALSET_PROCESS_NAME_MAP: Dict[str, str] = {
     'uci_gym': 'sis/uci_gym',
     'module_offer': 'sis/module_enrolment',
     'module_enrolment': 'sis/module_enrolment',
-    'wifi': 'sis/wifi',
+    'wifi': 'wifi/wifi',
     'luminus': 'luminus/luminus'
 }
 """ALSET source data file names (without extension) for all tables."""
@@ -82,6 +82,9 @@ class ALSETProcessor(DatabaseProcessor):
 
     @property
     def _table_src_name_map(self) -> Dict[str, str]:
+        if 'wifi' in self._tables:
+            out = ALSET_PROCESS_NAME_MAP.copy()
+            out['personal_data'] = 'wifi/personal_data'
         return ALSET_PROCESS_NAME_MAP
 
     @property

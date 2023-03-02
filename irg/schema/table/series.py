@@ -5,6 +5,7 @@ from typing import Collection, Dict, Iterable, List, Optional, Tuple, Union
 import pandas as pd
 import torch
 from torch import Tensor
+from tqdm import tqdm
 
 from .table import Table, SyntheticTable
 from ...utils.errors import NotFittedError
@@ -15,6 +16,7 @@ class SeriesTable(Table):
     def __init__(self, name: str, series_id: str, base_cols: Optional[Collection[str]] = None,
                  id_cols: Optional[Iterable[str]] = None, attributes: Optional[Dict[str, dict]] = None,
                  **kwargs):
+        print('!!! initialize series table', flush=True)
         if base_cols is None:
             base_cols = set()
         self._base_cols = base_cols
@@ -43,7 +45,7 @@ class SeriesTable(Table):
                                           f'as series ID. Please use something which difference can be calculated.')
         attributes['.series_increase'] = {
             'type': increase_type,
-            'min_val': 0,
+            'min_val': '0',
             'name': '.series_increase'
         }
         attributes['.series_base'] = {
@@ -52,13 +54,23 @@ class SeriesTable(Table):
         }
 
         self._index_groups = []
+        need_fit = True if 'need_fit' not in kwargs else kwargs['need_fit']
+        kwargs['need_fit'] = False
         super().__init__(name=name, ttype='series', id_cols=id_cols, attributes=attributes, **kwargs)
+        self._need_fit = need_fit
+        if need_fit and kwargs.get('data') is not None:
+            self.fit(kwargs.get('data'), **{k: v for k, v in kwargs.items() if k != 'data'})
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
+        print('fit series', flush=True)
         new_data = []
         acc = 0
         assert not ({'.series_degree', '.series_increase', '.group_id', '.series_base'} & set(data.columns))
-        for _, group in data.groupby(self._base_cols, as_index=False):
+        if self._base_cols:
+            grouped = data.groupby([*self._base_cols], as_index=False)
+        else:
+            grouped = [(i, x.to_frame().T) for i, x in data.iterrows()]
+        for _, group in tqdm(grouped, desc=f'Grouping series {self._name}'):
             sorted_group = group.sort_values(by=[self._series_id]).reset_index(drop=True)
             sorted_group.loc[:, '.series_degree'] = len(group)
             sorted_series_id = sorted_group[self._series_id].values
@@ -71,7 +83,10 @@ class SeriesTable(Table):
             acc += len(group)
         data = pd.concat(new_data)
         data = data.set_index('.group_id')
+        print('index!!', data.index, flush=True)
         super().fit(data, force_redo, **kwargs)
+        # self._fitted = True
+        # self._length = len(data)
 
     def sg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]],
                                Tuple[List[int], List[int]], Tuple[List[int], List[int]]]:
@@ -156,7 +171,12 @@ class SyntheticSeriesTable(SeriesTable, SyntheticTable):
         if regroup:
             lengths = []
             new_data = []
-            for _, data in recovered_df.groupby(self._base_cols, dropna=False):
+            if self._base_cols:
+                grouped = recovered_df.groupby([*self._base_cols], as_index=False, dropna=False)
+            else:
+                grouped = [(i, x.to_frame().T) for i, x in recovered_df.iterrows()]
+            # for _, data in recovered_df.groupby([*self._base_cols], dropna=False):
+            for _, data in tqdm(grouped, desc=f'Regrouping series {self._name}'):
                 lengths.append(len(data))
                 new_data.append(data)
             recovered_df = pd.concat(new_data, ignore_index=True).reset_index(drop=True)

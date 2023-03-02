@@ -226,7 +226,7 @@ class Table:
         return fast_map_dict(
             func=cls._learn_attr_meta,
             dictionary=data.to_dict('series'),
-            func_kwargs=dict(id_cols=id_cols, force_cat=force_cat, force_emb=force_embed)
+            func_kwargs=dict(id_cols=id_cols, force_cat=force_cat, force_emb=force_emb)
         )
 
     @staticmethod
@@ -494,7 +494,9 @@ class Table:
         - `force_redo` (`bool`): Whether to re-fit the table if the table is already fitted. Default is `False`.
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
+        print('fit normal', flush=True)
         if (self._fitted and not force_redo) or not self._need_fit:
+            print('skipped!!', flush=True)
             _LOGGER.info(f'Table {self._name} is already fitted. Duplicated fitting is skipped.')
             return
         self._length = len(data)
@@ -600,7 +602,7 @@ class Table:
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
         if self._length is None:
-            raise NotFittedError('Table', 'getting its data')
+            raise NotFittedError(f'Table {self._name}', 'getting its data')
         if variant == 'original':
             data = pd.read_pickle(self._data_path())
             exclude_cols = self._id_cols if with_id == 'none' else set()

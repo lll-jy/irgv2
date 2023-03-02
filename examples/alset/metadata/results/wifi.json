@@ -1,0 +1,103 @@
+{
+  "id_cols": [
+    "student_token"
+  ],
+  "attributes": {
+    "authenticationalgorithm": {
+      "name": "authenticationalgorithm",
+      "type": "categorical"
+    },
+    "bytesreceived": {
+      "name": "bytesreceived",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "bytessent": {
+      "name": "bytessent",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "connectiontype": {
+      "name": "connectiontype",
+      "type": "categorical"
+    },
+    "eaptype": {
+      "name": "eaptype",
+      "type": "categorical"
+    },
+    "encryptioncypher": {
+      "name": "encryptioncypher",
+      "type": "categorical"
+    },
+    "aplocation": {
+      "name": "aplocation",
+      "type": "embedding"
+    },
+    "aplocation_mapping": {
+      "name": "aplocation_mapping",
+      "type": "embedding"
+    },
+    "apname": {
+      "name": "apname",
+      "type": "embedding"
+    },
+    "protocol": {
+      "name": "protocol",
+      "type": "categorical"
+    },
+    "rssi": {
+      "name": "rssi",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "securitypolicy": {
+      "name": "securitypolicy",
+      "type": "categorical"
+    },
+    "sessionstarttime": {
+      "name": "sessionstarttime",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d %H:%M:%S.%f"
+    },
+    "snr": {
+      "name": "snr",
+      "type": "numerical",
+      "rounding": 0
+    },
+    "ssid": {
+      "name": "ssid",
+      "type": "categorical"
+    },
+    "student_token": {
+      "name": "student_token",
+      "type": "id"
+    },
+    "day": {
+      "name": "day",
+      "type": "datetime",
+      "date_format": "%Y-%m-%d"
+    },
+    "sessionlast": {
+      "name": "sessionlast",
+      "type": "timedelta"
+    }
+  },
+  "primary_keys": [
+    "student_token",
+    "sessionstarttime"
+  ],
+  "ttype": "series",
+  "series_id": "sessionstarttime",
+  "base_columns": [
+    "student_token",
+    "day"
+  ],
+  "foreign_keys": [
+    {
+      "columns": [
+        "student_token"
+      ],
+      "parent": "personal_data"
+    }
+  ]
+}

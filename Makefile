@@ -53,6 +53,18 @@ prepare_model_compare:
 		--sample 5000
 
 
+prepare_wifi:
+	python3.9 process.py database alset \
+		--src_data_dir examples/data${OUT_SUFFIX}/alset \
+		--data_dir ${BASE_DIR}/data${OUT_SUFFIX}/alset/gen_wifi \
+		--meta_dir examples/alset/metadata/results \
+		--out ${BASE_DIR}/data${OUT_SUFFIX}/alset/gen_wifi_db_config.json \
+		--redo_meta --redo_data \
+		--tables \
+			personal_data \
+			wifi
+
+
 prepare_all_alset:
 	echo TODO
 

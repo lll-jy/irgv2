@@ -40,7 +40,8 @@ _ATTR_CONF = {
             'numerical',
             'datetime',
             'timedelta',
-            'encoding'
+            'encoding',
+            'embedding'
         ]}
     },
     'required': ['name', 'type']
@@ -236,8 +237,9 @@ def _learn_property(dtype: str, data: pd.Series, attr_meta: dict):
 
     elif dtype == 'numerical':
         for i in range(-20, 20):
-            rounded = data.apply(lambda x: x if pd.isnull(x) else round(x, i))
-            if rounded.equals(data):
+            # rounded = data.apply(lambda x: x if pd.isnull(x) else round(x, i))
+            # if rounded.equals(data):
+            if all(round(x, i) == x for x in data.dropna().sample(n=min(data.notna().sum(), 200))):
                 attr_meta['rounding'] = i
                 return
 
@@ -253,8 +255,9 @@ def _learn_property(dtype: str, data: pd.Series, attr_meta: dict):
         format_str = ''
         for u, format_suffix in units_to_format.items():
             format_str += format_suffix
-            rounded = data.apply(lambda x: _reformat_datetime(x, format_str))
-            if rounded.equals(data):
+            # rounded = data.apply(lambda x: _reformat_datetime(x, format_str))
+            # if rounded.equals(data):
+            if all(_reformat_datetime(x, format_str) == x for x in data.sample(n=min(len(data), 200))):
                 attr_meta['date_format'] = format_str
                 return
         attr_meta['date_format'] = format_str + '.%f'

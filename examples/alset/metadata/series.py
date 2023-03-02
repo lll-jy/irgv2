@@ -16,8 +16,8 @@ def wifi(src: pd.DataFrame) -> Dict[str, Any]:
         'attributes': attributes,
         'primary_keys': ['student_token', 'sessionstarttime'],
         'ttype': 'series',
-        'series_id': ['sessionstarttime'],
-        'base_cols': ['student_token', 'day'],
+        'series_id': 'sessionstarttime',
+        'base_columns': ['student_token', 'day'],
         'foreign_keys': [{
             'columns': ['student_token'],
             'parent': 'personal_data'
@@ -32,8 +32,8 @@ def luminus(src: pd.DataFrame) -> Dict[str, Any]:
         'attributes': attributes,
         'primary_keys': ['student_token', 'recorddate_r'],
         'ttype': 'series',
-        'series_id': ['recorddate_r'],
-        'base_cols': ['student_token', 'recorddate_r'],
+        'series_id': 'recorddate_r',
+        'base_columns': ['student_token'],
         'foreign_keys': [{
             'columns': ['student_token'],
             'parent': 'personal_data'

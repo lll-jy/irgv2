@@ -395,6 +395,8 @@ class EmbeddingTransformer(BaseTransformer):
         pad_num = min(0, self._half_window_size - 1)
         prefix = [self._pad_id] * pad_num + [self._bos_id]
         suffix = [self._eos_id] + [self._pad_id] * pad_num
+        print('indices', original.index, flush=True)
+        print('nan info indices', nan_info.index, flush=True)
         for _, group in nan_info['original'].groupby(level=0, dropna=False):
             length = len(group)
             group = prefix + [
@@ -407,6 +409,7 @@ class EmbeddingTransformer(BaseTransformer):
 
         context = torch.LongTensor(context)
         target = torch.LongTensor(target)
+        print('context and target sizes', context.shape, target.shape, flush=True)
         loss_func = nn.NLLLoss
         for epoch in range(self._epoch):
             iterator = tqdm(range(0, len(context), self._batch_size), desc=f'Training Embedding [{epoch}]')

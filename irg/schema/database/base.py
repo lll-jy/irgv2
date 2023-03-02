@@ -175,8 +175,9 @@ class Database:
             id_cols, attributes = meta['id_cols'], meta['attributes']
             determinants, formulas = meta['determinants'], meta['formulas']
             if ttype == 'series':
+                print('here series', flush=True)
                 table = SeriesTable(
-                    name=name, series_id=meta['series_id'], base_cols=meta.get('base_cols'), need_fit=True,
+                    name=name, series_id=meta['series_id'], base_cols=meta.get('base_columns'), need_fit=True,
                     id_cols=id_cols, attributes=attributes, data=data,
                     determinants=determinants, formulas=formulas,
                     temp_cache=os.path.join(self._temp_cache, 'tables', name)

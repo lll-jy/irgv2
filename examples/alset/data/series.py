@@ -8,7 +8,8 @@ def wifi(src: pd.DataFrame) -> pd.DataFrame:
 
     WiFi connection data.
     """
-    src['sessionlast'] = src['sessionendtime'] - src['sessionstarttime']
+    src['sessionlast'] = src['sessionendtime'].astype('datetime64[ns]') - \
+                         src['sessionstarttime'].astype('datetime64[ns]')
     src = src.drop(columns=['ipaddress_token', 'mac_token', 'sessionendtime'])
     datetime_cols = ['sessionstarttime', 'day']
     src = src.astype({d: 'datetime64[ns]' for d in datetime_cols})
