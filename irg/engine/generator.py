@@ -52,7 +52,7 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
         if os.path.exists(os.path.join(save_db_to, f'{name}.pkl')):
             gen_table = table_class.load(os.path.join(save_db_to, f'{name}.pkl'))
         elif table.ttype == 'base':
-            gen_table = table.shallow_copy()
+            gen_table = _generate_base_table(table, scaling[name], table_temp_cache)
             gen_table.update_temp_cache(table_temp_cache)
         elif table.is_independent():
             gen_table = _generate_independent_table(tab_models[name], table, scaling[name], tab_batch_sizes[name],
@@ -76,6 +76,13 @@ def _optional_default_dict(original: Optional[Dict], default_val: Any) -> Defaul
     if not isinstance(original, DefaultDict):
         return defaultdict(lambda: default_val, default_val)
     return original
+
+
+def _generate_base_table(table: Table, scale: float, temp_cache: str) -> Table:
+    syn_table = SyntheticTable.from_real(table, temp_cache)
+    need_rows = round(len(table) * scale)
+    syn_table.replace_data(table.data().sample(n=need_rows, replace=need_rows > len(table)))
+    return syn_table
 
 
 def _generate_independent_table(trainer: TabularTrainer, table: Table, scale: float, batch_size: int, temp_cache: str) \

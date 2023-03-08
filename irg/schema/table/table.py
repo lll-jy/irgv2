@@ -250,7 +250,6 @@ class Table:
         - `new_data` (`pd.DataFrame`): New data to fill in the table.
         - `replace_attr` (`bool`): Whether to replace attribute content.
         """
-        print('did I do replace data?', flush=True)
         new_data.to_pickle(self._data_path())
         self._length = len(new_data)
         if replace_attr:
