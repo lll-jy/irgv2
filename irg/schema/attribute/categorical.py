@@ -59,17 +59,23 @@ class CategoricalTransformer(BaseTransformer):
         return 'nan'
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        index = nan_info.index
+        nan_info = nan_info.reset_index(drop=True)
         self.set_categories([x for x in original.unique() if not pd.isnull(x)])
         original.to_pickle(self._data_path)
         nan_info['is_nan'] = nan_info.apply(
             lambda row: row['is_nan'] if row['is_nan'] else
-            (pd.isnull(row['original']) or str(row['original']).startswith('nan') or str(row['original']) == ''), axis=1)
+            (pd.isnull(row['original']) or str(row['original']).startswith('nan') or str(row['original']) == ''),
+            axis=1)
+        nan_info.index = index
         transformed = self._transform(nan_info)
         self._transformed_columns = transformed.columns
         pd_to_pickle(transformed, self._transformed_path)
         self._cat_cnt = len(self._label2id)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
+        index = nan_info.index
+        nan_info = nan_info.reset_index(drop=True)
         transformed = pd.DataFrame(columns=['is_nan'] + [f'cat_{i}' for i in self._id2label])
         transformed['is_nan'] = nan_info['is_nan']
         fast_map_dict(
@@ -77,7 +83,9 @@ class CategoricalTransformer(BaseTransformer):
             dictionary=nan_info.to_dict(orient='index'),
             func_kwargs=dict(transformed=transformed)
         )
-        return pd_mp.fillna(transformed, value=0).astype('float32')
+        out = pd_mp.fillna(transformed, value=0).astype('float32')
+        out.index = index
+        return out
 
     def _transform_row(self, i: int, row: Dict, transformed: pd.DataFrame):
         if not row['is_nan']:

@@ -106,6 +106,8 @@ class NumericalTransformer(BaseTransformer):
         pd_to_pickle(transformed, self._transformed_path)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
+        index = nan_info.index
+        nan_info = nan_info.reset_index(drop=True)
         if len(nan_info) > 0:
             scaled = self._minmax_scaler.transform(nan_info['original'].to_numpy().reshape(-1, 1))
             means = self._bgm_transformer.means_.reshape((1, self._max_clusters))
@@ -150,7 +152,9 @@ class NumericalTransformer(BaseTransformer):
         else:
             result = pd.DataFrame(np.hstack(rows), columns=col_names)
         result.insert(0, 'is_nan', nan_info['is_nan'])
-        return result.fillna(0).astype('float32')
+        out = result.fillna(0).astype('float32')
+        out.index = index
+        return out
 
     def _categorical_dimensions(self) -> List[Tuple[int, int]]:
         return [(0, 1), (2, self._clusters+2)]

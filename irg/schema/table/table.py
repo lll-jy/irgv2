@@ -250,6 +250,7 @@ class Table:
         - `new_data` (`pd.DataFrame`): New data to fill in the table.
         - `replace_attr` (`bool`): Whether to replace attribute content.
         """
+        print('did I do replace data?', flush=True)
         new_data.to_pickle(self._data_path())
         self._length = len(new_data)
         if replace_attr:
@@ -500,7 +501,11 @@ class Table:
         self._length = len(data)
         data = data[[*self._attributes.keys()]]
         print('!!! so I get attributes', data.columns.tolist(), flush=True)
+        print(self._data_path())
         data.to_pickle(self._data_path())
+        print('read again')
+        data = pd.read_pickle(self._data_path())
+        print('columns', data.columns.tolist(), {'.series_degree', '.series_increase', '.series_base'} <= set(data.columns), flush=True)
         fast_map_dict(
             func=self._fit_attribute,
             dictionary=self._attributes,

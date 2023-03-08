@@ -13,5 +13,9 @@ def uci_gym(src: pd.DataFrame) -> Dict[str, Any]:
     return {
         'id_cols': id_cols,
         'attributes': attributes,
-        'primary_keys': ['student_token', 'date', 'check_in_time']
+        'primary_keys': ['student_token', 'date', 'check_in_time'],
+        'foreign_keys': [{
+            'columns': ['student_token'],
+            'parent': 'personal_data'
+        }]
     }

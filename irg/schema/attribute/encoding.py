@@ -321,7 +321,7 @@ class EmbeddingTransformer(BaseTransformer):
     The transformed columns (after `is_nan`) form embedding vectors.
     """
     def __init__(self, temp_cache: str = '.temp', embedding_dim: int = 50, half_window_size: int = 3,
-                 hidden_dim: int = 128, lr: float = 0.001, epoch: int = 10, batch_size: int = 64):
+                 hidden_dim: int = 128, lr: float = 0.001, epoch: int = 2, batch_size: int = 64):
         """
         **Args**:
 
@@ -330,7 +330,7 @@ class EmbeddingTransformer(BaseTransformer):
         - `half_window_size` (`int`): Half window size for the embedding model trained based on N-Gram. Default is 3.
         - `hidden_dim` (`int`): Hidden dimension for embedding. Default is 128.
         - `lr` (`float`): Learning rate. We will use Adam optimizer. Default is 0.001.
-        - `epoch` (`int`): Number of epochs to train. Default is 10.
+        - `epoch` (`int`): Number of epochs to train. Default is 2.
         - `batch_size (`int`): Batch size during training. Default is 64.
         """
         self._embedding_dim = embedding_dim
@@ -401,19 +401,17 @@ class EmbeddingTransformer(BaseTransformer):
                 self._label2id[item]
                 for item in group.values
             ] + suffix
-            print('full group::', length, len(group), pad_num, flush=True)
             for mid in range(pad_num + 1, pad_num + 1 + length):
-                print('full range', mid-self._half_window_size, mid+self._half_window_size+1, len(group), flush=True)
-                context.append(group[mid-self._half_window_size:mid-1] + group[mid+1:mid+self._half_window_size+1])
+                context.append(group[mid-self._half_window_size:mid] + group[mid+1:mid+self._half_window_size+1])
                 target.append(group[mid])
 
         context = torch.LongTensor(context)
         target = torch.LongTensor(target)
         print('context and target sizes', context.shape, target.shape, flush=True)
-        loss_func = nn.NLLLoss
+        loss_func = nn.NLLLoss()
         for epoch in range(self._epoch):
             iterator = tqdm(range(0, len(context), self._batch_size), desc=f'Training Embedding [{epoch}]')
-            total_loss = torch.tensor(0)
+            total_loss = torch.tensor(0.)
             for idx in iterator:
                 batch_context = context[idx:idx+self._batch_size]
                 batch_target = target[idx:idx+self._batch_size]
@@ -428,14 +426,24 @@ class EmbeddingTransformer(BaseTransformer):
                     f'avg loss {total_loss.item()/(idx+batch_target.shape[0]):.3f}'
                 )
 
+        transformed = self._transform(nan_info)
+        self._transformed_columns = transformed.columns
+        pd_to_pickle(transformed, self._transformed_path)
+
+    @torch.no_grad()
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
         emb_columns = [f'emb_{i}' for i in range(self._embedding_dim)]
         transformed = pd.DataFrame(columns=['is_nan'] + emb_columns)
         transformed['is_nan'] = nan_info['is_nan']
-        for i, v in nan_info.iterrows():
-            # (WT x W)-1 x (WT x W) x id = (WT x W)-1 x WT x emb
-            # id = W-1 x emb
-            transformed.loc[i, emb_columns] = self._model.embeddings.weight[self._label2id[str(v)]].flatten()
+        categories = nan_info['original'].apply(lambda x: self._label2id[str(x)])
+        print('categories::', categories.describe())
+        categories = torch.LongTensor(categories.values)
+        print('finished getting categories', len(categories), self._model.embeddings.weight.shape, flush=True)
+        for i in range(0, len(categories), self._batch_size):
+            end = min(i + self._batch_size, len(categories))
+            transformed.iloc[i:end, 1:] = self._model.embeddings.weight[categories[i:end]]
+            if i % 500 == 0:
+                print(f'finished i = {i}', flush=True)
         return transformed
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
@@ -456,7 +464,7 @@ class EmbeddingAttribute(BaseAttribute):
     """
     def __init__(self, name: str, values: Optional[pd.Series] = None, temp_cache: str = '.temp',
                  embedding_dim: int = 50, half_window_size: int = 3,
-                 hidden_dim: int = 128, lr: float = 0.001, epoch: int = 10, batch_size: int = 64):
+                 hidden_dim: int = 128, lr: float = 0.001, epoch: int = 2, batch_size: int = 64):
         """
         **Args**:
 

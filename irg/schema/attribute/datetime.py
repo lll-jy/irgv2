@@ -43,16 +43,20 @@ class DatetimeTransformer(NumericalTransformer):
         return val
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        index = nan_info.index
         original = original.astype('datetime64[ns]')
         original.to_pickle(self._as_date_path)
         original = original.apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
         original.to_pickle(self._data_path)
+        nan_info = nan_info.reset_index(drop=True)
         nan_info.loc[:, 'original'] = nan_info['original'].astype('datetime64[ns]').apply(lambda x: x.toordinal()).astype('float32')
         nan_info = nan_info.astype({'original': 'float32'})
+        nan_info.index = index
         super()._fit(original, nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
-        nan_info = nan_info.copy()
+        index = nan_info.index
+        nan_info = nan_info.reset_index(drop=False)
         if len(nan_info) > 0:
             nan_info['original'] = nan_info['original'].apply(
                 lambda x: x if pd.isnull(x) or not isinstance(x, datetime) else datetime.toordinal(x)
@@ -60,6 +64,7 @@ class DatetimeTransformer(NumericalTransformer):
         else:
             nan_info.loc[:, 'original'] = 0
             nan_info['original'] = nan_info['original'].astype('float32')
+        nan_info.index = index
         return super()._transform(nan_info)
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
@@ -125,17 +130,25 @@ class TimedeltaTransformer(NumericalTransformer):
         return val
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        index = nan_info.index
         original.to_pickle(self._as_delta_path)
         original = original.apply(lambda x: np.nan if pd.isnull(x) else x.total_seconds()).astype('float32')
         original.to_pickle(self._data_path)
+        nan_info = nan_info.reset_index(drop=True)
+        original.index = nan_info.index
+        print('reset!!!', nan_info.shape, len(original), flush=True)
         nan_info.iloc[:, 'original'] = original
+        nan_info.index = index
+        original.index = index
         super()._fit(original, nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
-        nan_info = nan_info.copy()
+        index = nan_info.index
+        nan_info = nan_info.reset_index(drop=True).copy()
         nan_info['original'] = nan_info['original'].apply(
             lambda x: x if pd.isnull(x) or isinstance(x, numbers.Number) else x.total_seconds()
         ).astype('float32')
+        nan_info.index = index
         return super()._transform(nan_info)
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
