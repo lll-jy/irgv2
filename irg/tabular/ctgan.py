@@ -361,7 +361,7 @@ class CTGANTrainer(TabularTrainer):
                 corr_d.backward()
                 torch.autograd.set_detect_anomaly(True)
             except RuntimeError as re:
-                _LOGGER.warning(f'Detected anomaly {re}. Skip correlation loss.')
+                _LOGGER.debug(f'Detected anomaly {re}. Skip correlation loss.')
                 corr_d = torch.tensor(0)
             self._take_step(corr_d, self._optimizer_d, self._grad_scaler_d, self._lr_schd_d,
                             do_zero_grad=False, do_backward=False)
@@ -392,7 +392,7 @@ class CTGANTrainer(TabularTrainer):
             corr_g.backward()
             torch.autograd.set_detect_anomaly(True)
         except RuntimeError as re:
-            _LOGGER.warning(f'Detected anomaly {re}. Skip correlation loss.')
+            _LOGGER.debug(f'Detected anomaly {re}. Skip correlation loss.')
             corr_g = torch.tensor(0)
         self._take_step(corr_g, self._optimizer_g, self._grad_scaler_g, self._lr_schd_g,
                         do_zero_grad=False, do_backward=False)

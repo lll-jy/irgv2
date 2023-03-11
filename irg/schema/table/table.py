@@ -42,6 +42,8 @@ _LOGGER = logging.getLogger()
 
 class Table:
     """Table data structure that holds metadata description of the table content and the relevant data."""
+    _SAVE_BATCH = 20000
+
     def __init__(self, name: str, ttype: str = 'normal', need_fit: bool = True, id_cols: Optional[Iterable[str]] = None,
                  attributes: Optional[Dict[str, dict]] = None, data: Optional[pd.DataFrame] = None,
                  determinants: Optional[List[List[str]]] = None, formulas: Optional[Dict[str, str]] = None,
@@ -167,9 +169,10 @@ class Table:
     def _data_path(self) -> str:
         return os.path.join(self._temp_cache, 'data.pkl')
 
-    def _normalized_path(self, attr_name: str) -> str:
+    def _normalized_path(self, attr_name: str, index: int = 0) -> str:
         attr_name = attr_name.replace('/', ':')
-        return os.path.join(self._temp_cache, 'normalized', f'{attr_name}.pkl')
+        index = f':{index}' if index > 0 else ''
+        return os.path.join(self._temp_cache, 'normalized', f'{attr_name}{index}.pkl')
 
     def _describer_path(self, idx: int) -> str:
         return os.path.join(self._temp_cache, 'describers', f'describer{idx}.json')
@@ -190,15 +193,17 @@ class Table:
         right = re.sub(f'[/:<>"|*^]', '&', right)
         return f'{left}__{right}'
 
-    def _augmented_normalized_path(self, attr_name: TwoLevelName) -> str:
+    def _augmented_normalized_path(self, attr_name: TwoLevelName, index: int = 0) -> str:
         if attr_name not in self._aug_norm_by_attr_files:
             self._aug_norm_by_attr_files[attr_name] = self._reduce_name_level(attr_name)
-        return os.path.join(self._temp_cache, 'norm_aug', f'{self._aug_norm_by_attr_files[attr_name]}.pkl')
+        index = f':{index}' if index > 0 else ''
+        return os.path.join(self._temp_cache, 'norm_aug', f'{self._aug_norm_by_attr_files[attr_name]}{index}.pkl')
 
-    def _degree_normalized_path(self, attr_name: TwoLevelName) -> str:
+    def _degree_normalized_path(self, attr_name: TwoLevelName, index: int = 0) -> str:
         if attr_name not in self._deg_norm_by_attr_files:
             self._deg_norm_by_attr_files[attr_name] = self._reduce_name_level(attr_name)
-        return os.path.join(self._temp_cache, 'norm_deg', f'{self._deg_norm_by_attr_files[attr_name]}.pkl')
+        index = f':{index}' if index > 0 else ''
+        return os.path.join(self._temp_cache, 'norm_deg', f'{self._deg_norm_by_attr_files[attr_name]}{index}.pkl')
 
     def _degree_attr_path(self) -> str:
         return os.path.join(self._temp_cache, 'deg_attr.pkl')
@@ -272,8 +277,12 @@ class Table:
                 n = n.replace('/', ':')
             else:
                 n = n[0].replace('/', ':'), n[1].replace('/', ':')
-            pd_to_pickle(transformed, path_by_variant[variant](n))
+            self._save_to_pickle(transformed, lambda i: path_by_variant[variant](n, i))
         return 0
+
+    def _save_to_pickle(self, data: pd.DataFrame, path_getter: FunctionType):
+        for i in range(0, len(data), self._SAVE_BATCH):
+            pd_to_pickle(data.loc[i:i+self._SAVE_BATCH], path_getter(i // self._SAVE_BATCH))
 
     def replace_attributes(self, new_attributes: Dict[str, BaseAttribute]):
         """
@@ -300,18 +309,14 @@ class Table:
         for attr_name in attributes:
             if attr_name not in new_attributes:
                 continue
-            self._attributes[attr_name] = new_attributes[attr_name]
-            data = pd.read_pickle(self._data_path())
-            if attr_name in data.columns:
-                new_transformed = new_attributes[attr_name].transform(data[attr_name])
-                pd_to_pickle(new_transformed, self._normalized_path(attr_name))
+            self._replace_attr_by_attr(attr_name, new_attributes)
 
     def _replace_attr_by_attr(self, attr_name: str, new_attributes: Dict[str, BaseAttribute]) -> int:
         self._attributes[attr_name] = new_attributes[attr_name]
         data = pd.read_pickle(self._data_path())
         if attr_name in data.columns:
             new_transformed = new_attributes[attr_name].transform(data[attr_name])
-            pd_to_pickle(new_transformed, self._normalized_path(attr_name))
+            self._save_to_pickle(new_transformed, lambda i: self._normalized_path(attr_name, i))
         return 0
 
     @staticmethod
@@ -481,8 +486,8 @@ class Table:
             if (table, attr_name) not in data.columns:
                 continue
             transformed = attr.transform(data[(table, attr_name)])
-            pd_to_pickle(transformed, self._augmented_normalized_path((table, attr_name)))
-            pd_to_pickle(transformed, self._degree_normalized_path((table, attr_name)))
+            self._save_to_pickle(transformed, lambda i: self._augmented_normalized_path((table, attr_name), i))
+            self._save_to_pickle(transformed, lambda i: self._degree_normalized_path((table, attr_name), i))
 
     def fit(self, data: pd.DataFrame, force_redo: bool = False, **kwargs):
         """
@@ -527,7 +532,7 @@ class Table:
 
     def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool) -> int:
         attr.fit(data[name], force_redo=force_redo)
-        pd_to_pickle(attr.get_original_transformed(), self._normalized_path(name))
+        self._save_to_pickle(attr.get_original_transformed(), lambda i: self._normalized_path(name, i))
         return 0
 
     def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs) -> int:
@@ -584,6 +589,15 @@ class Table:
         }, axis=1)
         return convert_data_as(data, return_as)
 
+    @staticmethod
+    def _read_data_pickle(path):
+        data = [pd_read_compressed_pickle(path)]
+        i = 1
+        while os.path.exists(f'{path[:-4]}:{i}.pkl'):
+            data.append(pd_read_compressed_pickle(f'{path[:-4]}:{i}.pkl'))
+            i += 1
+        return pd.concat(data)
+
     def data(self, variant: Variant = 'original', normalize: bool = False,
              with_id: IdPolicy = 'this', core_only: bool = False, return_as: Data2DName = 'pandas') -> Data2D:
         """
@@ -614,7 +628,7 @@ class Table:
                 data = data[[col for col in data.columns if col not in exclude_cols]]
             else:
                 data = pd.concat({
-                    n: pd_read_compressed_pickle(self._normalized_path(n))
+                    n: self._read_data_pickle(self._normalized_path(n))
                     for n, attr in self._attributes.items() if n not in exclude_cols
                 }, axis=1)
         elif variant == 'augmented':
@@ -652,7 +666,7 @@ class Table:
             data = data[[col for col in data.columns if col not in exclude_cols]]
         else:
             to_concat = {
-                n: pd_read_compressed_pickle(path_getter(n)) for n
+                n: self._read_data_pickle(path_getter(n)) for n
                 in normalized_by_attr if n not in exclude_cols
             }
             data = pd.concat(to_concat, axis=1) if to_concat else pd.DataFrame()
@@ -752,7 +766,10 @@ class Table:
         - `path` (`str`): Path to save this table to.
         """
         with open(path, 'wb') as f:
-            pickle.dump(self, f)
+            try:
+                pickle.dump(self, f)
+            except Exception:
+                pickle.dump(self, f, protocol=4)
 
     def save_complete(self, dir_path: str):
         """
@@ -944,17 +961,19 @@ class SyntheticTable(Table):
         for col, formula in self._formulas:
             recovered_df[col] = recovered_df.apply(eval(formula), axis=1)
 
+        print('here so I have to replace', self.name, flush=True)
+
         recovered_df = recovered_df[[*self._attributes]]
         if replace_content:
             recovered_df.to_pickle(self._data_path())
+            print('start')
             for n, v in columns.items():
                 if n in normalized_core:
-                    pd_to_pickle(pd.DataFrame(normalized_core[n], columns=v), self._normalized_path(n))
+                    normalized_column = normalized_core[n]
                 else:
-                    pd_to_pickle(pd.DataFrame(
-                        self._attributes[n].transform(recovered_df[n]), columns=v),
-                        self._normalized_path(n)
-                    )
+                    normalized_column = self._attributes[n].transform(recovered_df[n])
+                self._save_to_pickle(pd.DataFrame(normalized_column, columns=v), lambda i: self._normalized_path(n, i))
+
             self._length = len(recovered_df)
 
         return recovered_df
@@ -969,9 +988,9 @@ class SyntheticTable(Table):
         """
         degree_df = pd.read_pickle(self._degree_path())
         degree_df[('', 'degree')] = degrees
-        pd_to_pickle(
+        self._save_to_pickle(
             self._degree_attributes[('', 'degree')].transform(degrees),
-            self._degree_normalized_path(('', 'degree'))
+            lambda i: self._degree_normalized_path(('', 'degree'), i)
         )
         augmented = degree_df.loc[degree_df.index.repeat(degree_df[('', 'degree')])].reset_index(drop=True)
         augmented = augmented.drop(columns=[('', 'degree')])
@@ -982,7 +1001,7 @@ class SyntheticTable(Table):
             if (table, attr_name) not in augmented.columns:
                 continue
             transformed = attr.transform(augmented[(table, attr_name)])
-            pd_to_pickle(transformed, self._augmented_normalized_path((table, attr_name)))
+            self._save_to_pickle(transformed, lambda i: self._augmented_normalized_path((table, attr_name), i))
         self._fitted = True
         self._length = len(augmented)
 

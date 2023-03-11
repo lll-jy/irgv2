@@ -268,7 +268,10 @@ class Trainer(ABC):
         path = os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
         if not os.path.exists(path):
             return 0, 0
-        loaded = torch.load(path)
+        try:
+            loaded = torch.load(path, pickle_protocol=4)
+        except Exception:
+            loaded = torch.load(path)
         steps, epochs = loaded['steps'], loaded['epochs']
         self._load_content_from(loaded)
         torch.manual_seed(loaded['seed'])
@@ -293,7 +296,8 @@ class Trainer(ABC):
     def _save_checkpoint(self, idx: int, by: str, global_step: int, epoch: int):
         torch.save(
             self._construct_content_to_save() | {'steps': global_step, 'epochs': epoch},
-            os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt')
+            os.path.join(self._ckpt_dir, self._descr, f'{by}_{idx:07d}.pt'),
+            pickle_protocol=4
         )
 
     @abstractmethod

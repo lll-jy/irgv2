@@ -53,7 +53,6 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
             gen_table = table_class.load(os.path.join(save_db_to, f'{name}.pkl'))
         elif table.ttype == 'base':
             gen_table = _generate_base_table(table, scaling[name], table_temp_cache)
-            gen_table.update_temp_cache(table_temp_cache)
         elif table.is_independent():
             gen_table = _generate_independent_table(tab_models[name], table, scaling[name], tab_batch_sizes[name],
                                                     table_temp_cache)
@@ -61,7 +60,9 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
             gen_table = _generate_dependent_table(tab_models[name], deg_models[name], table, scaling,
                                                   tab_batch_sizes[name], deg_batch_sizes[name], syn_db,
                                                   table_temp_cache)
+        print('finished generation', name)
         syn_db[name] = gen_table
+        print('updated database')
         gen_table.save(os.path.join(save_db_to, f'{name}.pkl'))
 
     syn_db.save_synthetic_data()
@@ -81,7 +82,7 @@ def _optional_default_dict(original: Optional[Dict], default_val: Any) -> Defaul
 def _generate_base_table(table: Table, scale: float, temp_cache: str) -> Table:
     syn_table = SyntheticTable.from_real(table, temp_cache)
     need_rows = round(len(table) * scale)
-    syn_table.replace_data(table.data().sample(n=need_rows, replace=need_rows > len(table)))
+    syn_table.replace_data(table.data().sample(n=need_rows, replace=need_rows > len(table)).reset_index(drop=True))
     return syn_table
 
 
