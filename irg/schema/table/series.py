@@ -104,7 +104,7 @@ class SeriesTable(Table):
             print('index!!', data.index, flush=True)
         super().fit(data, force_redo, **kwargs)
 
-    def sg_data(self) -> Tuple[Tensor, Tensor, List[Tuple[int, int]],
+    def sg_data(self) -> Tuple[List[Tensor], List[Tensor], List[Tuple[int, int]],
                                Tuple[List[int], List[int]], Tuple[List[int], List[int]]]:
         known, unknown, cat_dims = self.ptg_data()
         base_known_ids, base_unknown_ids, seq_known_ids, seq_unknown_ids = [], [], [], []
@@ -125,20 +125,29 @@ class SeriesTable(Table):
                 else:
                     seq_unknown_ids.extend(range(acc_known, acc_known + attr_width))
                 acc_unknown += attr_width
+        print('constructed', flush=True)
 
         all_known, all_unknown = [], []
-        max_len = max(len(x) for x in self._index_groups)
         for group in self._index_groups:
-            known_row = known[group].mean(dim=0)
-            known_group = known_row.expand(max_len, -1)
-            all_known.append(known_group)
-
-            placeholder = torch.zeros(max_len, unknown.shape[-1], device=unknown.device, dtype=torch.float32)
-            placeholder[:len(group)] = unknown[group]
-            placeholder[:len(group), -1] = 1
-            all_unknown.append(placeholder)
-        all_known = torch.stack(all_known)
-        all_unknown = torch.stack(all_unknown)
+            all_known.append(known[group].mean(dim=0).float())
+            all_unknown.append(unknown[group].float())
+        # max_len = round(pd.Series([len(x) for x in self._index_groups]).quantile(q=0.95))
+        # max_len = max(len(x) for x in self._index_groups)
+        # print('done start', len(self._index_groups), max_len, flush=True)
+        # for group in self._index_groups:
+        #     known_row = known[group].mean(dim=0)
+        #     known_group = known_row.expand(max_len, -1)
+        #     all_known.append(known_group)
+        #     length = min(len(group), max_len)
+        #
+        #     placeholder = torch.zeros(max_len, unknown.shape[-1], device=unknown.device, dtype=torch.float32)
+        #     placeholder[:len(group)] = unknown[group]
+        #     placeholder[:len(group), -1] = 1
+        #     all_unknown.append(placeholder)
+        # print('done grouping', flush=True)
+        # all_known = torch.stack(all_known)
+        # all_unknown = torch.stack(all_unknown)
+        # print('stacked--', flush=True)
         return all_known, all_unknown, cat_dims, (base_known_ids, base_unknown_ids), (seq_known_ids, seq_unknown_ids)
 
 

@@ -34,6 +34,7 @@ class TimeGANTrainer(SeriesTrainer):
     """Trainer for series table generation for TimeGAN."""
     def __init__(self, hidden_dim: int = 40, n_layers: int = 1, gamma: float = 1., **kwargs):
         super().__init__(**kwargs)
+        print('dim', self._known_dim, self._unknown_dim, flush=True)
         self._embedder = TimeGanNet(
             input_size=self._known_dim + self._unknown_dim + 1, output_size=hidden_dim,
             hidden_dim=hidden_dim, n_layers=n_layers, activation='sigmoid'
@@ -142,7 +143,7 @@ class TimeGANTrainer(SeriesTrainer):
             self._hidden_dim, self._pretrained, self._gamma
         )
 
-    def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
+    def train(self, known: List[Tensor], unknown: List[Tensor], epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
         (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
         self._run_embedding(dataloader, epochs)
@@ -158,11 +159,11 @@ class TimeGANTrainer(SeriesTrainer):
             if dist.is_main_process():
                 dataloader = tqdm(dataloader)
                 dataloader.set_description(descr)
-            for step, (known_batch, unknown_batch) in enumerate(dataloader):
-                data = torch.cat([known_batch[:, :, :-1], unknown_batch], dim=-1)
+            for step, (_, known_batch, unknown_batch) in enumerate(dataloader):
+                data = torch.cat([known_batch, unknown_batch], dim=-1)
                 h, x_tilde = self._recover(data)
-
-                e_loss = self._calculate_recon_loss(data[:, :, known_batch.shape[-1]-1:], x_tilde, True)
+                print('shape here', known_batch.shape, data.shape)
+                e_loss = self._calculate_recon_loss(data[:, :, known_batch.shape[-1]:], x_tilde, True)
                 self._take_step(e_loss, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
                 self._take_step(e_loss, self._opt_r, self._gs_r, self._lrs_r, retain_graph=True)
                 if dist.is_main_process():
@@ -193,7 +194,7 @@ class TimeGANTrainer(SeriesTrainer):
             if dist.is_main_process():
                 dataloader = tqdm(dataloader)
                 dataloader.set_description(descr)
-            for step, (known_batch, unknown_batch) in enumerate(dataloader):
+            for step, (_, known_batch, unknown_batch) in enumerate(dataloader):
                 data = torch.cat([known_batch, unknown_batch], dim=-1)
                 h, _ = self._embedder(data)
                 h = h.view(*data.shape[:2], self._hidden_dim)
@@ -228,12 +229,15 @@ class TimeGANTrainer(SeriesTrainer):
         z_dim = self._unknown_dim + self._known_dim + 1
         noise = []
         for i in range(batch_size):
-            seq_len = known.shape[-1]
-            temp = torch.zeros(known.shape[1], z_dim)
-            temp_z = np.random.uniform(0., 10, (seq_len, z_dim))
-            temp[:seq_len] = temp_z
-            temp[:, :self._known_dim] = known
-            noise.append(temp)
+            temp_z = np.random.uniform(0., 10, (known.shape[-2], z_dim))
+            noise.append(torch.tensor(temp_z))
+            # seq_len = known.shape[-2]
+            # temp = torch.zeros(known.shape[1], z_dim)
+            # temp_z = np.random.uniform(0., 10, (seq_len, z_dim))
+            # temp[:seq_len] = torch.tensor(temp_z)
+            # print('shapes:', temp.shape, known.shape, flush=True)
+            # temp[:, :self._known_dim] = known
+            # noise.append(temp)
         return torch.stack(noise)
 
     def _prepare_epoch(self, dataloader: DataLoader, base_step: int, global_step: int, save_freq: int):

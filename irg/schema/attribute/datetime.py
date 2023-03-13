@@ -16,16 +16,32 @@ class DatetimeTransformer(NumericalTransformer):
     def __init__(self, date_format: str = '%Y-%m-%d', **kwargs):
         """
         **Args**:
-
         - `date_format` (`str`) [default `'%Y-%m-%d'`]: Datetime format string that is processable by
           [`Python`'s in-built `datetime.strftime`](https://docs.python.org/3/library/datetime.html).
           This is the format for how the datetime data is and will be represented.
         - `kwargs`: Arguments for [`NumericalTransformer`](numerical#NumericalTransformer),
-          for the data after applying `toordinal`. Thus, rounding will be overridden as 0.
+          for the data by the number of seconds to mean. Thus, rounding will be overridden as 0.
         """
         super().__init__(**kwargs)
         self._format = date_format
-        self._rounding = 0
+        self._mean = None
+        print('doing here refit datetime', self._temp_cache)
+
+    def _datetime_to_number(self, dt: Optional[datetime]) -> float:
+        if pd.isnull(dt) or dt is None:
+            return np.nan
+        if hasattr(self, '_mean'):
+            return (dt - self._mean).total_seconds()
+        else:
+            return dt.toordinal()
+
+    def _number_to_datetime(self, number: Optional[float]) -> datetime:
+        if pd.isnull(number) or number is None:
+            return np.nan
+        if hasattr(self, '_mean'):
+            return self._mean + timedelta(seconds=number)
+        else:
+            return datetime.fromordinal(int(number))
 
     @property
     def _as_date_path(self) -> str:
@@ -43,14 +59,22 @@ class DatetimeTransformer(NumericalTransformer):
         return val
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
+        print('re-fit', original.name)
+        self._mean = original.mean()
         index = nan_info.index
         original = original.astype('datetime64[ns]')
         original.to_pickle(self._as_date_path)
-        original = original.apply(lambda x: np.nan if pd.isnull(x) else x.toordinal()).astype('float32')
+        print('original', original.describe(datetime_is_numeric=True))
+        original = original.apply(self._datetime_to_number).astype('float32')
+        print('as number', original.describe())
         original.to_pickle(self._data_path)
         nan_info = nan_info.reset_index(drop=True)
-        nan_info.loc[:, 'original'] = nan_info['original'].astype('datetime64[ns]').apply(lambda x: x.toordinal()).astype('float32')
+        nan_info.loc[:, 'original'] = nan_info['original'].astype('datetime64[ns]')\
+            .apply(self._datetime_to_number).astype('float32')
         nan_info = nan_info.astype({'original': 'float32'})
+        print('after nan', nan_info['original'].describe())
+        if original.std() < 10:
+            raise ValueError('wrong!!!', original.std())
         nan_info.index = index
         super()._fit(original, nan_info)
 
@@ -59,19 +83,38 @@ class DatetimeTransformer(NumericalTransformer):
         nan_info = nan_info.reset_index(drop=False)
         if len(nan_info) > 0:
             nan_info['original'] = nan_info['original'].apply(
-                lambda x: x if pd.isnull(x) or not isinstance(x, datetime) else datetime.toordinal(x)
+                lambda x: x if pd.isnull(x) or not isinstance(x, datetime) else self._datetime_to_number(x)
             ).astype('float32')
         else:
             nan_info.loc[:, 'original'] = 0
             nan_info['original'] = nan_info['original'].astype('float32')
         nan_info.index = index
-        return super()._transform(nan_info)
+        transformed = super()._transform(nan_info)
+        if 'check_in' in self._temp_cache:
+            print('checkin', self._temp_cache, flush=True)
+        if hasattr(self, '_mean'):
+            print('call transform', transformed.describe())
+        return transformed
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
+        if hasattr(self, '_mean'):
+            print('raw normalized??', data.describe())
         numerical_result = super()._inverse_transform(data)
-        datetime_result = numerical_result.apply(lambda x: x if pd.isnull(x) else datetime.fromordinal(int(x)))
+        if hasattr(self, '_mean'):
+            print('numerical', numerical_result.describe())
+        datetime_result = numerical_result.apply(self._number_to_datetime)
+        if hasattr(self, '_mean'):
+            print('datetime result', hasattr(self, '_mean'), self._temp_cache, datetime_result.describe(datetime_is_numeric=True))
         formatted = datetime_result.apply(lambda x: x if pd.isnull(x) else x.strftime(self._format))
         formatted = formatted.astype('datetime64[ns]')
+        if hasattr(self, '_mean'):
+            print('has attr?', formatted.describe(datetime_is_numeric=True))
+        original = pd.read_pickle(self._as_date_path)
+        if hasattr(self, '_mean'):
+            print('original description', original.describe(datetime_is_numeric=True))
+        original = original.apply(self._datetime_to_number).astype('float32')
+        if hasattr(self, '_mean'):
+            print(original.describe())
         return formatted
 
 
@@ -132,12 +175,12 @@ class TimedeltaTransformer(NumericalTransformer):
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
         index = nan_info.index
         original.to_pickle(self._as_delta_path)
-        original = original.apply(lambda x: np.nan if pd.isnull(x) else x.total_seconds()).astype('float32')
+        original = original.apply(lambda x: np.nan if pd.isnull(x) else
+        x.total_seconds() if isinstance(x, timedelta) else x).astype('float32')
         original.to_pickle(self._data_path)
         nan_info = nan_info.reset_index(drop=True)
         original.index = nan_info.index
-        print('reset!!!', nan_info.shape, len(original), flush=True)
-        nan_info.iloc[:, 'original'] = original
+        nan_info.loc[:, 'original'] = original
         nan_info.index = index
         original.index = index
         super()._fit(original, nan_info)

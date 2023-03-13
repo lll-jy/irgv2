@@ -218,7 +218,7 @@ class TabularTrainer(Trainer, ABC):
                 cx, cy = x[:, l:r], y[:, l:r]
                 if r - l > 1:
                     if activate:
-                        loss.append(F.nll_loss(cx, cy))
+                        loss.append(F.nll_loss(cy, cx.argmax(dim=-1)))
                     else:
                         loss.append(F.cross_entropy(cx, cy))
                 else:

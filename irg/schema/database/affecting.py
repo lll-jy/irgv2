@@ -118,10 +118,19 @@ class AffectingDatabase(Database):
         return 'affecting'
 
     def augment(self):
+        print('so I augment')
         for name, path in self.tables():
-            table = Table.load(path)
+            table, _ = self._load_table(name)
+            print(name, table.is_independent())
             self._augment_table(name, table)
             table.save(path)
+
+    def create_table(self, name: str, meta: Dict[str, Any]) -> Table:
+        table = super().create_table(name, meta)
+        self._augment_table(name, table)
+        table.save(self._table_paths[name])
+        print('fk', name, table.is_independent(), flush=True)
+        return table
 
     def _augment_table(self, name: str, table: Table, row_range: (int, int) = (0, np.inf), aug: bool = True) -> int:
         augmented = pd.concat({name: table.data()}, axis=1)
@@ -192,6 +201,13 @@ class AffectingDatabase(Database):
             augmented_attributes=aug_attr | attributes, degree_attributes=deg_attr | attributes
         )
         return r - l
+
+    def update_columns(self, name: str):
+        super().update_columns(name)
+        foreign_keys = self._foreign_keys[name]
+        for fk in foreign_keys:
+            self._descendants[fk.parent].append(fk)
+
 
     def _descendant_graph_till(self, till: str) -> Dict[str, List[ForeignKey]]:
         last_child = None

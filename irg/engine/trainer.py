@@ -67,9 +67,11 @@ def train(database: Database, do_train: bool,
                                                     tab_trainer_args[name], tab_train_args[name], name)
                 _LOGGER.debug(f'Loaded tabular model for {name}.')
         else:
+            print('go series', flush=True)
             table = SeriesTable.load(table)
+            print('loaded', flush=True)
             known, unknown, cat_dims, base_ids, seq_ids = table.sg_data()
-            known, unknown = known.float(), unknown.float()
+            print('end', flush=True)
             tabular_models[name] = _train_series_model(known, unknown, cat_dims, base_ids, seq_ids, name,
                                                        ser_trainer_args[name], ser_train_args[name])
             _LOGGER.debug(f'Loaded series model for {name}.')
@@ -91,10 +93,10 @@ def _train_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]]
     return trainer
 
 
-def _train_series_model(known: Tensor, unknown: Tensor, cat_dims: List[Tuple[int, int]],
+def _train_series_model(known: List[Tensor], unknown: List[Tensor], cat_dims: List[Tuple[int, int]],
                         base_ids: Tuple[List[int], List[int]], seq_ids: Tuple[List[int], List[int]],
                         descr: str, trainer_args: Dict, train_args: Dict) -> SeriesTrainer:
-    known_dim, unknown_dim = known.shape[-1], unknown.shape[-1] - 1
+    known_dim, unknown_dim = known[0].shape[-1], unknown[0].shape[-1]
     trainer = create_ser_trainer(cat_dims=cat_dims, known_dim=known_dim, unknown_dim=unknown_dim, descr=descr,
                                  base_ids=base_ids, seq_ids=seq_ids, **trainer_args)
     trainer.train(known, unknown, **train_args)

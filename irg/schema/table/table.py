@@ -42,7 +42,7 @@ _LOGGER = logging.getLogger()
 
 class Table:
     """Table data structure that holds metadata description of the table content and the relevant data."""
-    _SAVE_BATCH = 20000
+    _SAVE_BATCH = 5000
 
     def __init__(self, name: str, ttype: str = 'normal', need_fit: bool = True, id_cols: Optional[Iterable[str]] = None,
                  attributes: Optional[Dict[str, dict]] = None, data: Optional[pd.DataFrame] = None,
@@ -428,6 +428,9 @@ class Table:
         """
         self._known_cols = [col for (table, col) in degree_attributes if table == self._name]
         self._unknown_cols = [col for col in self._unknown_cols if col not in self._known_cols]
+        if os.path.exists(self._augmented_path()):
+            self._augment_fitted = True
+            return
         if len(self._known_cols) > 0 and augmented_attributes:
             groupby_cols = [(self._name, col) for col in self._known_cols]
             augmented[('', 'degree')] = 0
@@ -499,17 +502,15 @@ class Table:
         - `force_redo` (`bool`): Whether to re-fit the table if the table is already fitted. Default is `False`.
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
+        print('call fit', self.name)
+        self._length = len(data)
         if (self._fitted and not force_redo) or not self._need_fit:
             _LOGGER.info(f'Table {self._name} is already fitted. Duplicated fitting is skipped.')
             return
         self._length = len(data)
         data = data[[*self._attributes.keys()]]
-        print('!!! so I get attributes', data.columns.tolist(), flush=True)
-        print(self._data_path())
         data.to_pickle(self._data_path())
-        print('read again')
         data = pd.read_pickle(self._data_path())
-        print('columns', data.columns.tolist(), {'.series_degree', '.series_increase', '.series_base'} <= set(data.columns), flush=True)
         fast_map_dict(
             func=self._fit_attribute,
             dictionary=self._attributes,
@@ -728,6 +729,8 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
+            print(self.name, 'unknown===========')
+            print(unknown_data.describe())
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)
@@ -966,7 +969,6 @@ class SyntheticTable(Table):
         recovered_df = recovered_df[[*self._attributes]]
         if replace_content:
             recovered_df.to_pickle(self._data_path())
-            print('start')
             for n, v in columns.items():
                 if n in normalized_core:
                     normalized_column = normalized_core[n]

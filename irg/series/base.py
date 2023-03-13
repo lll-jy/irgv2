@@ -3,12 +3,29 @@
 from abc import ABC
 from typing import Tuple, List, Optional
 
+import torch
 from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 from torch.cuda.amp import GradScaler
+from torch.utils.data import Dataset, DataLoader, DistributedSampler, RandomSampler, SequentialSampler
 
 from ..tabular import TabularTrainer
+
+
+class _TensorListDataset(Dataset):
+    def __init__(self, *data: List[Tensor]):
+        self._data = data
+        if len(self._data) > 0:
+            self._length = len(self._data[0])
+        else:
+            self._length = 0
+
+    def __len__(self) -> int:
+        return self._length
+
+    def __getitem__(self, item: int) -> Tuple:
+        return tuple([d[item] for d in self._data])
 
 
 class SeriesTrainer(TabularTrainer, ABC):
@@ -41,3 +58,40 @@ class SeriesTrainer(TabularTrainer, ABC):
         return self._reconstruct, var + (
             self._base_ids, self._seq_ids
         )
+
+    def _make_dataloader(self, known: List[Tensor], unknown: List[Tensor], batch_size: int, shuffle: bool = True) -> \
+            DataLoader:
+        dataset = _TensorListDataset(known, unknown)
+        sampler = DistributedSampler(dataset, shuffle=shuffle) if self._distributed else \
+            RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
+                                collate_fn=self._collate_fn)
+        return dataloader
+
+    def _make_infer_dataloader(self, known: List[Tensor], batch_size: int, shuffle: bool = True) -> DataLoader:
+        dataset = _TensorListDataset(known)
+        sampler = DistributedSampler(dataset, shuffle=shuffle) if self._distributed else \
+            RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True,
+                                collate_fn=self._collate_fn_infer)
+        return dataloader
+
+    def _collate_fn(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
+        all_known, all_unknown = [], []
+        max_len = max(y.shape[0] for x, y in batch)
+        for known, unknown in batch:
+            known = known.expand(max_len, -1)
+            all_known.append(known)
+
+            placeholder = torch.zeros(max_len, unknown.shape[-1] + 1, device=unknown.device, dtype=torch.float32)
+            placeholder[:unknown.shape[0], :-1] = unknown
+            placeholder[:unknown.shape[0], -1] = 1
+            all_unknown.append(placeholder)
+        return torch.stack(all_known), torch.stack(all_unknown)
+
+    def _collate_fn_infer(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
+        all_known = []
+        max_len = max(len(x) for x, in batch)
+        for known, in batch:
+            all_known.append(known.expand(max_len, -1))
+        return torch.stack(all_known),

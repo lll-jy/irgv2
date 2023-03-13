@@ -60,9 +60,7 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
             gen_table = _generate_dependent_table(tab_models[name], deg_models[name], table, scaling,
                                                   tab_batch_sizes[name], deg_batch_sizes[name], syn_db,
                                                   table_temp_cache)
-        print('finished generation', name)
         syn_db[name] = gen_table
-        print('updated database')
         gen_table.save(os.path.join(save_db_to, f'{name}.pkl'))
 
     syn_db.save_synthetic_data()

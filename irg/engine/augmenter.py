@@ -6,6 +6,7 @@ import logging
 
 from ..schema import create_db, Database
 from ..schema.database import DB_TYPE_BY_NAME
+from ..utils.io import load_from
 
 _LOGGER = logging.getLogger()
 
@@ -28,6 +29,15 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
     """
     if save_db_to is not None and resume and os.path.exists(save_db_to):
         database = DB_TYPE_BY_NAME[mtype].load_from_dir(save_db_to)
+        if schema is None:
+            schema = load_from(file_path)
+        for table_name in schema:
+            if not os.path.exists(os.path.join(save_db_to, f'{table_name}.pkl')):
+                print('hello?', os.path.join(save_db_to, f'{table_name}.pkl'))
+                table = database.create_table(table_name, schema[table_name])
+                table.save(os.path.join(save_db_to, f'{table_name}.pkl'))
+            else:
+                database.update_columns(table_name)
         _LOGGER.info(f'Loaded database from {save_db_to}.')
     else:
         os.makedirs(temp_cache, exist_ok=True)

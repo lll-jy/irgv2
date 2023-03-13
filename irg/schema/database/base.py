@@ -162,83 +162,95 @@ class Database:
         os.makedirs(os.path.join(self._temp_cache, 'tables'), exist_ok=True)
 
         for name, meta in schema.items():
-            validate(meta, self._TABLE_CONF)
-            meta = defaultdict(lambda: None, meta)
-            ttype = meta['ttype'] if 'ttype' in meta else 'normal'
-            fm = meta['format'] if 'format' in meta else 'csv'
-            if fm == 'pickle':
-                fm = 'pkl'
-            path = meta['path'] if 'path' in meta else os.path.join(self._data_dir, f'{name}.{fm}')
-            data = None
-            if os.path.exists(path):
-                data = pd.read_csv(path) if fm == 'csv' else pd.read_pickle(path)
-            id_cols, attributes = meta['id_cols'], meta['attributes']
-            determinants, formulas = meta['determinants'], meta['formulas']
-            if ttype == 'series':
-                print('here series', flush=True)
-                table = SeriesTable(
-                    name=name, series_id=meta['series_id'], base_cols=meta.get('base_columns'), need_fit=True,
-                    id_cols=id_cols, attributes=attributes, data=data,
-                    determinants=determinants, formulas=formulas,
-                    temp_cache=os.path.join(self._temp_cache, 'tables', name)
-                )
-                self._series.add(name)
-            else:
-                table = Table(
-                    name=name, ttype=ttype, need_fit=True,
-                    id_cols=id_cols, attributes=attributes, data=data,
-                    determinants=determinants, formulas=formulas,
-                    temp_cache=os.path.join(self._temp_cache, 'tables', name)
-                )
-            table.save(os.path.join(temp_cache, f'{name}.pkl'))
-            self._table_paths[name] = os.path.join(temp_cache, f'{name}.pkl')
-            self._table_columns[name] = table.columns
-            columns = table.columns
+            self.create_table(name, meta)
 
-            primary_keys = meta['primary_keys'] if 'primary_keys' in meta else []
-            columns = set(columns)
-            for col in primary_keys:
+    def update_columns(self, name: str):
+        self._table_columns[name] = self._load_table(name)[0].columns
+
+    def create_table(self, name: str, meta: Dict[str, Any]) -> Table:
+        self._temp_cache = '/Volumes/Expansion/IRGAN/.temp.nosync/real_db'
+        validate(meta, self._TABLE_CONF)
+        meta = defaultdict(lambda: None, meta)
+        ttype = meta['ttype'] if 'ttype' in meta else 'normal'
+        fm = meta['format'] if 'format' in meta else 'csv'
+        if fm == 'pickle':
+            fm = 'pkl'
+        path = meta['path'] if 'path' in meta else os.path.join(self._data_dir, f'{name}.{fm}')
+        data = None
+        if os.path.exists(path):
+            data = pd.read_csv(path) if fm == 'csv' else pd.read_pickle(path)
+        id_cols, attributes = meta['id_cols'], meta['attributes']
+        determinants, formulas = meta['determinants'], meta['formulas']
+        print('cache', self._temp_cache)
+        if ttype == 'series':
+            table = SeriesTable(
+                name=name, series_id=meta['series_id'], base_cols=meta.get('base_columns'), need_fit=True,
+                id_cols=id_cols, attributes=attributes, data=data,
+                determinants=determinants, formulas=formulas,
+                temp_cache=os.path.join(self._temp_cache, 'tables', name)
+            )
+            self._series.add(name)
+        else:
+            table = Table(
+                name=name, ttype=ttype, need_fit=True,
+                id_cols=id_cols, attributes=attributes, data=data,
+                determinants=determinants, formulas=formulas,
+                temp_cache=os.path.join(self._temp_cache, 'tables', name)
+            )
+        table.save(os.path.join(self._temp_cache[:-7], f'{name}.pkl'))
+        self._table_paths[name] = os.path.join(self._temp_cache[:-7], f'{name}.pkl')
+        self._table_columns[name] = table.columns
+        columns = table.columns
+
+        primary_keys = meta['primary_keys'] if 'primary_keys' in meta else []
+        columns = set(columns)
+        for col in primary_keys:
+            if col not in columns:
+                raise ColumnNotFoundError(name, col)
+        self._primary_keys[name] = primary_keys
+        foreign_keys = meta['foreign_keys'] if 'foreign_keys' in meta else []
+        self._foreign_keys[name] = []
+        for foreign_key in foreign_keys:
+            this_columns = foreign_key['columns']
+            parent_columns = foreign_key['parent_columns'] if 'parent_columns' in foreign_key else this_columns
+            parent_name = foreign_key['parent']
+            if parent_name not in self._table_paths:
+                raise TableNotFoundError(parent_name)
+            for col in this_columns:
                 if col not in columns:
                     raise ColumnNotFoundError(name, col)
-            self._primary_keys[name] = primary_keys
-            foreign_keys = meta['foreign_keys'] if 'foreign_keys' in meta else []
-            self._foreign_keys[name] = []
-            for foreign_key in foreign_keys:
-                this_columns = foreign_key['columns']
-                parent_columns = foreign_key['parent_columns'] if 'parent_columns' in foreign_key else this_columns
-                parent_name = foreign_key['parent']
-                if parent_name not in self._table_paths:
-                    raise TableNotFoundError(parent_name)
-                for col in this_columns:
-                    if col not in columns:
-                        raise ColumnNotFoundError(name, col)
-                for col in parent_columns:
-                    if col not in set(self._table_columns[parent_name]):
-                        raise ColumnNotFoundError(parent_name, col)
-                self._foreign_keys[name].append(ForeignKey(name, this_columns, parent_name, parent_columns))
+            for col in parent_columns:
+                if parent_name in self._table_columns:
+                    parent_columns = self._table_columns[parent_name]
+                else:
+                    parent_columns = self._load_table(parent_name)[0].columns
+                if col not in set(parent_columns):
+                    raise ColumnNotFoundError(parent_name, col)
+            self._foreign_keys[name].append(ForeignKey(name, this_columns, parent_name, parent_columns))
 
-            unique = True if 'unique_fk' in schema and schema['unique_fk'] else False
-            if unique:
-                self._unique_fks.add(name)
+        # unique = True if 'unique_fk' in schema and schema['unique_fk'] else False
+        # if unique:
+        #     self._unique_fks.add(name)
 
-            id_cols = [] if id_cols is None else id_cols
-            determinants = [] if determinants is None else determinants
-            formulas = {} if formulas is None else formulas
-            for col in id_cols:
+        id_cols = [] if id_cols is None else id_cols
+        determinants = [] if determinants is None else determinants
+        formulas = {} if formulas is None else formulas
+        for col in id_cols:
+            if col not in columns:
+                raise ColumnNotFoundError(name, col)
+        for determinant in determinants:
+            for col in determinant:
                 if col not in columns:
                     raise ColumnNotFoundError(name, col)
-            for determinant in determinants:
-                for col in determinant:
-                    if col not in columns:
-                        raise ColumnNotFoundError(name, col)
-            for col in formulas:
-                if col not in columns:
-                    raise ColumnNotFoundError(name, col)
+        for col in formulas:
+            if col not in columns:
+                raise ColumnNotFoundError(name, col)
 
-            _LOGGER.debug(f'Finished loading table {name} to database.')
+        _LOGGER.debug(f'Finished loading table {name} to database.')
+        return table
 
     def __getitem__(self, item: str) -> Table:
-        return Table.load(self._table_paths[item])
+        return self._load_table(item)[0]
 
     def path_of_table(self, table_name: str) -> str:
         """
@@ -302,6 +314,14 @@ class Database:
         """Mechanism type."""
         raise NotImplementedError()
 
+    def _load_table(self, name: str) -> (Table, str):
+        path = self._table_paths[name]
+        if self.is_series(name):
+            table = SeriesTable.load(path)
+        else:
+            table = Table.load(path)
+        return table, path
+
     @abstractmethod
     def augment(self):
         """
@@ -324,7 +344,7 @@ class Database:
         **Return**: A `dict` of names of tables mapped to `data` retrieval result of the table.
         """
         return {
-            name: Table.load(table).data(**kwargs)
+            name: self._load_table(name)[0].data(**kwargs)
             for name, table in self.tables()
         }
 
@@ -377,7 +397,8 @@ class Database:
                 'foreign_keys': {n: [fk.dict for fk in v] for n, v in self._foreign_keys.items()},
                 'data_dir': self._data_dir,
                 'order': list(self._table_paths.keys()),
-                'mtype': self.mtype
+                'mtype': self.mtype,
+                'series': [*self._series]
             }, f, indent=2)
             _LOGGER.debug(f'Saved config file to {os.path.join(path, "config.json")}.')
 
@@ -409,7 +430,7 @@ class Database:
         """All tables joined according to all foreign keys."""
         data, id_cols, attributes, table_cnt = pd.DataFrame(), set(), {}, defaultdict(int)
         for name, table in self.tables():
-            table = Table.load(table)
+            table, _ = self._load_table(name)
             if data.empty or table.is_independent():
                 if data.empty:
                     data = pd.concat({f'{name}_0': table.data()}, axis=1)
@@ -457,6 +478,7 @@ class Database:
         database._primary_keys = content['primary_keys']
         database._foreign_keys = {n: [ForeignKey(**fk) for fk in v] for n, v in content['foreign_keys'].items()}
         database._data_dir, order = content['data_dir'], content['order']
+        database._series = set(content['series']) if 'series' in content else set()
         cls._update_cls(database)
 
         for table_name in order:
@@ -562,7 +584,7 @@ class SyntheticDatabase(Database, ABC):
         if file_format not in {'csv', 'pickle'}:
             raise ValueError(f'File format {file_format} is not recognized.')
         for name, table in self.tables():
-            table = Table.load(table)
+            table, _ = self._load_table(name)
             if file_format == 'csv':
                 table.data().to_csv(os.path.join(self._data_dir, f'{name}.csv'), index=False)
             else:
