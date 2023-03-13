@@ -147,6 +147,7 @@ class TimeGANTrainer(SeriesTrainer):
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
         (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
         self._run_embedding(dataloader, epochs)
+        self._run_supervised(dataloader, epochs)
         self._run_training(epoch, epochs, global_step, save_freq, dataloader)
 
     def _run_embedding(self, dataloader: DataLoader, epochs: int = 10):
@@ -164,8 +165,13 @@ class TimeGANTrainer(SeriesTrainer):
                 h, x_tilde = self._recover(data)
                 print('shape here', known_batch.shape, data.shape)
                 e_loss = self._calculate_recon_loss(data[:, :, known_batch.shape[-1]:], x_tilde, True)
-                self._take_step(e_loss, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
-                self._take_step(e_loss, self._opt_r, self._gs_r, self._lrs_r, retain_graph=True)
+                self._embedder.zero_grad()
+                self._recovery.zero_grad()
+                e_loss.backward(retain_graph=True)
+                self._opt_e.step()
+                self._opt_r.step()
+                # self._take_step(e_loss, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
+                # self._take_step(e_loss, self._opt_r, self._gs_r, self._lrs_r, retain_graph=True)
                 if dist.is_main_process():
                     dataloader.set_description(f'{descr} Emb: recon_loss: {e_loss.item():.4f}')
             dist.barrier()
@@ -202,8 +208,13 @@ class TimeGANTrainer(SeriesTrainer):
                 h_hat = h_hat.view(*data.shape[:2], -1)
 
                 g_loss_s = F.mse_loss(h[:, 1:, :], h_hat[:, :-1, :])
-                self._take_step(g_loss_s, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
-                self._take_step(g_loss_s, self._opt_s, self._gs_s, self._lrs_s, retain_graph=True)
+                self._embedder.zero_grad()
+                self._supervisor.zero_grad()
+                g_loss_s.backward(retain_graph=True)
+                self._opt_e.step()
+                self._opt_s.step()
+                # self._take_step(g_loss_s, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
+                # self._take_step(g_loss_s, self._opt_s, self._gs_s, self._lrs_s, retain_graph=True)
                 if dist.is_main_process():
                     dataloader.set_description(f'{descr} Sup: sup_loss: {g_loss_s.item():.4f}')
             dist.barrier()
@@ -253,21 +264,45 @@ class TimeGANTrainer(SeriesTrainer):
 
             data = torch.cat([known, unknown], dim=-1)
             g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v = self._joint_step(batch_size, noise, data, unknown)
-            self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_g, self._gs_g, self._lrs_g,
-                            retain_graph=True)
-            self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_s, self._gs_s, self._lrs_s,
-                            retain_graph=True)
-            self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_d, self._gs_d, self._lrs_d,
-                            retain_graph=True)
+            self._generator.zero_grad()
+            self._supervisor.zero_grad()
+            self._discriminator.zero_grad()
+            self._recovery.zero_grad()
+            g_loss_s.backward(retain_graph=True)
+            g_loss_u.backward(retain_graph=True)
+            g_loss_v.backward(retain_graph=True)
+            self._opt_g.step()
+            self._opt_s.step()
+            self._opt_d.step()
+            # self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_g, self._gs_g, self._lrs_g,
+            #                 retain_graph=True)
+            # self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_s, self._gs_s, self._lrs_s,
+            #                 retain_graph=True)
+            # self._take_step(g_loss_s + g_loss_u + g_loss_v, self._opt_d, self._gs_d, self._lrs_d,
+            #                 retain_graph=True)
 
             h, x_tilde = self._recover(data)
             e_loss = self._calculate_recon_loss(data[:, :, known.shape[-1]:], x_tilde, True) / 10
             h_sup, _ = self._supervisor(h)
             h_sup = h_sup.view(batch_size, -1, self._hidden_dim)
             g_loss_s = F.mse_loss(h[:, 1:, :], h_sup[:, :-1, :])
-            self._take_step(e_loss / 10 + g_loss_s, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
-            self._take_step(e_loss / 10 + g_loss_s, self._opt_r, self._gs_r, self._lrs_r, retain_graph=True)
-            self._take_step(e_loss / 10 + g_loss_s, self._opt_s, self._gs_s, self._lrs_s, retain_graph=True)
+            g_loss_s.backward(retain_graph=True)
+            e_loss.backward(retain_graph=True)
+            self._embedder.zero_grad()
+            self._recovery.zero_grad()
+            self._supervisor.zero_grad()
+            self._opt_e.step()
+            self._opt_r.step()
+            self._opt_s.step()
+
+            self._lrs_e.step()
+            self._lrs_g.step()
+            self._lrs_s.step()
+            self._lrs_d.step()
+            self._lrs_r.step()
+            # self._take_step(e_loss / 10 + g_loss_s, self._opt_e, self._gs_e, self._lrs_e, retain_graph=True)
+            # self._take_step(e_loss / 10 + g_loss_s, self._opt_r, self._gs_r, self._lrs_r, retain_graph=True)
+            # self._take_step(e_loss / 10 + g_loss_s, self._opt_s, self._gs_s, self._lrs_s, retain_graph=True)
 
     def _joint_step(self, batch_size: int, noise: Tensor, data: Tensor, unknown: Tensor) -> (
             Tensor, Tensor, Tensor, Tensor, Tensor):
@@ -317,23 +352,40 @@ class TimeGANTrainer(SeriesTrainer):
         dlf_e = F.binary_cross_entropy_with_logits(y_fake_e, torch.zeros_like(y_fake_e))
         d_loss = dlr + dlf + self._gamma * dlf_e
         if d_loss > 0.15:
-            self._take_step(d_loss, self._opt_d, self._gs_d, self._lrs_d, retain_graph=True)
+            d_loss.backward(retain_graph=True)
+            self._opt_d.step()
+            self._lrs_d.step()
+            # self._take_step(d_loss, self._opt_d, self._gs_d, self._lrs_d, retain_graph=True)
 
         h, x_tilde = self._recover(data)
         g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v = self._joint_step(batch_size, noise, data, unknown)
         e_loss = self._calculate_recon_loss(unknown, x_tilde, True)
         mean_l, corr_l = self._meta_loss(known, unknown, x_hat)
         recon_loss = self._calculate_recon_loss(unknown, x_hat, True)
-        self._take_step(g_loss_s, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
-        self._take_step(g_loss_u, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
-        self._take_step(g_loss_v, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
-        self._take_step(e_loss + 0.1 * g_loss_s, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
-        self._take_step(recon_loss, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
-        self._take_step(mean_l + corr_l, self._opt_g, self._gs_g, self._lrs_g, do_step=True,
-                        do_zero_grad=False, do_backward=True)
-        self._take_step(None, self._opt_s, self._gs_s, self._lrs_s, do_step=True, do_zero_grad=False, do_backward=False)
-        self._take_step(None, self._opt_e, self._gs_e, self._lrs_e, do_step=True, do_zero_grad=False, do_backward=False)
-        self._take_step(None, self._opt_r, self._gs_r, self._lrs_r, do_step=True, do_zero_grad=False, do_backward=False)
+
+        g_loss_s.backward(retain_graph=True)
+        g_loss_u.backward(retain_graph=True)
+        g_loss_v.backward(retain_graph=True)
+        (recon_loss + mean_l + corr_l).backward(retain_graph=True)
+        (e_loss + 0.1 * g_loss_s).backward()
+        self._opt_g.step()
+        self._opt_s.step()
+        self._opt_e.step()
+        self._opt_r.step()
+        self._lrs_g.step()
+        self._lrs_s.step()
+        self._lrs_e.step()
+        self._lrs_e.step()
+        # self._take_step(g_loss_s, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        # self._take_step(g_loss_u, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        # self._take_step(g_loss_v, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        # self._take_step(e_loss + 0.1 * g_loss_s, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        # self._take_step(recon_loss, None, None, None, retain_graph=True, do_zero_grad=False, do_step=False)
+        # self._take_step(mean_l + corr_l, self._opt_g, self._gs_g, self._lrs_g, do_step=True,
+        #                 do_zero_grad=False, do_backward=True)
+        # self._take_step(None, self._opt_s, self._gs_s, self._lrs_s, do_step=True, do_zero_grad=False, do_backward=False)
+        # self._take_step(None, self._opt_e, self._gs_e, self._lrs_e, do_step=True, do_zero_grad=False, do_backward=False)
+        # self._take_step(None, self._opt_r, self._gs_r, self._lrs_r, do_step=True, do_zero_grad=False, do_backward=False)
 
         out_dict = {
             'd': d_loss,

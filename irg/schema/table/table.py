@@ -729,8 +729,6 @@ class Table:
                 if table == self._name and attr_name not in self._known_cols
             }
             cat_dims = self._attr2catdim(unknown_attr)
-            print(self.name, 'unknown===========')
-            print(unknown_data.describe())
             return convert_data_as(known_data, 'torch'), convert_data_as(unknown_data, 'torch'), cat_dims
         else:
             norm_data = self.data(variant='original', normalize=True, with_id='inherit', core_only=True)

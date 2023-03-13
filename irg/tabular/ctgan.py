@@ -318,6 +318,9 @@ class CTGANTrainer(TabularTrainer):
             known[:, i] = col.nan_to_num(col[~col.isnan()].mean())
         self._construct_sampler(known, unknown)
         _LOGGER.debug(f'Constructed data sampler for {self._descr}.')
+        print('train-------')
+        print(known.mean(dim=0), known.std(dim=0))
+        print(unknown.mean(dim=0), unknown.std(dim=0), flush=True)
         super().train(known, unknown, epochs, batch_size, shuffle, save_freq, resume, lae_epochs)
 
     def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
@@ -511,6 +514,16 @@ class CTGANTrainer(TabularTrainer):
                 fake = self._generator(torch.cat([fakez, condvec, known], dim=1))
                 fakeact = self._apply_activate(fake)
                 fake_cat = torch.cat([known, condvec, fakeact], dim=1)
+
+                print(self._generator.state_dict())
+                print('gen known', known.mean(dim=0))
+                print('gen fake', fake.mean(dim=0))
+                print('gen fakeact', fakeact.mean(dim=0))
+                print('----')
+                print('gen known', known.std(dim=0))
+                print('gen fake', fake.std(dim=0))
+                print('gen fakeact', fakeact.std(dim=0))
+                raise ValueError()
                 fake_cat_full = self._make_full_pac(fake_cat)
                 y_fake = self._discriminator(fake_cat_full)
                 y_fake = y_fake.repeat(self._pac, 1).permute(1, 0).flatten()[:fake_cat.shape[0]]
