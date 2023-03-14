@@ -25,7 +25,6 @@ class DatetimeTransformer(NumericalTransformer):
         super().__init__(**kwargs)
         self._format = date_format
         self._mean = None
-        print('doing here refit datetime', self._temp_cache)
 
     def _datetime_to_number(self, dt: Optional[datetime]) -> float:
         if pd.isnull(dt) or dt is None:
@@ -59,20 +58,16 @@ class DatetimeTransformer(NumericalTransformer):
         return val
 
     def _fit(self, original: pd.Series, nan_info: pd.DataFrame):
-        print('re-fit', original.name)
         self._mean = original.mean()
         index = nan_info.index
         original = original.astype('datetime64[ns]')
         original.to_pickle(self._as_date_path)
-        print('original', original.describe(datetime_is_numeric=True))
         original = original.apply(self._datetime_to_number).astype('float32')
-        print('as number', original.describe())
         original.to_pickle(self._data_path)
         nan_info = nan_info.reset_index(drop=True)
         nan_info.loc[:, 'original'] = nan_info['original'].astype('datetime64[ns]')\
             .apply(self._datetime_to_number).astype('float32')
         nan_info = nan_info.astype({'original': 'float32'})
-        print('after nan', nan_info['original'].describe())
         if original.std() < 10:
             raise ValueError('wrong!!!', original.std())
         nan_info.index = index
@@ -90,31 +85,15 @@ class DatetimeTransformer(NumericalTransformer):
             nan_info['original'] = nan_info['original'].astype('float32')
         nan_info.index = index
         transformed = super()._transform(nan_info)
-        if 'check_in' in self._temp_cache:
-            print('checkin', self._temp_cache, flush=True)
-        if hasattr(self, '_mean'):
-            print('call transform', transformed.describe())
         return transformed
 
     def _inverse_transform(self, data: pd.DataFrame) -> pd.Series:
-        if hasattr(self, '_mean'):
-            print('raw normalized??', data.describe())
         numerical_result = super()._inverse_transform(data)
-        if hasattr(self, '_mean'):
-            print('numerical', numerical_result.describe())
         datetime_result = numerical_result.apply(self._number_to_datetime)
-        if hasattr(self, '_mean'):
-            print('datetime result', hasattr(self, '_mean'), self._temp_cache, datetime_result.describe(datetime_is_numeric=True))
         formatted = datetime_result.apply(lambda x: x if pd.isnull(x) else x.strftime(self._format))
         formatted = formatted.astype('datetime64[ns]')
-        if hasattr(self, '_mean'):
-            print('has attr?', formatted.describe(datetime_is_numeric=True))
         original = pd.read_pickle(self._as_date_path)
-        if hasattr(self, '_mean'):
-            print('original description', original.describe(datetime_is_numeric=True))
         original = original.apply(self._datetime_to_number).astype('float32')
-        if hasattr(self, '_mean'):
-            print(original.describe())
         return formatted
 
 

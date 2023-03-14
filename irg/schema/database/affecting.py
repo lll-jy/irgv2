@@ -118,10 +118,8 @@ class AffectingDatabase(Database):
         return 'affecting'
 
     def augment(self):
-        print('I have series', self._series, flush=True)
         for name, path in self.tables():
             table, _ = self._load_table(name)
-            print('loaded table ', name, type(table), flush=True)
             self._augment_table(name, table)
             table.save(path)
 

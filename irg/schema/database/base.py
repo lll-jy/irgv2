@@ -181,7 +181,6 @@ class Database:
             data = pd.read_csv(path) if fm == 'csv' else pd.read_pickle(path)
         id_cols, attributes = meta['id_cols'], meta['attributes']
         determinants, formulas = meta['determinants'], meta['formulas']
-        print('cache', self._temp_cache)
         if ttype == 'series':
             table = SeriesTable(
                 name=name, series_id=meta['series_id'], base_cols=meta.get('base_columns'), need_fit=True,
@@ -316,7 +315,6 @@ class Database:
 
     def _load_table(self, name: str) -> (Table, str):
         path = self._table_paths[name]
-        print('load!!!!', name, self.is_series(name), flush=True)
         if self.is_series(name):
             table = SeriesTable.load(path)
         else:

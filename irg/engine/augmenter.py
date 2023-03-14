@@ -33,7 +33,6 @@ def augment(schema: Optional[OrderedDict] = None, file_path: Optional[str] = Non
             schema = load_from(file_path)
         for table_name in schema:
             if not os.path.exists(os.path.join(save_db_to, f'{table_name}.pkl')):
-                print('hello?', os.path.join(save_db_to, f'{table_name}.pkl'))
                 table = database.create_table(table_name, schema[table_name])
                 table.save(os.path.join(save_db_to, f'{table_name}.pkl'))
             else:

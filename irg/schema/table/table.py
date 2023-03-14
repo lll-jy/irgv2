@@ -508,7 +508,6 @@ class Table:
         - `force_redo` (`bool`): Whether to re-fit the table if the table is already fitted. Default is `False`.
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
-        print('call fit', self.name)
         self._length = len(data)
         if (self._fitted and not force_redo) or not self._need_fit:
             _LOGGER.info(f'Table {self._name} is already fitted. Duplicated fitting is skipped.')
@@ -967,8 +966,6 @@ class SyntheticTable(Table):
 
         for col, formula in self._formulas:
             recovered_df[col] = recovered_df.apply(eval(formula), axis=1)
-
-        print('here so I have to replace', self.name, flush=True)
 
         recovered_df = recovered_df[[*self._attributes]]
         if replace_content:

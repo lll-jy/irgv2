@@ -56,7 +56,6 @@ def train(database: Database, do_train: bool,
 
     tabular_models, deg_models = {}, {}
     for name, table in database.tables():
-        print('!!!db', name, database.is_series(name))
         if not database.is_series(name):
             table = Table.load(table)
             if table.ttype == 'base':
@@ -68,11 +67,8 @@ def train(database: Database, do_train: bool,
                                                     tab_trainer_args[name], tab_train_args[name], name)
                 _LOGGER.debug(f'Loaded tabular model for {name}.')
         else:
-            print('go series', flush=True)
             table = SeriesTable.load(table)
-            print('loaded', flush=True)
             known, unknown, cat_dims, base_ids, seq_ids = table.sg_data()
-            print('end', flush=True)
             tabular_models[name] = _train_series_model(known, unknown, cat_dims, base_ids, seq_ids, name,
                                                        ser_trainer_args[name], ser_train_args[name])
             _LOGGER.debug(f'Loaded series model for {name}.')
