@@ -44,10 +44,10 @@ def generate(real_db: Database, tab_models: Dict[str, TabularTrainer], deg_model
     os.makedirs(save_db_to, exist_ok=True)
 
     for name, table in real_db.tables():
-        if real_db.is_series(name):
-            table_class = Table
+        if not real_db.is_series(name):
+            table_class = Table.__class__
         else:
-            table_class = SeriesTable
+            table_class = SeriesTable.__class__
         table = table_class.load(table)
         table_temp_cache = os.path.join(temp_cache, name)
         if os.path.exists(os.path.join(save_db_to, f'{name}.pkl')):
