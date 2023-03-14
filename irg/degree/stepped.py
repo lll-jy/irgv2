@@ -294,6 +294,8 @@ class DegreeSteppedTrainer(DegreeTrainer):
                 axis=1)
 
         data.save_degree_known(known_so_far)
+        print('degree known so far??', known_so_far.mean(), flush=True)
+        print(data._degree_path(), data._augmented_path())
         data.assign_degrees(pred_deg)
         known_tab, _, _ = data.ptg_data()
         augmented = data.data('augmented')

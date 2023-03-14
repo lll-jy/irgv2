@@ -118,10 +118,10 @@ class AffectingDatabase(Database):
         return 'affecting'
 
     def augment(self):
-        print('so I augment')
+        print('I have series', self._series, flush=True)
         for name, path in self.tables():
             table, _ = self._load_table(name)
-            print(name, table.is_independent())
+            print('loaded table ', name, type(table), flush=True)
             self._augment_table(name, table)
             table.save(path)
 
@@ -129,7 +129,6 @@ class AffectingDatabase(Database):
         table = super().create_table(name, meta)
         self._augment_table(name, table)
         table.save(self._table_paths[name])
-        print('fk', name, table.is_independent(), flush=True)
         return table
 
     def _augment_table(self, name: str, table: Table, row_range: (int, int) = (0, np.inf), aug: bool = True) -> int:
@@ -144,10 +143,10 @@ class AffectingDatabase(Database):
         deg_cols = []
         deg_empty = pd.DataFrame()
         for fk in foreign_keys:
-            new_df = self[fk.parent].data()[[col for _, col in fk.ref]] \
-                .rename(columns={pc: mc for mc, pc in fk.ref})
-            deg_cols += [*new_df.columns]
-            if aug:
+            if aug and all(table.attr_for_deg(c) for _, c in fk.left):
+                new_df = self[fk.parent].data()[[col for _, col in fk.ref]] \
+                    .rename(columns={pc: mc for mc, pc in fk.ref})
+                deg_cols += [*new_df.columns]
                 if deg_empty.empty:
                     deg_empty = new_df
                 else:
@@ -160,7 +159,7 @@ class AffectingDatabase(Database):
             deg_empty = pd.concat({name: deg_empty}, axis=1)
             degree = pd.concat([degree, deg_empty])
 
-        id_cols, attributes, fk_cols, fk_attr = set(), {}, set(), {}
+        id_cols, aug_attributes, deg_attributes, fk_cols, fk_attr = set(), {}, {}, set(), {}
         for i, foreign_key in enumerate(foreign_keys):
             parent_name = foreign_key.parent
             self._descendants[parent_name].append(foreign_key)
@@ -171,10 +170,12 @@ class AffectingDatabase(Database):
             left = foreign_key.left
             right = [(prefix, col) for _, col in foreign_key.right]
             augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
-            degree = degree.merge(data, how='left', left_on=left, right_on=right)
+            if all(table.attr_for_deg(c) for _, c in foreign_key.left):
+                degree = degree.merge(data, how='left', left_on=left, right_on=right)
+                deg_attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
 
             id_cols |= {(prefix, col) for col in new_ids}
-            attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
+            aug_attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
             fk_cols |= {col for _, col in foreign_key.left}
             fk_attr |= {l_col: new_attr[r_col] for l_col, r_col in foreign_key.ref}
 
@@ -198,7 +199,7 @@ class AffectingDatabase(Database):
             augmented=augmented,
             degree=degree.drop(columns=degree_to_drop),
             augmented_ids=aug_id_cols | id_cols, degree_ids=deg_id_cols | id_cols,
-            augmented_attributes=aug_attr | attributes, degree_attributes=deg_attr | attributes
+            augmented_attributes=aug_attr | aug_attributes, degree_attributes=deg_attr | deg_attributes
         )
         return r - l
 

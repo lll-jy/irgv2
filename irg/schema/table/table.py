@@ -408,6 +408,22 @@ class Table:
         """Set if columns that are ID."""
         return self._id_cols
 
+    def _calculate_degrees(self, augmented: pd.DataFrame, degree: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+        groupby_cols = [(self._name, col) for col in self._known_cols]
+        augmented[('', 'degree')] = 0
+        transformed = augmented.groupby(groupby_cols, dropna=False, as_index=False).count()
+        assert set(groupby_cols) <= set(augmented.columns.tolist())
+        assert set(groupby_cols) <= set(transformed.columns.tolist())
+        deg_deg = degree.merge(transformed, on=groupby_cols, how='left')[('', 'degree')]
+        augmented = augmented.drop(columns=[('', 'degree')])
+        assert len(deg_deg) == len(degree), f'{len(deg_deg)} {len(degree)}'
+        degree[('', 'degree')] = deg_deg
+        degree.loc[:, ('', 'degree')] = degree['', 'degree'].fillna(0)
+        return augmented, degree
+
+    def attr_for_deg(self, attr_name: str) -> bool:
+        return attr_name in self._known_cols
+
     def augment(self, augmented: pd.DataFrame, degree: pd.DataFrame,
                 augmented_ids: Set[TwoLevelName], degree_ids: Set[TwoLevelName],
                 augmented_attributes: Dict[TwoLevelName, BaseAttribute],
@@ -432,17 +448,7 @@ class Table:
             self._augment_fitted = True
             return
         if len(self._known_cols) > 0 and augmented_attributes:
-            groupby_cols = [(self._name, col) for col in self._known_cols]
-            augmented[('', 'degree')] = 0
-            transformed = augmented.groupby(groupby_cols, dropna=False, as_index=False).count()#.transform('count')
-            assert set(groupby_cols) <= set(augmented.columns.tolist())
-            assert set(groupby_cols) <= set(transformed.columns.tolist())
-            deg_deg = degree.merge(transformed, on=groupby_cols, how='left')[('', 'degree')]
-            augmented = augmented.drop(columns=[('', 'degree')])
-            assert len(deg_deg) == len(degree), f'{len(deg_deg)} {len(degree)}'
-            degree[('', 'degree')] = deg_deg
-            if ('', 'degree') in degree:
-                degree.loc[:, ('', 'degree')] = degree['', 'degree'].fillna(0)
+            augmented, degree = self._calculate_degrees(augmented, degree)
 
         augmented.to_pickle(self._augmented_path())
         degree.to_pickle(self._degree_path())
@@ -812,7 +818,7 @@ class Table:
         """
         with open(path, 'rb') as f:
             loaded = pickle.load(f)
-            loaded.__class__ = cls
+            loaded.__class__ = Table
         return loaded
 
     def __len__(self):
@@ -834,7 +840,7 @@ class SyntheticTable(Table):
         return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
 
     def _degree_attr_path(self) -> str:
-        return os.path.join(self._real_cache, 'deg_attr.pkl')
+        return os.path.join(self._real_cache, 'deg_attr')
 
     @classmethod
     def from_real(cls, table: Table, temp_cache: Optional[str] = None) -> "SyntheticTable":

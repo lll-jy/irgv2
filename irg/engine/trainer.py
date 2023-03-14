@@ -56,6 +56,7 @@ def train(database: Database, do_train: bool,
 
     tabular_models, deg_models = {}, {}
     for name, table in database.tables():
+        print('!!!db', name, database.is_series(name))
         if not database.is_series(name):
             table = Table.load(table)
             if table.ttype == 'base':

@@ -316,6 +316,7 @@ class Database:
 
     def _load_table(self, name: str) -> (Table, str):
         path = self._table_paths[name]
+        print('load!!!!', name, self.is_series(name), flush=True)
         if self.is_series(name):
             table = SeriesTable.load(path)
         else:

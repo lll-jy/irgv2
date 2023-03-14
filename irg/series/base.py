@@ -33,6 +33,7 @@ class SeriesTrainer(TabularTrainer, ABC):
     def __init__(self, base_ids: Tuple[List[int], List[int]], seq_ids: Tuple[List[int], List[int]], **kwargs):
         self._base_ids = base_ids
         self._seq_ids = seq_ids
+        self._max_len = 0
         super().__init__(**kwargs)
 
     @classmethod
@@ -41,8 +42,8 @@ class SeriesTrainer(TabularTrainer, ABC):
                      lae: nn.Module, optimizer_lae: Optimizer, lr_schd_lae: LRScheduler,
                      grad_scaler_lae: Optional[GradScaler], corr_mat: Optional[Tensor],
                      corr_mask: Optional[Tensor], mean: Optional[Tensor],
-                     base_ids: Tuple[List[int], List[int]], seq_ids: Tuple[List[int], List[int]], **kwargs) ->\
-            "SeriesTrainer":
+                     base_ids: Tuple[List[int], List[int]], seq_ids: Tuple[List[int], List[int]], max_len: int,
+                     **kwargs) -> "SeriesTrainer":
         base = super()._reconstruct(
             distributed, autocast, log_dir, ckpt_dir, descr,
             known_dim, unknown_dim, cat_dims, lae_trained,
@@ -51,12 +52,13 @@ class SeriesTrainer(TabularTrainer, ABC):
         )
         base.__class__ = cls
         base._base_ids, base._seq_ids = base_ids, seq_ids
+        base._max_len = max_len
         return base
 
     def __reduce__(self):
         _, var = super().__reduce__()
         return self._reconstruct, var + (
-            self._base_ids, self._seq_ids
+            self._base_ids, self._seq_ids, self._max_len
         )
 
     def _make_dataloader(self, known: List[Tensor], unknown: List[Tensor], batch_size: int, shuffle: bool = True) -> \
@@ -87,11 +89,11 @@ class SeriesTrainer(TabularTrainer, ABC):
             placeholder[:unknown.shape[0], :-1] = unknown
             placeholder[:unknown.shape[0], -1] = 1
             all_unknown.append(placeholder)
+        self._max_len = max(max_len, self._max_len)
         return torch.stack(all_known), torch.stack(all_unknown)
 
     def _collate_fn_infer(self, batch: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
         all_known = []
-        max_len = max(len(x) for x, in batch)
         for known, in batch:
-            all_known.append(known.expand(max_len, -1))
+            all_known.append(known.expand(self._max_len, -1))
         return torch.stack(all_known),

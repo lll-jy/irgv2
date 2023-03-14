@@ -313,15 +313,34 @@ class CTGANTrainer(TabularTrainer):
 
     def train(self, known: Tensor, unknown: Tensor, epochs: int = 10, batch_size: int = 100, shuffle: bool = True,
               save_freq: int = 100, resume: bool = True, lae_epochs: int = 10):
+        print(self._descr, 'train all known', known.shape, known.mean())
+
         for i in range(known.shape[1]):
             col = known[:, i]
             known[:, i] = col.nan_to_num(col[~col.isnan()].mean())
         self._construct_sampler(known, unknown)
         _LOGGER.debug(f'Constructed data sampler for {self._descr}.')
-        print('train-------')
-        print(known.mean(dim=0), known.std(dim=0))
-        print(unknown.mean(dim=0), unknown.std(dim=0), flush=True)
         super().train(known, unknown, epochs, batch_size, shuffle, save_freq, resume, lae_epochs)
+
+        if self._descr != 'uci_gym':
+            return
+        all_known = known
+        (epoch, global_step), dataloader = self._prepare_training(known, unknown, batch_size, shuffle, resume)
+        (disc_in_known, disc_in_unknown, disc_in_fakez, disc_in_c, disc_in_perm,
+         gen_in_known, gen_in_unknown, gen_in_fakez, gen_cond, gen_mask) = next(iter(dataloader))
+        print(self._ckpt_dir, flush=True)
+        for known, unknown, fakez, c1, perm in zip(disc_in_known, disc_in_unknown, disc_in_fakez,
+                                                   disc_in_c, disc_in_perm):
+            print('data', known.shape, known.isnan().sum(), known.mean(), flush=True)
+            known = self._make_context(known)
+            fake = self._generator(torch.cat([fakez, c1, known], dim=1))
+            fakeact = self._apply_activate(fake)
+            print('now train', known.mean(), fake.mean())
+            # print(fakeact.mean(dim=1))
+            # print(fakeact.std(dim=1))
+            print('-------')
+            break
+        # self.inference(all_known, 300)
 
     def run_step(self, batch: Tuple[Tensor, ...]) -> Tuple[Dict[str, float], Optional[Tensor]]:
         enable_autocast = torch.cuda.is_available() and self._autocast
@@ -492,6 +511,7 @@ class CTGANTrainer(TabularTrainer):
 
     @torch.no_grad()
     def inference(self, known: Tensor, batch_size: int) -> InferenceOutput:
+        print(self._descr, 'inf all known', known.shape, known.mean())
         dataloader = self._make_infer_dataloader(known, batch_size, False)
         autocast = torch.cuda.is_available() and self._autocast
         if is_main_process():
@@ -515,14 +535,8 @@ class CTGANTrainer(TabularTrainer):
                 fakeact = self._apply_activate(fake)
                 fake_cat = torch.cat([known, condvec, fakeact], dim=1)
 
-                print(self._generator.state_dict())
-                print('gen known', known.mean(dim=0))
-                print('gen fake', fake.mean(dim=0))
-                print('gen fakeact', fakeact.mean(dim=0))
-                print('----')
-                print('gen known', known.std(dim=0))
-                print('gen fake', fake.std(dim=0))
-                print('gen fakeact', fakeact.std(dim=0))
+                print(known.isnan().sum(), known.mean())
+                print(self._descr, 'fake mean??', fake.mean(), flush=True)
                 raise ValueError()
                 fake_cat_full = self._make_full_pac(fake_cat)
                 y_fake = self._discriminator(fake_cat_full)

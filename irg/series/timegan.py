@@ -351,6 +351,10 @@ class TimeGANTrainer(SeriesTrainer):
         dlf = F.binary_cross_entropy_with_logits(y_fake, torch.zeros_like(y_fake))
         dlf_e = F.binary_cross_entropy_with_logits(y_fake_e, torch.zeros_like(y_fake_e))
         d_loss = dlr + dlf + self._gamma * dlf_e
+
+        mean_l, corr_l = self._meta_loss(known, unknown, x_hat)
+        recon_loss = self._calculate_recon_loss(unknown, x_hat, True)
+        (recon_loss + mean_l + corr_l).backward(retain_graph=True)
         if d_loss > 0.15:
             d_loss.backward(retain_graph=True)
             self._opt_d.step()
@@ -360,13 +364,10 @@ class TimeGANTrainer(SeriesTrainer):
         h, x_tilde = self._recover(data)
         g_loss_s, g_loss_u, g_loss_v1, g_loss_v2, g_loss_v = self._joint_step(batch_size, noise, data, unknown)
         e_loss = self._calculate_recon_loss(unknown, x_tilde, True)
-        mean_l, corr_l = self._meta_loss(known, unknown, x_hat)
-        recon_loss = self._calculate_recon_loss(unknown, x_hat, True)
 
         g_loss_s.backward(retain_graph=True)
         g_loss_u.backward(retain_graph=True)
         g_loss_v.backward(retain_graph=True)
-        (recon_loss + mean_l + corr_l).backward(retain_graph=True)
         (e_loss + 0.1 * g_loss_s).backward()
         self._opt_g.step()
         self._opt_s.step()

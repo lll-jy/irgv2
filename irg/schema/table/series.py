@@ -7,8 +7,9 @@ import torch
 from torch import Tensor
 from tqdm import tqdm
 
-from .table import Table, SyntheticTable
+from .table import Table, SyntheticTable, Variant, IdPolicy
 from ...utils.errors import NotFittedError
+from ...utils.misc import Data2D, Data2DName
 from ...utils import SeriesInferenceOutput
 
 
@@ -104,6 +105,38 @@ class SeriesTable(Table):
             print('index!!', data.index, flush=True)
         super().fit(data, force_redo, **kwargs)
 
+    def data(self, variant: Variant = 'original', normalize: bool = False,
+             with_id: IdPolicy = 'this', core_only: bool = False, return_as: Data2DName = 'pandas') -> Data2D:
+        result = super().data(variant, normalize, with_id, core_only, return_as)
+        if variant == 'degree':
+            result = result.reset_index(drop=True)
+            result = result[~result[self._name][self._base_cols].duplicated()]
+        return result
+
+    def attr_for_deg(self, attr_name: str) -> bool:
+        print('which is series?', self._name)
+        return attr_name in self._known_cols and attr_name in self._base_cols
+
+    def load(cls, path: str) -> "SeriesTable":
+        with open(path, 'rb') as f:
+            loaded = pickle.load(f)
+            loaded.__class__ = SeriesTable
+        return loaded
+
+    def _calculate_degrees(self, augmented: pd.DataFrame, degree: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+        groupby_cols = [(self._name, col) for col in self._known_cols if col in self._base_cols]
+        static_only = augmented[self._base_cols].drop_duplicates().reset_index(drop=True)
+        static_only[('', 'degree')] = 0
+        transformed = static_only.groupby(groupby_cols, dropna=False, as_index=False).count()
+        assert set(groupby_cols) <= set(static_only.columns.tolist())
+        assert set(groupby_cols) <= set(transformed.columns.tolist())
+        deg_deg = degree.merge(transformed, on=groupby_cols, how='left')[('', 'degree')]
+        assert len(deg_deg) == len(degree), f'{len(deg_deg)} {len(degree)}'
+        degree[('', 'degree')] = deg_deg
+        degree.loc[:, ('', 'degree')] = degree['', 'degree'].fillna(0)
+        return augmented, degree
+
+
     def sg_data(self) -> Tuple[List[Tensor], List[Tensor], List[Tuple[int, int]],
                                Tuple[List[int], List[int]], Tuple[List[int], List[int]]]:
         known, unknown, cat_dims = self.ptg_data()
@@ -179,8 +212,8 @@ class SyntheticSeriesTable(SeriesTable, SyntheticTable):
         target._index_groups = src._index_groups
         return target
 
-    def inverse_transform(self, normalized_core: Union[Tensor, SeriesInferenceOutput], replace_content: bool = True) -> \
-            pd.DataFrame:
+    def inverse_transform(self, normalized_core: Union[Tensor, SeriesInferenceOutput], replace_content: bool = True) \
+            -> pd.DataFrame:
         if not self._fitted:
             raise NotFittedError('Table', 'inversely transforming predicted synthetic data')
         if isinstance(normalized_core, SeriesInferenceOutput):
