@@ -168,7 +168,6 @@ class Database:
         self._table_columns[name] = self._load_table(name)[0].columns
 
     def create_table(self, name: str, meta: Dict[str, Any]) -> Table:
-        self._temp_cache = '/Volumes/Expansion/IRGAN/.temp.nosync/real_db'
         validate(meta, self._TABLE_CONF)
         meta = defaultdict(lambda: None, meta)
         ttype = meta['ttype'] if 'ttype' in meta else 'normal'
@@ -551,6 +550,7 @@ class SyntheticDatabase(Database, ABC):
         syn_db = cls(real=real_db, schema={}, temp_cache=temp_cache)
         syn_db._primary_keys, syn_db._foreign_keys = real_db._primary_keys, real_db._foreign_keys
         syn_db._data_dir = save_to
+        syn_db._series = real_db._series
         os.makedirs(save_to, exist_ok=True)
         return syn_db
 
@@ -571,6 +571,8 @@ class SyntheticDatabase(Database, ABC):
         file_path = os.path.join(self._temp_cache, f'{key}.pkl')
         value.save(file_path)
         self._table_paths[key] = file_path
+        if self.is_series(key):
+            pass
 
     def save_synthetic_data(self, file_format: str = 'csv'):
         """
@@ -603,4 +605,13 @@ class SyntheticDatabase(Database, ABC):
         return True
 
     def real_table(self, table_name: str) -> Table:
+        """
+        Get the real table this synthetic table correpond to.
+
+        **Args**:
+
+        - `table_name` (`str`): Name of the table.
+
+        **Return**: The real table.
+        """
         return self._real[table_name]

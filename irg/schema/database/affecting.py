@@ -129,7 +129,8 @@ class AffectingDatabase(Database):
         table.save(self._table_paths[name])
         return table
 
-    def _augment_table(self, name: str, table: Table, row_range: (int, int) = (0, np.inf), aug: bool = True) -> int:
+    def _augment_table(self, name: str, table: Table, row_range: (int, int) = (0, np.inf), aug: bool = True) \
+            -> (int, Dict[str, PCA]):
         augmented = pd.concat({name: table.data()}, axis=1)
         l, r = row_range
         if r == np.inf:
@@ -167,13 +168,27 @@ class AffectingDatabase(Database):
             data = pd.concat({prefix: data}, axis=1)
             left = foreign_key.left
             right = [(prefix, col) for _, col in foreign_key.right]
-            augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
             if all(table.attr_for_deg(c) for _, c in foreign_key.left):
                 degree = degree.merge(data, how='left', left_on=left, right_on=right)
                 deg_attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
+            else:
+                data, path = table.encode_context(prefix, data[prefix], new_attr, new_ids)
+                id_attr = {k: v for k, v in new_attr.items() if c in new_ids}
+                new_attr = {
+                    c: RawAttribute(c, data[c], os.path.join(path, f'dim{c[4:]}'))
+                    for c in data.columns if c.startswith(':pca')
+                }
+                new_attr.update(id_attr)
+                data = pd.concat({
+                    name: data[prefix].rename({
+                        c: f'{prefix}:{c}' for c in data[prefix].columns if c.startswith(':pca')
+                    }),
+                    prefix: data[prefix][[c for c in data[prefix].columns if c in new_ids]]
+                })
+            augmented = augmented.merge(data, how='left', left_on=left, right_on=right)
+            aug_attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
 
             id_cols |= {(prefix, col) for col in new_ids}
-            aug_attributes |= {(prefix, name): attr for name, attr in new_attr.items()}
             fk_cols |= {col for _, col in foreign_key.left}
             fk_attr |= {l_col: new_attr[r_col] for l_col, r_col in foreign_key.ref}
 
@@ -199,7 +214,7 @@ class AffectingDatabase(Database):
             augmented_ids=aug_id_cols | id_cols, degree_ids=deg_id_cols | id_cols,
             augmented_attributes=aug_attr | aug_attributes, degree_attributes=deg_attr | deg_attributes
         )
-        return r - l
+        return r - l, {}
 
     def update_columns(self, name: str):
         super().update_columns(name)
@@ -349,7 +364,7 @@ class SyntheticAffectingDatabase(AffectingDatabase, SyntheticDatabase):
         table.replace_data(df, False)
 
         base = (self._used[table_name] - 1) * 100000
-        size = self._augment_table(table_name, table, (base, base+100000), False)
+        size, _ = self._augment_table(table_name, table, (base, base+100000), False)
         deg, _, _ = table.deg_data()
         real_size = len(self._real[table_name].data())
         self[table_name] = table

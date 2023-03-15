@@ -1,5 +1,6 @@
 """Series tabular table data structure that holds data and metadata of tables in a database."""
 import os
+import pickle
 from typing import Collection, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -61,7 +62,12 @@ class SeriesTable(Table):
         if need_fit and kwargs.get('data') is not None:
             self.fit(kwargs.get('data'), **{k: v for k, v in kwargs.items() if k != 'data'})
 
+    def _processed_path(self) -> str:
+        return os.path.join(self._temp_cache, 'grouped.pkl')
+
     def _preprocess_data(self, data: pd.DataFrame) -> pd.DataFrame:
+        if os.path.exists(self._processed_path()):
+            return pd.read_pickle(self._processed_path())
         new_data = []
         acc = 0
         assert not ({'.series_degree', '.series_increase', '.group_id', '.series_base'} & set(data.columns))
@@ -82,9 +88,11 @@ class SeriesTable(Table):
             acc += len(group)
         data = pd.concat(new_data)
         data = data.set_index('.group_id')
+        data.to_pickle(self._processed_path())
         return data
 
     def replace_data(self, new_data: pd.DataFrame, replace_attr: bool = True):
+        print('called from replace', flush=True)
         new_data = self._preprocess_data(new_data)
         super().replace_data(new_data, replace_attr)
 
@@ -93,7 +101,7 @@ class SeriesTable(Table):
         do_group = True
         if os.path.exists(self._data_path()):
             loaded_data = pd.read_pickle(self._data_path())
-            print('!!! exists', self._data_path(), os.stat(self._data_path()).st_mtime,
+            print('!!! exists', self._data_path(), '\n',
                   [*data.columns], flush=True)
             if {'.series_degree', '.series_increase', '.series_base'} <= set(data.columns):
                 do_group = False
@@ -117,6 +125,7 @@ class SeriesTable(Table):
         print('which is series?', self._name)
         return attr_name in self._known_cols and attr_name in self._base_cols
 
+    @classmethod
     def load(cls, path: str) -> "SeriesTable":
         with open(path, 'rb') as f:
             loaded = pickle.load(f)
@@ -164,23 +173,6 @@ class SeriesTable(Table):
         for group in self._index_groups:
             all_known.append(known[group].mean(dim=0).float())
             all_unknown.append(unknown[group].float())
-        # max_len = round(pd.Series([len(x) for x in self._index_groups]).quantile(q=0.95))
-        # max_len = max(len(x) for x in self._index_groups)
-        # print('done start', len(self._index_groups), max_len, flush=True)
-        # for group in self._index_groups:
-        #     known_row = known[group].mean(dim=0)
-        #     known_group = known_row.expand(max_len, -1)
-        #     all_known.append(known_group)
-        #     length = min(len(group), max_len)
-        #
-        #     placeholder = torch.zeros(max_len, unknown.shape[-1], device=unknown.device, dtype=torch.float32)
-        #     placeholder[:len(group)] = unknown[group]
-        #     placeholder[:len(group), -1] = 1
-        #     all_unknown.append(placeholder)
-        # print('done grouping', flush=True)
-        # all_known = torch.stack(all_known)
-        # all_unknown = torch.stack(all_unknown)
-        # print('stacked--', flush=True)
         return all_known, all_unknown, cat_dims, (base_known_ids, base_unknown_ids), (seq_known_ids, seq_unknown_ids)
 
 
@@ -193,7 +185,7 @@ class SyntheticSeriesTable(SeriesTable, SyntheticTable):
         return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
 
     def _degree_attr_path(self) -> str:
-        return os.path.join(self._real_cache, 'deg_attr.pkl')
+        return os.path.join(self._real_cache, 'deg_attr')
 
     @classmethod
     def from_real(cls, table: SeriesTable, temp_cache: Optional[str] = None) -> "SyntheticSeriesTable":

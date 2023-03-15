@@ -14,6 +14,7 @@ import torch
 from torch import Tensor
 import pandas as pd
 import numpy as np
+from sklearn.decomposition import PCA
 from tqdm import tqdm
 from DataSynthesizer.DataDescriber import DataDescriber
 from DataSynthesizer.DataGenerator import DataGenerator
@@ -73,6 +74,7 @@ class Table:
         - `temp_cache` (`str`): Directory path to save cached temporary files. Default is `.temp`.
         - `kwargs`: Other arguments for `DataSynthesizer.DataDescriber` constructor.
         """
+        print('call init')
         self._name, self._ttype, self._need_fit, self._fitted = name, ttype, need_fit, False
         self._determinants = [] if determinants is None else determinants
         self._formulas = {} if formulas is None else formulas
@@ -85,6 +87,7 @@ class Table:
         os.makedirs(os.path.join(self._temp_cache, 'norm_aug'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'norm_deg'), exist_ok=True)
         os.makedirs(os.path.join(self._temp_cache, 'attributes'), exist_ok=True)
+        os.makedirs(os.path.join(self._temp_cache, 'context_pca'), exist_ok=True)
 
         if attributes is None:
             if data is None:
@@ -119,10 +122,51 @@ class Table:
         self._augmented_ids: Set[TwoLevelName] = set()
         self._degree_ids: Set[TwoLevelName] = set()
 
+        self._context_pca: Dict[str, PCA] = {}
+
     @property
     def ttype(self) -> str:
         """Table type."""
         return self._ttype
+
+    def encode_context(self, fk_prefix: str, data: pd.DataFrame, attributes: Dict[str, BaseAttribute], ids: Set[str]) \
+            -> (pd.DataFrame, str):
+        """
+        Encode context by PCA.
+
+        **Args**:
+
+        - `fk_prefix` (`str`): Foreign key prefix, by "fk{INDEX}:{PARENT_NAME}".
+        - `data` (`pd.DataFrame`): Original data for the context.
+        - `attributes` (`Dict[str, BaseAttribute]`): Attributes from this context.
+        - `ids` (`Set[str]`): ID attributes from the context.
+
+        **Return**:
+
+        - Encoded context. Internally a PCA is fitted on first-time calling with this prefix.
+        - Cache path for this context.
+        """
+        transformed = {
+            c: attributes[c].transform(data[c])
+            for c in data.columns if c not in ids
+        }
+        transformed = pd.concat(transformed, axis=1)
+        if fk_prefix in self._context_pca:
+            encoded = self._context_pca[fk_prefix].transform(transformed)
+        else:
+            pca = PCA(n_components=min(10, len(transformed.columns)))
+            encoded = pca.fit_transform(transformed)
+            self._context_pca[fk_prefix] = pca
+        encoded = pd.DataFrame(encoded, columns=[f':pca{i}' for i in range(encoded.shape[-1])])
+        for c in data.columns:
+            if c in ids:
+                encoded[c] = data[c]
+        return pd.concat({prefix: data}, axis=1), self._context_path(fk_prefix)
+
+    def _context_path(self, prefix: str) -> str:
+        path = os.path.join(self._temp_cache, 'context_pca', prefix)
+        os.makedirs(path, exist_ok=True)
+        return path
 
     def shallow_copy(self) -> "Table":
         """
@@ -140,7 +184,7 @@ class Table:
             '_known_cols', '_unknown_cols', '_augment_fitted',
             '_augmented_attributes', '_degree_attributes',
             '_aug_norm_by_attr_files', '_deg_norm_by_attr_files',
-            '_augmented_ids', '_degree_ids'
+            '_augmented_ids', '_degree_ids', '_context_pca'
         ]
         for attr in attr_to_copy:
             setattr(copied, attr, getattr(self, attr))
@@ -538,7 +582,8 @@ class Table:
 
     def _fit_attribute(self, name: str, attr: BaseAttribute, data: pd.DataFrame, force_redo: bool) -> int:
         attr.fit(data[name], force_redo=force_redo)
-        self._save_to_pickle(attr.get_original_transformed(), lambda i: self._normalized_path(name, i))
+        if not os.path.exists(self._normalized_path(name)):
+            self._save_to_pickle(attr.get_original_transformed(), lambda i: self._normalized_path(name, i))
         return 0
 
     def _fit_determinant_helper(self, i: int, det: List[str], data: pd.DataFrame, **kwargs) -> int:
@@ -593,6 +638,8 @@ class Table:
             n: attr.transform(data[n], return_as)
             for n, attr in self._attributes.items() if n not in exclude_cols
         }, axis=1)
+        print('transform result', self.name)
+        print(data.columns.tolist(), flush=True)
         return convert_data_as(data, return_as)
 
     @staticmethod
@@ -625,6 +672,7 @@ class Table:
         if with_id not in {'this', 'none', 'inherit'}:
             raise NotImplementedError(f'With id policy "{with_id}" is not recognized.')
         if self._length is None:
+            print('hello?', self._length, self._fitted, self._name, self._temp_cache, flush=True)
             raise NotFittedError(f'Table {self._name}', 'getting its data')
         if variant == 'original':
             data = pd.read_pickle(self._data_path())
@@ -840,7 +888,7 @@ class SyntheticTable(Table):
         return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
 
     def _degree_attr_path(self) -> str:
-        return os.path.join(self._real_cache, 'deg_attr.pkl')
+        return os.path.join(self._real_cache, 'deg_attr')
 
     @classmethod
     def from_real(cls, table: Table, temp_cache: Optional[str] = None) -> "SyntheticTable":
@@ -890,8 +938,12 @@ class SyntheticTable(Table):
         }
         normalized_core = inverse_convert_data(normalized_core, pd.concat({
             n: pd.DataFrame(columns=v) for n, v in columns.items()
-            if n in self._core_cols and n not in self._known_cols
-        }, axis=1).columns)
+            if (n in self._core_cols and n not in self._known_cols) or ':pca' in n
+        }, axis=1).columns.tolist() + [
+            f'{fk_prefix}:pca{i}'
+            for fk_prefix, pca in self._context_pca.items()
+            for i in range(pca.n_components)
+        ])
         if not self.is_independent():
             augmented_df = pd.read_pickle(self._augmented_path())
         else:
@@ -1067,3 +1119,6 @@ class SyntheticTable(Table):
         augmented_df = data.merge(dropped_aug, how='left')
         degree_df.to_pickle(self._degree_path())
         augmented_df.to_pickle(self._augmented_path())
+
+    def _context_path(self, prefix: str) -> str:
+        return os.path.join(self._real_cache, 'context_pca', prefix)
