@@ -671,10 +671,11 @@ class Table:
         if not normalize:
             data = data[[col for col in data.columns if col not in exclude_cols]]
         else:
-            to_concat = {
-                n: self._read_data_pickle(path_getter(n)) for n
-                in normalized_by_attr if n not in exclude_cols
-            }
+            to_concat = {}
+            for n in normalized_by_attr:
+                if n in exclude_cols:
+                    continue
+                to_concat[n] = self._read_data_pickle(path_getter(n))
             data = pd.concat(to_concat, axis=1) if to_concat else pd.DataFrame()
         return data
 
@@ -839,7 +840,7 @@ class SyntheticTable(Table):
         return os.path.join(self._real_cache, 'describers', f'describer{idx}.json')
 
     def _degree_attr_path(self) -> str:
-        return os.path.join(self._real_cache, 'deg_attr')
+        return os.path.join(self._real_cache, 'deg_attr.pkl')
 
     @classmethod
     def from_real(cls, table: Table, temp_cache: Optional[str] = None) -> "SyntheticTable":

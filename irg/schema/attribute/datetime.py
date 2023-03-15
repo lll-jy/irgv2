@@ -29,7 +29,7 @@ class DatetimeTransformer(NumericalTransformer):
     def _datetime_to_number(self, dt: Optional[datetime]) -> float:
         if pd.isnull(dt) or dt is None:
             return np.nan
-        if hasattr(self, '_mean'):
+        if hasattr(self, '_mean') and self._mean is not None:
             return (dt - self._mean).total_seconds()
         else:
             return dt.toordinal()
@@ -37,7 +37,7 @@ class DatetimeTransformer(NumericalTransformer):
     def _number_to_datetime(self, number: Optional[float]) -> datetime:
         if pd.isnull(number) or number is None:
             return np.nan
-        if hasattr(self, '_mean'):
+        if hasattr(self, '_mean') and self._mean is not None:
             return self._mean + timedelta(seconds=number)
         else:
             return datetime.fromordinal(int(number))
@@ -74,6 +74,10 @@ class DatetimeTransformer(NumericalTransformer):
         super()._fit(original, nan_info)
 
     def _transform(self, nan_info: pd.DataFrame) -> pd.DataFrame:
+        cache = self._temp_cache
+        while '/' in cache:
+            cache = cache[cache.index('/')+1:]
+
         index = nan_info.index
         nan_info = nan_info.reset_index(drop=False)
         if len(nan_info) > 0:

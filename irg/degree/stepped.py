@@ -257,6 +257,7 @@ class DegreeSteppedTrainer(DegreeTrainer):
             self._foreign_keys[0].parent, self._name, with_id='this', normalized=False)
         known_so_far = pd.concat({f'fk0:{self._foreign_keys[0].parent}': known_so_far}, axis=1)
         for i, fk in enumerate(self._foreign_keys):
+            means = current_context.mean()
             assert len(current_context) == len(known_so_far)
             fkcomb_degrees = self._infer_pred_model(current_context, i)
             factor = scaling[fk.parent]
@@ -272,7 +273,6 @@ class DegreeSteppedTrainer(DegreeTrainer):
                 real = real * scaling[self._name]
                 pred_deg, _ = self._round_sumrange(pred_deg, real * (1 - tolerance), real * (1 + tolerance),
                                                    till_in_range=True)
-                print('pred deg', pred_deg.describe(), flush=True)
                 break
             
             next_table = context.augmented_till(self._foreign_keys[i+1].parent, self._name, with_id='none')
@@ -293,9 +293,11 @@ class DegreeSteppedTrainer(DegreeTrainer):
                 axis=1)
 
         data.save_degree_known(known_so_far)
-        print('degree known so far??', known_so_far.mean(), flush=True)
-        print(data._degree_path(), data._augmented_path())
+        pd.to_pickle(pred_deg, os.path.join(os.path.join(self._cache_dir, 'pred.pkl')))
         data.assign_degrees(pred_deg)
         known_tab, _, _ = data.ptg_data()
         augmented = data.data('augmented')
         return known_tab, augmented
+
+    def load_result(self) -> pd.Series:
+        return pd.read_pickle(os.path.join(os.path.join(self._cache_dir, 'pred.pkl')))

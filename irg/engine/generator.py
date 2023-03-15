@@ -102,7 +102,6 @@ def _generate_dependent_table(tab_trainer: TabularTrainer, deg_trainer: DegreeTr
 
     known_tab, augmented = deg_trainer.predict(syn_table, syn_db, scaling)
     syn_table.update_augmented(augmented)
-    print('augmented??', augmented.head())
 
     output = tab_trainer.inference(known_tab, tab_batch_size)
     syn_table.inverse_transform(output, replace_content=True)
