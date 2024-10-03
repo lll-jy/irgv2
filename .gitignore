@@ -1,15 +1,1 @@
 .idea
-drafts
-**/__pycache__
-**/*.egg-info
-dist/
-build/
-**.nosync
-**.temp*
-temp*
-**/out/
-hpc/
-scripts.sh
-log.txt
-tflog/
-arc.makefile
