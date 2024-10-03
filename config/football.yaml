@@ -9,6 +9,6 @@ default_args:
   standalone:  # arguments for standalone tabular model
     epochs: 20
     batch_size: 500
+  degree: {}  # arguments for degree model
 table_specific_args:
-  games:
-    synthesize: true
+  appearances:

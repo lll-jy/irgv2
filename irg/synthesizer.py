@@ -63,6 +63,10 @@ class IncrementalRelationalGenerator:
                     train_degrees(
                         deg_context, deg, os.path.join(table_model_dir, f"degree{i}"), **self.model_args[tn]["degree"]
                     )
+
+                    isnull = self.transformer.isna_indicator_prediction_for(tn, i, data_cache_dir)
+                    if isnull is not None:
+                        isna_context, isna = isnull
             else:
                 encoded = self.transformer.standalone_encoded_for(tn, data_cache_dir)
                 train_standalone(encoded, table_model_dir, **self.model_args[tn]["standalone"])
