@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import shutil
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Self, Sequence, Tuple, Union
 
@@ -337,6 +338,8 @@ class RelationalTransformer:
             for fk in config.foreign_keys:
                 self.children[fk.parent_table_name].append(fk)
         self.max_ctx_dim = max_ctx_dim
+        self._fitted_cache_dir = None
+        self._sizes_of = {}
 
     def fit(self, tables: Dict[str, str], cache_dir: str = "./cache"):
         """
@@ -347,6 +350,8 @@ class RelationalTransformer:
         tables : Dict[str, str]
             Tables' names mapped to their paths (csv files).
             Please reserve column names starting with "_" and consisting of "$" for internal processing purpose.
+            Although missing values will not fail this version of code, no N/A will be generated except for N/As in
+            foreign keys, by the naiveness of this version of data transformer.
         cache_dir : str
             The directory for caching the output files. It contains:
 
@@ -354,9 +359,11 @@ class RelationalTransformer:
             - `TABLE_NAME-transformer.pt`: saved transformer.
             - `TABLE_NAME.pt`: Transformed data from the raw values.
         """
+        self._fitted_cache_dir = cache_dir
         os.makedirs(cache_dir, exist_ok=True)
         for tn in self.order:
             table = pd.read_csv(tables[tn])
+            self._sizes_of[tn] = table.shape[0]
             table.to_csv(os.path.join(cache_dir, f"{tn}.csv"), index=False)
             transformer = self.transformers[tn]
             transformer.fit(table)
@@ -476,7 +483,8 @@ class RelationalTransformer:
                 f"columns={qfk.child_column_names}" for qfk in queue
             ])
             pca_name = f"{table}_{len(allowed_tables)}_{hashlib.sha1(queue_str.encode()).hexdigest()}"
-            pca_path = os.path.join(cache_dir, f"{pca_name}.pt")
+            os.makedirs(os.path.join(cache_dir, "pca"), exist_ok=True)
+            pca_path = os.path.join(cache_dir, "pca", f"{pca_name}.pt")
             if os.path.exists(pca_path):
                 raise FileExistsError("File for PCA already exists.")
             if fitting:
@@ -487,6 +495,22 @@ class RelationalTransformer:
                 pca = torch.load(pca_path)
                 parent_encoded = pca.transform(parent_encoded)
         return parent_encoded
+
+    def fitted_size_of(self, table_name: str) -> int:
+        """
+        Table size for fitting.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to get size of.
+
+        Returns
+        -------
+        int
+            Number of rows in the table.
+        """
+        return self._sizes_of[table_name]
 
     @classmethod
     def standalone_encoded_for(cls, table_name: str, cache_dir: str = "./cache") -> np.ndarray:
@@ -521,7 +545,7 @@ class RelationalTransformer:
         fk_idx : int
             The foreign key index on the table to extract data from.
         cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `.generate`.
+            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
 
         Returns
         -------
@@ -547,7 +571,7 @@ class RelationalTransformer:
         fk_idx : int
             The foreign key index on the table to extract data from.
         cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `.generate`.
+            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
 
         Returns
         -------
@@ -572,7 +596,7 @@ class RelationalTransformer:
         table_name : str
             The table name to extract data from.
         cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `.generate`.
+            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
 
         Returns
         -------
@@ -595,7 +619,7 @@ class RelationalTransformer:
         table_name : str
             The table name to extract data from.
         cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `.generate`.
+            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
 
         Returns
         -------
@@ -614,3 +638,58 @@ class RelationalTransformer:
             row IDs should follow the row indices in the actual data to be generated.
         """
         return torch.load(os.path.join(cache_dir, f"{table_name}.pt"))["actual"]
+    
+    def prepare_sampled_dir(self, sampled_dir: str):
+        """
+        Prepare directory for sampled data.
+        
+        Parameters
+        ----------
+        sampled_dir : str
+            The directory for sampled data.
+        """
+        if os.path.exists(sampled_dir):
+            shutil.rmtree(sampled_dir)
+        os.makedirs(sampled_dir, exist_ok=True)
+        if os.path.exists(os.path.join(self._fitted_cache_dir, "pca")):
+            shutil.copytree(os.path.join(self._fitted_cache_dir, "pca"), os.path.join(sampled_dir, "pca"))
+
+    @classmethod
+    def save_standalone_encoded_for(cls, table_name: str, encoded: np.ndarray, sampled_dir: str = "./sampled"):
+        """
+        After the standalone encoded data is generated, save the encoded data to disk.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to save.
+        encoded : np.ndarray
+            The encoded data to be saved.
+        sampled_dir : str
+            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
+        """
+        torch.save({"encoded": encoded}, os.path.join(sampled_dir, f"{table_name}.pt"))
+
+    def copy_fitted_for(self, table_name: str, sampled_dir: str = "./sampled"):
+        """
+        Copy real fitting data if the table need not be synthesized.
+
+        Parameters
+        ----------
+        table_name : str
+            The name of the table.
+        sampled_dir : str
+            The directory for sampled results.
+        """
+        shutil.copyfile(os.path.join(self._fitted_cache_dir, f"{table_name}.pt"),
+                        os.path.join(sampled_dir, f"{table_name}.pt"))
+        shutil.copyfile(os.path.join(self._fitted_cache_dir, f"{table_name}.csv"),
+                        os.path.join(sampled_dir, f"{table_name}.csv"))
+
+    def prepare_next_for(self, table_name: str, cache_dir: str = "./cache"):
+        if self.transformers[table_name].config.foreign_keys:
+            pass
+        else:
+            encoded = self.standalone_encoded_for(table_name, cache_dir)
+            recovered = self.transformers[table_name].inverse_transform(encoded)
+            recovered.to_csv(os.path.join(cache_dir, f"{table_name}.csv"), index=False)
