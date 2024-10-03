@@ -15,7 +15,7 @@ def train_standalone(data: np.ndarray, model_dir: str, **kwargs):
     Parameters
     ----------
     data : np.ndarray
-        The transformed data to be generated.
+        The encoded data to be generated.
     model_dir : str
         The directory to save trained models.
     **kwargs 
@@ -31,6 +31,21 @@ def train_standalone(data: np.ndarray, model_dir: str, **kwargs):
 
 @placeholder
 def generate_standalone(n: int, model_dir: str, ) -> np.ndarray:
+    """
+    Generate standalone table.
+
+    Parameters
+    ----------
+    n : int
+        The number of rows to generate.
+    model_dir : str
+        The model directory where trained model is saved.
+
+    Returns
+    -------
+    np.ndarray
+        The generated data before decoding.
+    """
     print("Generating standalone tabular model can be replaced by other models. In original IRG, we use TAEGAN. "
           "Here we use CTGAN.")
     model = CTGAN.load(os.path.join(model_dir, "model.pt"))

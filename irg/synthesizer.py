@@ -1,8 +1,11 @@
 import os
 from typing import Any, Dict, List
 
+import numpy as np
+
 from .schema import RelationalTransformer, TableConfig
 from .standalone import train_standalone, generate_standalone
+from .degree import train_degrees, predict_degrees
 
 
 class IncrementalRelationalGenerator:
@@ -53,8 +56,13 @@ class IncrementalRelationalGenerator:
             table_model_dir = os.path.join(model_cache_dir, tn)
             if not self.model_args[tn].get("synthesize", True):
                 continue
-            if self.transformer.transformers[tn].config.foreign_keys:
-                pass
+            foreign_keys = self.transformer.transformers[tn].config.foreign_keys
+            if foreign_keys:
+                for i, fk in enumerate(foreign_keys):
+                    deg_context, deg = self.transformer.degree_prediction_for(tn, i, data_cache_dir)
+                    train_degrees(
+                        deg_context, deg, os.path.join(table_model_dir, f"degree{i}"), **self.model_args[tn]["degree"]
+                    )
             else:
                 encoded = self.transformer.standalone_encoded_for(tn, data_cache_dir)
                 train_standalone(encoded, table_model_dir, **self.model_args[tn]["standalone"])
@@ -68,7 +76,15 @@ class IncrementalRelationalGenerator:
             if self.model_args[tn].get("synthesize", True):
                 foreign_keys = self.transformer.transformers[tn].config.foreign_keys
                 if foreign_keys:
-                    pass
+                    for i, fk in enumerate(foreign_keys):
+                        deg_context, _ = self.transformer.degree_prediction_for(tn, i, out_dir)
+                        degrees = predict_degrees(
+                            deg_context, os.path.join(table_model_dir, f"degree{i}"),
+                            expected_sum=table_sizes[tn], tolerance=0 if i > 1 else 0.9,
+                            min_val=1 if fk.total_participate else 0,
+                            max_val=1 if fk.unique else np.inf
+                        )
+                        self.transformer.save_degree_for(tn, i, degrees, out_dir)
                 else:
                     encoded = generate_standalone(table_sizes[tn], table_model_dir)
                     self.transformer.save_standalone_encoded_for(tn, encoded, out_dir)

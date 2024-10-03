@@ -670,6 +670,27 @@ class RelationalTransformer:
         """
         torch.save({"encoded": encoded}, os.path.join(sampled_dir, f"{table_name}.pt"))
 
+    @classmethod
+    def save_degree_for(cls, table_name: str, fk_idx: int, degree: np.ndarray, sampled_dir: str = "./sampled"):
+        """
+        After the degree data is generated, save the degree data to disk.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to save.
+        fk_idx : int
+            The index of foreign key to save for this degree.
+        degree : np.ndarray
+            The degree values to save.
+        sampled_dir : str
+            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
+        """
+        loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
+        x, _ = loaded["foreign_keys"][fk_idx]["degree"]
+        loaded["foreign_keys"][fk_idx]["degree"] = x, degree
+        torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
+
     def copy_fitted_for(self, table_name: str, sampled_dir: str = "./sampled"):
         """
         Copy real fitting data if the table need not be synthesized.
