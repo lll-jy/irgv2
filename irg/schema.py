@@ -341,6 +341,8 @@ class RelationalTransformer:
         self._fitted_cache_dir = None
         self._sizes_of = {}
         self._nullable = {}
+        self._parent_dims = {}
+        self._core_dims = {}
 
     def fit(self, tables: Dict[str, str], cache_dir: str = "./cache"):
         """
@@ -424,8 +426,10 @@ class RelationalTransformer:
                 }
             torch.save(out, os.path.join(cache_dir, f"{tn}.pt"))
 
+    @placeholder
     def _extend_till(self, table: str, till: str, keys: Sequence[str], cache_dir: str,
                      fitting: bool = True, queue: List[ForeignKey] = []) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+        print("N/As created by left outer join are actually processed by smarter ways.")
         allowed_tables = self.order[:self.order.index(till)]
         raw = pd.read_csv(os.path.join(cache_dir, f"{table}.csv"))
         _, _, encoded, _ = self.actual_generation_for(table, cache_dir)
@@ -439,7 +443,6 @@ class RelationalTransformer:
                 fk.parent_table_name, till, fk.parent_column_names, cache_dir, fitting, queue + [fk]
             )
             parent_encoded = np.concatenate([parent_context, parent_encoded], axis=1)
-            parent_encoded = self._reduce_dims(parent_encoded, table, fitting, queue, cache_dir, allowed_tables)
             parent_encoded = pd.DataFrame(
                 parent_encoded, columns=[f"_dim{i:02d}" for i in range(parent_encoded.shape[-1])],
                 index=np.arange(parent_encoded.shape[0])
@@ -448,7 +451,7 @@ class RelationalTransformer:
                 p: c for p, c in zip(fk.parent_column_names, fk.child_column_names)
             })
             parent_encoded = pd.concat([parent_idx_df, parent_encoded], axis=1)
-            core = core.merge(parent_encoded, on=fk.child_column_names, how="left", suffixes=("", f"_p{fi}"))
+            core = core.merge(parent_encoded, on=fk.child_column_names, how="left", suffixes=("", f"_p{fi}")).fillna(0)
 
         for fi, fk in enumerate(self.children[table]):
             if fk.child_table_name not in allowed_tables or fk in queue:
@@ -473,12 +476,25 @@ class RelationalTransformer:
             ])
             core = core.merge(
                 sibling_encoded_aggregated, on=fk.parent_column_names, how="left", suffixes=("", f"_c{fi}")
-            )
+            ).fillna(0)
 
         raw_keys = core[keys]
-        context = core.drop(columns=raw.columns.tolist() + core_columns).values
-        encoded = core[core_columns].values
-        return raw_keys, context, encoded
+        context_columns = [c for c in core.columns if c.startswith("_dim") and c.endswith("_p0")]
+        context = core[context_columns]
+        encoded = core.drop(columns=context_columns)
+
+        if fitting and table == till:
+            parent_dims = [None]
+            name_to_id = {
+                c: i for i, c in enumerate(encoded.columns)
+            }
+            for fi in range(1, len(self.transformers[table].config.foreign_keys)):
+                parent_dims.append([
+                    name_to_id[n] for n in encoded.columns if n.endswith(f"_p{fi}") and n.startswith("_dim")
+                ])
+            self._parent_dims[table] = parent_dims
+            self._core_dims[table] = [name_to_id[n] for n in core_columns]
+        return raw_keys, context.values, encoded.values
 
     def _reduce_dims(self, parent_encoded: np.ndarray, table: str, fitting: bool, queue: List[ForeignKey],
                      cache_dir: str, allowed_tables: List[str]) -> np.ndarray:
@@ -643,6 +659,58 @@ class RelationalTransformer:
             row IDs should follow the row indices in the actual data to be generated.
         """
         return torch.load(os.path.join(cache_dir, f"{table_name}.pt"))["actual"]
+
+    @placeholder
+    def fk_matching_for(self, table_name: str, fk_idx: int, sampled_dir: str = "./cache") -> Tuple[
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[Optional[np.ndarray]], List[np.ndarray]
+    ]:
+        """
+        Data for matching. This step applies to the generated data only.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to extract data from.
+        fk_idx : int
+            The foreign key index on the table to extract data from.
+        sampled_dir : str
+            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
+
+        Returns
+        -------
+        np.ndarray
+            The current table's dimensions corresponding to this foreign key's parent.
+        np.ndarray
+            The parent table's encoded data, with the same number of dimensions as the first item in the tuple.
+        np.ndarray
+            The degrees for the parent table, corresponding to each row in the second item in the tuple.
+        np.ndarray
+            The is-N/A indicator for this foreign key, corresponding to each row in the first item in the tuple.
+        List[Optional[np.ndarray]]
+            For each row in the real data, the allowed set of indices to be matched in the parent table, so the list
+            index are row indices in the current table, and values in the list are row indices in the parent table.
+            This value is supposed to handle overlapping foreign keys. If it is None, it means no constraint is
+            placed on it.
+        List[np.ndarray]
+            The set of row indices in the current table that are not supposed to match to the same row in the parent.
+            The values are row indices in the current table. This value is supposed to handle composite primary keys
+            by multiple foreign keys.
+        """
+        print("In actual IRG, the fifth and sixth arguments are calculated, but we hide the implementation from "
+              "the public version. Thus, overlapping key constraints are invalid input for this simplified version. "
+              "However, placeholder output is returned.")
+        loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
+        _, _, values, _ = loaded["actual"]
+        values = values[self._parent_dims[table_name][fk_idx]]
+        parent, degrees = loaded["foreign_keys"][fk_idx]["degree"]
+        if values.shape[-1] != parent.shape[-1]:
+            raise RuntimeError("The sizes to be matched are different.")
+        isnull = loaded["foreign_keys"][fk_idx]["isna"]
+        if isnull is None:
+            isna = np.zeros(values.shape[0], dtype=np.bool_)
+        else:
+            _, isna = isnull
+        return values, parent, degrees, isna, [None] * values.shape[0], []
     
     def prepare_sampled_dir(self, sampled_dir: str):
         """
@@ -701,8 +769,7 @@ class RelationalTransformer:
 
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
-    @classmethod
-    def save_isna_indicator_for(cls, table_name: str, fk_idx: int, isna: np.ndarray, sampled_dir: str = "./sampled"):
+    def save_isna_indicator_for(self, table_name: str, fk_idx: int, isna: np.ndarray, sampled_dir: str = "./sampled"):
         """
         After the is-N/A indicator data is generated, save the is-N/A indicator data to disk.
 
@@ -720,6 +787,9 @@ class RelationalTransformer:
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         x, _ = loaded["foreign_keys"][fk_idx]["isna"]
         loaded["foreign_keys"][fk_idx]["isna"] = x, isna
+        a, b, encoded, d = loaded["actual"]
+        encoded[:, self._parent_dims[table_name][fk_idx]] = 0
+        loaded["actual"] = a, b, encoded, d
 
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
@@ -744,6 +814,54 @@ class RelationalTransformer:
         _, length, _, _ = loaded["actual"]
         loaded["actual"] = actual_context, length, None, None
 
+        torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
+
+    @classmethod
+    def save_actual_values_for(
+            cls, table_name: str, values: np.ndarray, groups: List[np.ndarray], sampled_dir: str = "./sampled"
+    ):
+        """
+        After the actual values data is generated, save the actual values data to disk.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to save.
+        values : np.ndarray
+            The actual values generated to save.
+        groups : List[np.ndarray]
+            The grouping information to save.
+        sampled_dir : str
+            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
+        """
+        loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
+        context, length, _, _ = loaded["actual"]
+        loaded["actual"] = context, length, values, groups
+        torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
+
+    def save_matched_indices_for(self, table_name: str, fk_idx: int,
+                                 indices: np.ndarray, sampled_dir: str = "./sampled"):
+        """
+        After foreign key matching, save the matched indices to disk.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to save.
+        fk_idx : int
+            The index of foreign key to save for this indices.
+        indices : np.ndarray
+            The matched indices to save.
+        sampled_dir : str
+            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
+        """
+        loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
+        loaded["foreign_keys"][fk_idx]["match"] = indices
+        a, b, encoded, d = loaded["actual"]
+        parent, _ = loaded["foreign_keys"][fk_idx]["degree"]
+        isna = np.isnan(indices)
+        encoded[~isna, self._parent_dims[table_name][fk_idx]] = parent[indices[~isna]]
+        loaded["actual"] = a, b, encoded, d
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
     def copy_fitted_for(self, table_name: str, sampled_dir: str = "./sampled"):
@@ -785,7 +903,9 @@ class RelationalTransformer:
             groups = {
                 pi: idx for pi, idx in zip(parent_idx, indices)
             }
-            recovered = self.transformers[table_name].inverse_transform(encoded, groups, aggregated, parent_idx)
+            recovered = self.transformers[table_name].inverse_transform(
+                encoded[:, self._core_dims[table_name]], groups, aggregated, parent_idx
+            )
 
             occurred_cols = set()
             for i, fk in enumerate(foreign_keys):

@@ -16,5 +16,10 @@ default_args:
     # information generation.
     epochs: 20
     batch_size: 500
+  actual:
+    # arguments for multi-variate sequential data based on static context and known lengths generation for generating
+    # actual values.
+    epochs: 20
+    batch_size: 500
 table_specific_args:
   appearances:

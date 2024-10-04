@@ -12,7 +12,7 @@ def train_aggregated_information(context: np.ndarray, aggregated_info: np.ndarra
     Parameters
     ----------
     context : np.ndarray
-        The context to predicted aggregated information for this table.
+        The context to predict aggregated information for this table.
     aggregated_info : np.ndarray
         The aggregated information for this table.
     model_dir : str
@@ -32,7 +32,7 @@ def generate_aggregated_information(context: np.ndarray, model_dir: str) -> np.n
     Parameters
     ----------
     context : np.ndarray
-        The context to predicted aggregated information for this table.
+        The context to predict aggregated information for this table.
     model_dir : str
         The directory where saved model is.
 

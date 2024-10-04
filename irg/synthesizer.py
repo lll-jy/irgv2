@@ -8,6 +8,8 @@ from .standalone import train_standalone, generate_standalone
 from .degree import train_degrees, predict_degrees
 from .isna_indicator import train_isna_indicator, predict_isna_indicator
 from .aggregated import train_aggregated_information, generate_aggregated_information
+from .actual import train_actual_values, generate_actual_values
+from .match import match
 
 
 class IncrementalRelationalGenerator:
@@ -31,7 +33,7 @@ class IncrementalRelationalGenerator:
         self.model_args = {}
         for t in self.transformer.order:
             if self.transformer.transformers[t].config.foreign_keys:
-                keys = ["degree", "isna", "aggregated"]
+                keys = ["degree", "isna", "aggregated", "actual"]
             else:
                 keys = ["standalone"]
             all_keys = set(table_specific_args.get(t, {}).keys()) | set(default_args.keys())
@@ -76,6 +78,11 @@ class IncrementalRelationalGenerator:
                 train_aggregated_information(
                     agg_context, agg, os.path.join(table_model_dir, "aggregated"), **self.model_args[tn]["aggregated"]
                 )
+                context, length, values, groups = self.transformer.actual_generation_for(tn, data_cache_dir)
+                train_actual_values(
+                    context, length, values, groups, os.path.join(table_model_dir, "actual"),
+                    **self.model_args[tn]["actual"]
+                )
             else:
                 encoded = self.transformer.standalone_encoded_for(tn, data_cache_dir)
                 train_standalone(encoded, table_model_dir, **self.model_args[tn]["standalone"])
@@ -102,6 +109,9 @@ class IncrementalRelationalGenerator:
                     agg_context, _ = self.transformer.aggregated_generation_for(tn, out_dir)
                     agg = generate_aggregated_information(agg_context, os.path.join(table_model_dir, "aggregated"))
                     self.transformer.save_aggregated_info_for(tn, agg, out_dir)
+                    context, length, _, _ = self.transformer.actual_generation_for(tn, out_dir)
+                    values, groups = generate_actual_values(context, length, os.path.join(table_model_dir, "actual"))
+                    self.transformer.save_actual_values_for(tn, values, groups, out_dir)
 
                     for i, fk in enumerate(foreign_keys):
                         isnull = self.transformer.isna_indicator_prediction_for(tn, i, out_dir)
@@ -109,6 +119,12 @@ class IncrementalRelationalGenerator:
                             isna_context, _ = isnull
                             isna = predict_isna_indicator(isna_context, os.path.join(table_model_dir, f"isna{i}"))
                             self.transformer.save_isna_indicator_for(tn, i, isna, out_dir)
+
+                        values, parent, degrees, isna, pools, non_overlapping_groups = self.transformer.fk_matching_for(
+                            tn, i, out_dir
+                        )
+                        matched = match(values, parent, degrees, isna, pools, non_overlapping_groups)
+                        self.transformer.save_matched_indices_for(tn, i, matched, out_dir)
                 else:
                     encoded = generate_standalone(table_sizes[tn], table_model_dir)
                     self.transformer.save_standalone_encoded_for(tn, encoded, out_dir)
