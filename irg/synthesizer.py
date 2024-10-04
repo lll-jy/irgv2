@@ -7,6 +7,7 @@ from .schema import RelationalTransformer, TableConfig
 from .standalone import train_standalone, generate_standalone
 from .degree import train_degrees, predict_degrees
 from .isna_indicator import train_isna_indicator, predict_isna_indicator
+from .aggregated import train_aggregated_information, generate_aggregated_information
 
 
 class IncrementalRelationalGenerator:
@@ -30,7 +31,7 @@ class IncrementalRelationalGenerator:
         self.model_args = {}
         for t in self.transformer.order:
             if self.transformer.transformers[t].config.foreign_keys:
-                keys = ["degree", "isna",]
+                keys = ["degree", "isna", "aggregated"]
             else:
                 keys = ["standalone"]
             all_keys = set(table_specific_args.get(t, {}).keys()) | set(default_args.keys())
@@ -71,6 +72,10 @@ class IncrementalRelationalGenerator:
                         train_isna_indicator(
                             isna_context, isna, os.path.join(table_model_dir, f"isna{i}"), **self.model_args[tn]["isna"]
                         )
+                agg_context, agg = self.transformer.aggregated_generation_for(tn, data_cache_dir)
+                train_aggregated_information(
+                    agg_context, agg, os.path.join(table_model_dir, "aggregated"), **self.model_args[tn]["aggregated"]
+                )
             else:
                 encoded = self.transformer.standalone_encoded_for(tn, data_cache_dir)
                 train_standalone(encoded, table_model_dir, **self.model_args[tn]["standalone"])
@@ -93,6 +98,17 @@ class IncrementalRelationalGenerator:
                             max_val=1 if fk.unique else np.inf
                         )
                         self.transformer.save_degree_for(tn, i, degrees, out_dir)
+
+                    agg_context, _ = self.transformer.aggregated_generation_for(tn, out_dir)
+                    agg = generate_aggregated_information(agg_context, os.path.join(table_model_dir, "aggregated"))
+                    self.transformer.save_aggregated_info_for(tn, agg, out_dir)
+
+                    for i, fk in enumerate(foreign_keys):
+                        isnull = self.transformer.isna_indicator_prediction_for(tn, i, out_dir)
+                        if isnull is not None:
+                            isna_context, _ = isnull
+                            isna = predict_isna_indicator(isna_context, os.path.join(table_model_dir, f"isna{i}"))
+                            self.transformer.save_isna_indicator_for(tn, i, isna, out_dir)
                 else:
                     encoded = generate_standalone(table_sizes[tn], table_model_dir)
                     self.transformer.save_standalone_encoded_for(tn, encoded, out_dir)

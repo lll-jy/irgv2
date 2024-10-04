@@ -16,9 +16,9 @@ def train_degrees(context: np.ndarray, degrees: np.ndarray, model_dir: str, **kw
     Parameters
     ----------
     context : np.ndarray
-        Context for prediction of degrees
+        Context for prediction of degrees.
     degrees : np.ndarray
-        Predicted degrees
+        Predicted degrees.
     model_dir : str
         The directory to save models at.
     **kwargs
@@ -72,7 +72,7 @@ def predict_degrees(context: np.ndarray, model_dir: str, expected_sum: int, tole
     Returns
     -------
     np.ndarray
-        Predicted degrees.
+        Predicted degrees corresponding to each row in `context`.
     """
     print("In actual implementation, additional logic or advanced logic is required to handle the numerical error.")
     with open(os.path.join(model_dir, "info.json"), "r") as f:

@@ -340,6 +340,7 @@ class RelationalTransformer:
         self.max_ctx_dim = max_ctx_dim
         self._fitted_cache_dir = None
         self._sizes_of = {}
+        self._nullable = {}
 
     def fit(self, tables: Dict[str, str], cache_dir: str = "./cache"):
         """
@@ -371,6 +372,7 @@ class RelationalTransformer:
 
             foreign_keys = self.transformers[tn].config.foreign_keys
             if foreign_keys:
+                self._nullable[tn] = []
                 encoded, groups, aggregated, agg_index = transformer.transform(table)
                 torch.save({
                     "actual": (None, None, encoded, None)
@@ -402,6 +404,9 @@ class RelationalTransformer:
                     if table[fk.child_column_names].isna().any().any():
                         isna_y = table[fk.child_column_names].isna().any(axis=1)
                         fk_info["isna"] = np.concatenate([context, encoded], axis=1), isna_y.values
+                        self._nullable[tn].append(True)
+                    else:
+                        self._nullable[tn].append(False)
                     all_fk_info.append(fk_info)
 
                 out = {
@@ -689,6 +694,56 @@ class RelationalTransformer:
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         x, _ = loaded["foreign_keys"][fk_idx]["degree"]
         loaded["foreign_keys"][fk_idx]["degree"] = x, degree
+
+        if fk_idx == 0:
+            a, b, c, d = loaded.get("actual", (None, None, None, None))
+            loaded["actual"] = a, degree, c, d
+
+        torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
+
+    @classmethod
+    def save_isna_indicator_for(cls, table_name: str, fk_idx: int, isna: np.ndarray, sampled_dir: str = "./sampled"):
+        """
+        After the is-N/A indicator data is generated, save the is-N/A indicator data to disk.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to save.
+        fk_idx : int
+            THe index of foreign key to save for this is-N/A indicator.
+        isna : np.ndarray
+            The is-N/A indicator data to be saved.
+        sampled_dir : str
+            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
+        """
+        loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
+        x, _ = loaded["foreign_keys"][fk_idx]["isna"]
+        loaded["foreign_keys"][fk_idx]["isna"] = x, isna
+
+        torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
+
+    @classmethod
+    def save_aggregated_info_for(cls, table_name: str, aggregated: np.ndarray, sampled_dir: str = "./sampled"):
+        """
+        After the aggregated information data is generated, save the aggregated information to disk.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name to save.
+        aggregated : np.ndarray
+            The aggregated information values to save.
+        sampled_dir : str
+            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
+        """
+        loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
+        agg_context, _ = loaded["aggregated"]
+        loaded["aggregated"] = agg_context, aggregated
+        actual_context = np.concatenate([agg_context, aggregated], axis=1)
+        _, length, _, _ = loaded["actual"]
+        loaded["actual"] = actual_context, length, None, None
+
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
     def copy_fitted_for(self, table_name: str, sampled_dir: str = "./sampled"):
@@ -707,10 +762,62 @@ class RelationalTransformer:
         shutil.copyfile(os.path.join(self._fitted_cache_dir, f"{table_name}.csv"),
                         os.path.join(sampled_dir, f"{table_name}.csv"))
 
-    def prepare_next_for(self, table_name: str, cache_dir: str = "./cache"):
+    def prepare_next_for(self, table_name: str, sampled_dir: str = "./cache"):
+        """
+        Prepare next table to be generated.
+
+        Parameters
+        ----------
+        table_name : str
+            The table just finished.
+        sampled_dir : str
+            The directory where sampled data are stored.
+        """
         if self.transformers[table_name].config.foreign_keys:
-            pass
+            _, aggregated = self.aggregated_generation_for(table_name, sampled_dir)
+            _, _, encoded, indices = self.actual_generation_for(table_name, sampled_dir)
+            foreign_keys = self.transformers[table_name].config.foreign_keys
+            fk = foreign_keys[0]
+            parent = pd.read_csv(os.path.join(sampled_dir, f"{fk.parent_table_name}.csv"))
+            parent_idx = pd.MultiIndex.from_frame(parent[fk.parent_column_names].rename({
+                p: c for p, c in zip(parent[fk.parent_column_names], parent[fk.child_column_names])
+            }))
+            groups = {
+                pi: idx for pi, idx in zip(parent_idx, indices)
+            }
+            recovered = self.transformers[table_name].inverse_transform(encoded, groups, aggregated, parent_idx)
+
+            occurred_cols = set()
+            for i, fk in enumerate(foreign_keys):
+                if i == 0:
+                    occurred_cols |= set(fk.child_column_names)
+                    continue
+                isnull = self.isna_indicator_prediction_for(table_name, i, sampled_dir)
+                if isnull is not None:
+                    _, isna = isnull
+                    recovered.loc[isna, [c for c in fk.child_column_names if c not in occurred_cols]] = np.nan
+                occurred_cols |= set(fk.child_column_names)
         else:
-            encoded = self.standalone_encoded_for(table_name, cache_dir)
+            encoded = self.standalone_encoded_for(table_name, sampled_dir)
             recovered = self.transformers[table_name].inverse_transform(encoded)
-            recovered.to_csv(os.path.join(cache_dir, f"{table_name}.csv"), index=False)
+        recovered.to_csv(os.path.join(sampled_dir, f"{table_name}.csv"), index=False)
+
+        table_idx = self.order.index(table_name)
+        if table_idx >= len(self.order) - 1:
+            return
+        next_table_name = self.order[table_idx + 1]
+        degrees = []
+        agg_context = None
+        for i, fk in enumerate(self.transformers[next_table_name].config.foreign_keys):
+            parent_extend_till = self._extend_till(
+                fk.parent_table_name, next_table_name, fk.parent_column_names, sampled_dir, False
+            )
+            degrees.append((parent_extend_till, None))
+            if i == 0:
+                agg_context = parent_extend_till
+        torch.save({
+            "aggregated": (agg_context, None),
+            "foreign_keys": [{
+                "degree": (x, None), "isna": (None, None) if y else None
+            } for x, y in zip(degrees, self._nullable[table_name])]
+        }, os.path.join(sampled_dir, f"{table_name}.pt"))

@@ -9,6 +9,12 @@ default_args:
   standalone:  # arguments for standalone tabular model
     epochs: 20
     batch_size: 500
-  degree: {}  # arguments for degree model
+  degree: {}  # arguments for degree model (all FKs in the table if under table-specific)
+  isna: {} # arguments for is-N/A indicator model (all FKs in the table if under table-specific)
+  aggregated:
+    # arguments for multi-variate potentially-continuous conditional tabular data generation for aggregated
+    # information generation.
+    epochs: 20
+    batch_size: 500
 table_specific_args:
   appearances:
