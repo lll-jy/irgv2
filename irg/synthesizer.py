@@ -6,6 +6,7 @@ import numpy as np
 from .schema import RelationalTransformer, TableConfig
 from .standalone import train_standalone, generate_standalone
 from .degree import train_degrees, predict_degrees
+from .isna_indicator import train_isna_indicator, predict_isna_indicator
 
 
 class IncrementalRelationalGenerator:
@@ -67,6 +68,9 @@ class IncrementalRelationalGenerator:
                     isnull = self.transformer.isna_indicator_prediction_for(tn, i, data_cache_dir)
                     if isnull is not None:
                         isna_context, isna = isnull
+                        train_isna_indicator(
+                            isna_context, isna, os.path.join(table_model_dir, f"isna{i}"), **self.model_args[tn]["isna"]
+                        )
             else:
                 encoded = self.transformer.standalone_encoded_for(tn, data_cache_dir)
                 train_standalone(encoded, table_model_dir, **self.model_args[tn]["standalone"])
