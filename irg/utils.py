@@ -23,11 +23,11 @@ class MLP(nn.Module):
                  noise_size: int = 64):
         super().__init__()
         in_sizes = [input_size + noise_size] + [hidden_size] * (num_layers - 1)
-        out_sizes = [hidden_size] + [output_size] * (num_layers - 1)
+        out_sizes = [hidden_size] * (num_layers - 1) + [output_size]
         layers = [nn.Linear(in_sizes[0], out_sizes[0])]
         for i, o in zip(in_sizes[1:], out_sizes[1:]):
             layers.append(nn.Sequential(
-                nn.ReLU(), nn.LayerNorm(i), nn.Dropout(0.1)
+                nn.ReLU(), nn.LayerNorm(i), nn.Dropout(0.1), nn.Linear(i, o)
             ))
         self._noise_size = noise_size
         self.layers = nn.Sequential(*layers)
@@ -45,8 +45,8 @@ def train_mlp(
     model = MLP(input_size=in_data.shape[1], output_size=out_data.shape[1], **kwargs).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
     criterion = nn.MSELoss()
-    in_data = torch.from_numpy(in_data)
-    out_data = torch.from_numpy(out_data)
+    in_data = torch.from_numpy(in_data).float()
+    out_data = torch.from_numpy(out_data).float()
     dataset = TensorDataset(in_data, out_data)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
@@ -77,14 +77,14 @@ def predict_mlp(
     model = MLP(**kwargs).to(device)
     model.load_state_dict(torch.load(os.path.join(model_dir, "model.pt")))
     model.eval()
-    in_data = torch.from_numpy(in_data)
+    in_data = torch.from_numpy(in_data).float()
     dataset = TensorDataset(in_data)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     out = []
     with torch.no_grad():
-        for i in dataloader:
-            o = model(i)
+        for i, in dataloader:
+            o = model(i.to(device))
             out.append(o)
 
     return torch.cat(out).cpu().numpy()

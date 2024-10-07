@@ -1,1 +1,4 @@
 .idea
+temp
+out
+**/__pycache__

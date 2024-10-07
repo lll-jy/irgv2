@@ -28,7 +28,7 @@ def train_degrees(context: np.ndarray, degrees: np.ndarray, model_dir: str, **kw
 
     regressor = XGBRegressor(**kwargs)
     regressor.fit(context, degrees)
-    torch.save(regressor, "reg.pt")
+    torch.save(regressor, os.path.join(model_dir, "reg.pt"))
 
     non_zero = degrees > 0
     non_zero_X = context[non_zero]
@@ -82,7 +82,8 @@ def predict_degrees(context: np.ndarray, model_dir: str, expected_sum: int, tole
     quantile_weight = info["threshold"]
 
     regressor = torch.load(os.path.join(model_dir, "reg.pt"))
-    predicted_degrees = regressor.predict(context) + np.random.normal(0, 1e-3, size=context.shape[0])
+    predicted_degrees = regressor.predict(context)
+    predicted_degrees += np.random.normal(0, 1e-3, size=predicted_degrees.shape)  # avoid too many equal
 
     predicted_qt = QuantileTransformer(n_quantiles=1000, output_distribution="uniform", ignore_implicit_zeros=False)
     predicted_quantiles = predicted_qt.fit_transform(predicted_degrees.reshape((-1, 1)))[:, 0]

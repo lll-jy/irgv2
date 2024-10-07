@@ -23,7 +23,7 @@ class IncrementalRelationalGenerator:
         tables, order, max_ctx_dim
             Arguments to `RelationalTransformer`.
         default_args : Dict[str, Any]
-            Default arguments for models. One can refer to the sample config file in `config/football.yaml` key
+            Default arguments for models. One can refer to the sample config file in `config/sample.yaml` key
             `default_args` as an example, and we also added description for each value there.
         table_specific_args : Dict[str, Dict[str, Any]]
             Table-specific arguments for models. Keys are table names and values have the same structure as
@@ -114,6 +114,8 @@ class IncrementalRelationalGenerator:
                     self.transformer.save_actual_values_for(tn, values, groups, out_dir)
 
                     for i, fk in enumerate(foreign_keys):
+                        if i == 0:
+                            continue
                         isnull = self.transformer.isna_indicator_prediction_for(tn, i, out_dir)
                         if isnull is not None:
                             isna_context, _ = isnull

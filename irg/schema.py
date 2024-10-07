@@ -3,7 +3,8 @@ import json
 import os
 import shutil
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Self, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing_extensions import Self
 
 import numpy as np
 import pandas as pd
@@ -66,7 +67,7 @@ class TableConfig:
                  primary_key: Optional[Union[str, Sequence[str]]] = None,
                  foreign_keys: Optional[Sequence[ForeignKey]] = None,
                  sortby: Optional[str] = None,
-                 id_columns: Optional[Union[str, Sequence[str]]] = None,):
+                 id_columns: Optional[Sequence[str]] = None,):
         """
         Parameters
         ----------
@@ -92,6 +93,14 @@ class TableConfig:
         self.foreign_keys = foreign_keys if foreign_keys is not None else []
         self.sortby = sortby
         self.id_columns = id_columns if id_columns is not None else []
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Self:
+        foreign_keys = data.get("foreign_keys", [])
+        foreign_keys = [ForeignKey(**x) for x in foreign_keys]
+        data = data.copy()
+        data["foreign_keys"] = foreign_keys
+        return cls(**data)
 
 
 class TableTransformer:
@@ -184,12 +193,16 @@ class TableTransformer:
             groupby = table.groupby(groupby_columns)
             num_groupby = groupby[self.numeric_columns]
             out = num_groupby.aggregate(["mean", "median", "std"])
+            if out.index.nlevels <= 1:
+                out.index = pd.MultiIndex.from_arrays([out.index], names=[out.index.name])
             out = pd.concat([
                 out, pd.concat({self.config.sortby: first_sortby.to_frame("first")}, axis=1)
             ], axis=1)
         else:
             num_groupby = groupby[self.numeric_columns]
             out = num_groupby.aggregate(["mean", "median", "std"])
+            if out.index.nlevels <= 1:
+                out.index = pd.MultiIndex.from_arrays([out.index], names=[out.index.name])
         out.columns = pd.Index([f"{a}${b}" for a, b in out.columns])
         return out, table
 
@@ -229,6 +242,8 @@ class TableTransformer:
                 k: v.values for k, v in groups.items()
             }
             aggregated, table = self.aggregate(table)
+            if aggregated.index.nlevels <= 1:
+                groups = {(k,): v for k, v in groups.items()}
             agg_index = aggregated.index
             aggregated = self.agg_transformer.transform(aggregated.values)
         else:
@@ -271,7 +286,9 @@ class TableTransformer:
             ID columns are replaced by 0,1,2,....
         """
         if self.categorical_columns:
-            cat = self.cat_transformer.inverse_transform(transformed[:, :self.split_dim])
+            cat = transformed[:, :self.split_dim]
+            cat = np.clip(cat, 0, np.array([x.shape[0] for x in self.cat_transformer.categories_]) - 1)
+            cat = self.cat_transformer.inverse_transform(cat)
             cat = pd.DataFrame(cat, columns=self.categorical_columns)
         else:
             cat = pd.DataFrame(index=np.arange(transformed.shape[0]), columns=[])
@@ -288,11 +305,13 @@ class TableTransformer:
         if self.config.foreign_keys:
             groupby_columns = self.config.foreign_keys[0].child_column_names
             for vals, idx in groups.items():
-                table.loc[idx, groupby_columns] = pd.Series({c: v for c, v in zip(groupby_columns, vals)})
+                table.loc[idx, groupby_columns] = pd.Series(
+                    {c: v for c, v in zip(groupby_columns, vals)}
+                ).to_frame().T.loc[[0] * idx.shape[0]].set_axis(idx, axis=0)
             if self.config.sortby:
                 aggregated = self.agg_transformer.inverse_transform(aggregated)
                 aggregated = pd.DataFrame(aggregated, index=agg_index, columns=self.agg_columns)
-                first_sortby = aggregated[self.config.sortby]["first"]
+                first_sortby = aggregated[f"{self.config.sortby}$first"]
                 head = table.groupby(groupby_columns)[groupby_columns].head(1)
                 agg_idx_to_table_idx = {
                     tuple(row[groupby_columns]): i for i, row in head.iterrows()
@@ -380,32 +399,54 @@ class RelationalTransformer:
                     "actual": (None, None, encoded, None)
                 }, os.path.join(cache_dir, f"{tn}.pt"))
                 key, context, new_encoded = self._extend_till(tn, tn, table.columns.tolist(), cache_dir)
-                if not (encoded == new_encoded).all() or not key.equals(table):
+                if not (encoded == new_encoded[:, self._core_dims[tn]]).all() or not key.equals(table):
                     raise RuntimeError("Error when extending.")
 
                 agg_context = np.zeros((aggregated.shape[0], 0))
+                actual_context = np.zeros((aggregated.shape[0], 0))
+                transformed_context = np.zeros((encoded.shape[0], 0))
                 length = np.zeros(aggregated.shape[0])
                 all_fk_info = []
                 for fi, fk in enumerate(foreign_keys):
                     fk_info = {}
                     parent_key, parent_context, parent_encoded = self._extend_till(
-                        fk.parent_table_name, tn, fk.parent_column_names, cache_dir, False
+                        fk.parent_table_name, tn, fk.parent_column_names, cache_dir, fitting=False, queue=[fk]
                     )
                     degree_x = np.concatenate([parent_context, parent_encoded], axis=1)
                     degree_y = table[fk.child_column_names].groupby(fk.child_column_names).size()
-                    y_order = pd.MultiIndex.from_frame(parent_key.rename(columns={
+                    parent_key_as_child = parent_key.rename(columns={
                         p: c for p, c in zip(fk.parent_column_names, fk.child_column_names)
-                    }))
+                    })
+                    y_order = pd.MultiIndex.from_frame(parent_key_as_child)
+                    if degree_y.index.nlevels <= 1:
+                        degree_y.index = pd.MultiIndex.from_arrays([degree_y.index], names=[degree_y.index.name])
                     degree_y = degree_y.loc[y_order]
                     degree_y = degree_y.values
                     if fi == 0:
-                        agg_context = degree_x
+                        non_zero_degree_x = pd.DataFrame(
+                            degree_x, columns=[f"_dim{i:02d}" for i in range(degree_x.shape[-1])],
+                            index=parent_key.index
+                        )
+                        non_zero_degree_x = pd.concat([parent_key_as_child, non_zero_degree_x], axis=1)
+                        agg_context = agg_index.to_frame().reset_index(drop=True)
+                        agg_context = agg_context.merge(
+                            non_zero_degree_x, how="left", on=agg_index.names
+                        )
+                        agg_context = agg_context.set_index(agg_index.names)
+                        if agg_context.index.nlevels <= 1:
+                            agg_context.index = pd.MultiIndex.from_arrays([agg_context.index], names=agg_index.names)
+                        agg_context = agg_context.loc[agg_index].values
                         length = degree_y
+
+                        actual_context = np.concatenate([agg_context, aggregated], axis=1)
+                        transformed_context = np.empty((encoded.shape[0], actual_context.shape[-1]))
+                        for g, idx in groups.items():
+                            transformed_context[idx] = actual_context[g]
                     fk_info["degree"] = degree_x, degree_y
 
                     if table[fk.child_column_names].isna().any().any():
                         isna_y = table[fk.child_column_names].isna().any(axis=1)
-                        fk_info["isna"] = np.concatenate([context, encoded], axis=1), isna_y.values
+                        fk_info["isna"] = np.concatenate([transformed_context, new_encoded], axis=1), isna_y.values
                         self._nullable[tn].append(True)
                     else:
                         self._nullable[tn].append(False)
@@ -414,8 +455,8 @@ class RelationalTransformer:
                 out = {
                     "aggregated": (agg_context, aggregated),
                     "actual": (
-                        np.concatenate([agg_context, aggregated], axis=1), length, encoded,
-                        [groups[tuple(x)] for x in agg_index]
+                        actual_context, length, new_encoded,
+                        [groups[tuple(x) if isinstance(x, tuple) else (x,)] for x in agg_index]
                     ),
                     "foreign_keys": all_fk_info,
                 }
@@ -432,10 +473,13 @@ class RelationalTransformer:
         print("N/As created by left outer join are actually processed by smarter ways.")
         allowed_tables = self.order[:self.order.index(till)]
         raw = pd.read_csv(os.path.join(cache_dir, f"{table}.csv"))
-        _, _, encoded, _ = self.actual_generation_for(table, cache_dir)
+        if self.transformers[table].config.foreign_keys:
+            _, _, encoded, _ = self.actual_generation_for(table, cache_dir)
+        else:
+            encoded = self.standalone_encoded_for(table, cache_dir)
         core_columns = [f"_dim{i:02d}" for i in range(encoded.shape[-1])]
         core = pd.DataFrame(encoded, columns=core_columns, index=raw.index)
-        core = pd.concat([raw, core], axis=1)
+        core = pd.concat([raw.index.to_frame(False, "_id"), raw, core], axis=1)
         for fi, fk in enumerate(self.transformers[table].config.foreign_keys):
             if fk in queue:
                 continue
@@ -478,10 +522,11 @@ class RelationalTransformer:
                 sibling_encoded_aggregated, on=fk.parent_column_names, how="left", suffixes=("", f"_c{fi}")
             ).fillna(0)
 
-        raw_keys = core[keys]
+        core = core.set_index("_id").loc[raw.index]
+        raw_keys = raw[keys]
         context_columns = [c for c in core.columns if c.startswith("_dim") and c.endswith("_p0")]
         context = core[context_columns]
-        encoded = core.drop(columns=context_columns)
+        encoded = core.drop(columns=context_columns + raw.columns.tolist())
 
         if fitting and table == till:
             parent_dims = [None]
@@ -506,9 +551,9 @@ class RelationalTransformer:
             pca_name = f"{table}_{len(allowed_tables)}_{hashlib.sha1(queue_str.encode()).hexdigest()}"
             os.makedirs(os.path.join(cache_dir, "pca"), exist_ok=True)
             pca_path = os.path.join(cache_dir, "pca", f"{pca_name}.pt")
-            if os.path.exists(pca_path):
-                raise FileExistsError("File for PCA already exists.")
             if fitting:
+                if os.path.exists(pca_path):
+                    raise FileExistsError("File for PCA already exists.")
                 pca = PCA(n_components=self.max_ctx_dim)
                 parent_encoded = pca.fit_transform(parent_encoded)
                 torch.save(pca, pca_path)
@@ -701,10 +746,10 @@ class RelationalTransformer:
               "However, placeholder output is returned.")
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         _, _, values, _ = loaded["actual"]
-        values = values[self._parent_dims[table_name][fk_idx]]
+        values = values[:, self._parent_dims[table_name][fk_idx]]
         parent, degrees = loaded["foreign_keys"][fk_idx]["degree"]
         if values.shape[-1] != parent.shape[-1]:
-            raise RuntimeError("The sizes to be matched are different.")
+            raise RuntimeError(f"The sizes to be matched are different: {values.shape}, {parent.shape}.")
         isnull = loaded["foreign_keys"][fk_idx]["isna"]
         if isnull is None:
             isna = np.zeros(values.shape[0], dtype=np.bool_)
@@ -765,7 +810,10 @@ class RelationalTransformer:
 
         if fk_idx == 0:
             a, b, c, d = loaded.get("actual", (None, None, None, None))
-            loaded["actual"] = a, degree, c, d
+            non_zero_deg = degree > 0
+            loaded["actual"] = a, degree[non_zero_deg], c, d
+            non_zero_x = x[non_zero_deg]
+            loaded["aggregated"] = non_zero_x, None
 
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
@@ -837,6 +885,12 @@ class RelationalTransformer:
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         context, length, _, _ = loaded["actual"]
         loaded["actual"] = context, length, values, groups
+        for i, fk in enumerate(loaded["foreign_keys"]):
+            isnull = fk["isna"]
+            if isnull is not None:
+                cids = np.repeat(np.arange(context.shape[0]), length.astype(int))
+                loaded["foreign_keys"][i]["isna"] = np.concatenate([context[cids], values], axis=1), None
+                break
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
     def save_matched_indices_for(self, table_name: str, fk_idx: int,
@@ -857,11 +911,20 @@ class RelationalTransformer:
         """
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         loaded["foreign_keys"][fk_idx]["match"] = indices
-        a, b, encoded, d = loaded["actual"]
+        context, length, encoded, d = loaded["actual"]
         parent, _ = loaded["foreign_keys"][fk_idx]["degree"]
         isna = np.isnan(indices)
-        encoded[~isna, self._parent_dims[table_name][fk_idx]] = parent[indices[~isna]]
-        loaded["actual"] = a, b, encoded, d
+
+        encoded[np.ix_(~isna, self._parent_dims[table_name][fk_idx])] = parent[indices[~isna]]
+        loaded["actual"] = context, length, encoded, d
+        for i, fk in enumerate(loaded["foreign_keys"]):
+            if i <= fk_idx:
+                continue
+            isnull = fk["isna"]
+            if isnull is not None:
+                cids = np.repeat(np.arange(context.shape[0]), length.astype(int))
+                loaded["foreign_keys"][i]["isna"] = np.concatenate([context[cids], encoded], axis=1), None
+                break
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
     def copy_fitted_for(self, table_name: str, sampled_dir: str = "./sampled"):
@@ -898,7 +961,7 @@ class RelationalTransformer:
             fk = foreign_keys[0]
             parent = pd.read_csv(os.path.join(sampled_dir, f"{fk.parent_table_name}.csv"))
             parent_idx = pd.MultiIndex.from_frame(parent[fk.parent_column_names].rename({
-                p: c for p, c in zip(parent[fk.parent_column_names], parent[fk.child_column_names])
+                p: c for p, c in zip(fk.parent_column_names, fk.child_column_names)
             }))
             groups = {
                 pi: idx for pi, idx in zip(parent_idx, indices)
@@ -927,17 +990,14 @@ class RelationalTransformer:
             return
         next_table_name = self.order[table_idx + 1]
         degrees = []
-        agg_context = None
         for i, fk in enumerate(self.transformers[next_table_name].config.foreign_keys):
-            parent_extend_till = self._extend_till(
-                fk.parent_table_name, next_table_name, fk.parent_column_names, sampled_dir, False
+            parent_raw, parent_context, parent_encoded = self._extend_till(
+                fk.parent_table_name, next_table_name, fk.parent_column_names, sampled_dir, False, [fk]
             )
-            degrees.append((parent_extend_till, None))
-            if i == 0:
-                agg_context = parent_extend_till
+            parent_extend_till = np.concatenate([parent_context, parent_encoded], axis=1)
+            degrees.append(parent_extend_till)
         torch.save({
-            "aggregated": (agg_context, None),
             "foreign_keys": [{
                 "degree": (x, None), "isna": (None, None) if y else None
-            } for x, y in zip(degrees, self._nullable[table_name])]
-        }, os.path.join(sampled_dir, f"{table_name}.pt"))
+            } for x, y in zip(degrees, self._nullable.get(next_table_name, []))]
+        }, os.path.join(sampled_dir, f"{next_table_name}.pt"))
