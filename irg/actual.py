@@ -11,25 +11,6 @@ from .utils import placeholder, train_mlp, predict_mlp
 def train_actual_values(
         context: np.ndarray, length: np.ndarray, values: np.ndarray, groups: List[np.ndarray], model_dir: str, **kwargs
 ):
-    """
-    Train the model for generating actual values. This is essentially a multi-variate sequential data generation using
-    some multivariate static conditions, and with lengths known.
-
-    Parameters
-    ----------
-    context: np.ndarray
-        The static context to predict values for this table.
-    length : np.ndarray
-        The lengths of the values to predict.
-    values: np.ndarray
-        The values to be predicted.
-    groups : List[np.ndarray]
-        The indices in values for each row in context.
-    model_dir: str
-        The directory to save the trained model.
-    **kwargs
-        Other parameters for the generator.
-    """
     print("We use a simple non-sequential MLP predictor in place, but actually we adapted TimeVQVAE.")
     x = np.concatenate([context, length.reshape((-1, 1))], axis=1)
     ys = []
@@ -48,25 +29,6 @@ def train_actual_values(
 def generate_actual_values(
         context: np.ndarray, length: np.ndarray, model_dir: str
 ) -> Tuple[np.ndarray, List[np.ndarray]]:
-    """
-    Generate actual values for given static context.
-
-    Parameters
-    ----------
-    context: np.ndarray
-        The static context to predict actual values in the table.
-    length : np.ndarray
-        The expected lengths per row in context in the output.
-    model_dir: str
-        The directory where saved model is.
-
-    Returns
-    -------
-    np.ndarray
-        The generated actual values.
-    List[np.ndarray]
-        The indices per row in context in the output.
-    """
     print("We use a simple non-sequential MLP predictor in place, but actually we adapted TimeVQVAE.")
     y = predict_mlp(np.concatenate([context, length.reshape((-1, 1))], axis=1), model_dir)
     with open(os.path.join(model_dir, "info.json"), "r") as f:

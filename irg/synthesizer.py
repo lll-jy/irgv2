@@ -17,18 +17,6 @@ class IncrementalRelationalGenerator:
                  order: List[str],
                  max_ctx_dim: int = 500,
                  default_args: Dict[str, Any] = {}, table_specific_args: Dict[str, Dict[str, Any]] = {}):
-        """
-        Parameters
-        ----------
-        tables, order, max_ctx_dim
-            Arguments to `RelationalTransformer`.
-        default_args : Dict[str, Any]
-            Default arguments for models. One can refer to the sample config file in `config/sample.yaml` key
-            `default_args` as an example, and we also added description for each value there.
-        table_specific_args : Dict[str, Dict[str, Any]]
-            Table-specific arguments for models. Keys are table names and values have the same structure as
-            `default_args`.
-        """
         self.transformer = RelationalTransformer(tables, order, max_ctx_dim)
         self.model_args = {}
         for t in self.transformer.order:

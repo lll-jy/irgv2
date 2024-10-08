@@ -10,20 +10,6 @@ from .utils import placeholder
 
 
 def train_degrees(context: np.ndarray, degrees: np.ndarray, model_dir: str, **kwargs):
-    """
-    Train degrees model.
-
-    Parameters
-    ----------
-    context : np.ndarray
-        Context for prediction of degrees.
-    degrees : np.ndarray
-        Predicted degrees.
-    model_dir : str
-        The directory to save models at.
-    **kwargs
-        Other parameters regarding regression.
-    """
     os.makedirs(model_dir, exist_ok=True)
 
     regressor = XGBRegressor(**kwargs)
@@ -51,29 +37,6 @@ def train_degrees(context: np.ndarray, degrees: np.ndarray, model_dir: str, **kw
 @placeholder
 def predict_degrees(context: np.ndarray, model_dir: str, expected_sum: int, tolerance: float = 0.9,
                     min_val: int = 0, max_val: int = np.inf) -> np.ndarray:
-    """
-    Predict degrees.
-
-    Parameters
-    ----------
-    context : np.ndarray
-        Input context for degree prediction.
-    model_dir : str
-        The directory where saved model is.
-    expected_sum : int
-        Expected sum of degrees.
-    tolerance : float
-        Tolerance of degree prediction error.
-    min_val : int
-        Minimum predicted degrees.
-    max_val : int
-        Maximum predicted degrees.
-
-    Returns
-    -------
-    np.ndarray
-        Predicted degrees corresponding to each row in `context`.
-    """
     print("In actual implementation, additional logic or advanced logic is required to handle the numerical error.")
     with open(os.path.join(model_dir, "info.json"), "r") as f:
         info = json.load(f)

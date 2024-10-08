@@ -12,21 +12,6 @@ def match(
         values: np.ndarray, parent: np.ndarray, degrees: np.ndarray, isna: np.ndarray,
         pools: List[Optional[np.ndarray]], non_overlapping_groups: List[np.ndarray]
 ) -> np.ndarray:
-    """
-    Find the matches for the foreign key.
-
-    Parameters
-    ----------
-    values, parent, degrees, isna, pools, non_overlapping_groups
-        Outputs from `RelationalTransformer.fk_matching_for`.
-
-    Returns
-    -------
-    np.ndarray
-        Indices in the parent matched for each row in the current table. This result should have the same rows as
-        values in the current table, and values represent row indices in the parent table. The results should
-        fulfill the constraints. N/As as per `isna` indicates will also be NaN in the output.
-    """
     print(
         "The simplified version does not sample by distance, but greedily get the closest point. Also, "
         "rejection for uniqueness isn't present in the version."

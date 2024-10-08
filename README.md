@@ -11,8 +11,7 @@ The project is now in commercial usage, so the full code is not disclosed. This 
 the code skeleton and reproduces the main logic for IRG. It is still executable, but some functions are filled with 
 placeholders that do not do the same thing as what is described in the paper, and some core parameters are not exposed.
 
-All core methods and functions in the codebase have docstrings describing what they do. Methods that are filled by 
-placeholders are annotated with `@placeholder`. 
+Methods that are filled by placeholders are annotated with `@placeholder`. 
 
 The evaluation framework is also not exposed for the same reason.
 

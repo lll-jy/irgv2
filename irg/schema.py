@@ -23,25 +23,6 @@ class ForeignKey:
                  parent_column_names: Optional[Union[str, Sequence[str]]] = None,
                  unique: bool = False,
                  total_participate: bool = False):
-        """
-        Parameters
-        ----------
-        child_table_name: str
-            The name of the child table.
-        parent_table_name: str
-            The name of the parent table.
-        child_column_names: Union[str, Sequence[str]]
-            The names of the child columns in the foreign key.
-        parent_column_names: Union[str, Sequence[str]], optional
-            The names of the parent columns in the foreign key. If this is a list, the order must correspond to
-            `child_column_names`. If not provided, it will be the same as `child_column_names`.
-        unique: bool
-            Whether the foreign key should be unique (maximum degree = 1).
-            Inference of this parameter from actual data is not an exposed functionality in the exposed research code.
-        total_participate: bool
-            Whether the foreign key should satisfy total participation constraint (minimum degree = 1).
-            Inference of this parameter from actual data is not an exposed functionality in the exposed research code.
-        """
         self.child_table_name = child_table_name
         self.parent_table_name = parent_table_name
         self.child_column_names = child_column_names if not isinstance(child_column_names, str) else [child_column_names]
@@ -68,26 +49,6 @@ class TableConfig:
                  foreign_keys: Optional[Sequence[ForeignKey]] = None,
                  sortby: Optional[str] = None,
                  id_columns: Optional[Sequence[str]] = None,):
-        """
-        Parameters
-        ----------
-        name : str
-            Table name.
-        primary_key : Union[str, Sequence[str]], optional
-            Primary key column(s). None if the table has no primary key.
-        foreign_keys : Sequence[ForeignKey], optional
-            Foreign key constraints on the table, with this table as child. None if the table has no foreign key.
-        sortby : str, optional
-            Column where the table should be (locally by the first foreign key) sorted by,
-            if the table has some sequential nature.
-            If not provided, this table is sorted based on the original order.
-            The sortby column need to be NULL-free and continuous, and should exist only if a foreign key exists.
-        id_columns : Union[str, Sequence[str]], optional
-            Columns that are IDs. It means they aren't categorical or numeric (numeric ID is still ID, a criteria is
-            not whether the values are comparable, as in, value 10 > value 3 and value 15 = value 3 * value 5).
-
-        In practice, table config may contain other parameters like data types and hyperparameters for data encoding.
-        """
         self.name = name
         self.primary_key = primary_key if not isinstance(primary_key, str) else [primary_key]
         self.foreign_keys = foreign_keys if foreign_keys is not None else []
@@ -117,14 +78,6 @@ class TableTransformer:
 
     @placeholder
     def fit(self, table: pd.DataFrame):
-        """
-        Fit data encoders for the table.
-
-        Parameters
-        ----------
-        table : pd.DataFrame
-            The raw values of the table to be fitted.
-        """
         print(
             "CTAB-GAN+ based data encoding should be implemented, with one-hot encoding for categorical and "
             "VGM-decomposition for continuous features. In the placeholder, label encoding and standard scaler are "
@@ -156,21 +109,6 @@ class TableTransformer:
 
     @placeholder
     def aggregate(self, table: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Constructed the aggregated table for the given table.
-
-        Parameters
-        ----------
-        table : pd.DataFrame
-            Raw table values.
-
-        Returns
-        -------
-        pd.DataFrame
-            Aggregated data. Its index being the first foreign key columns' values.
-        pd.DataFrame
-            Auxiliary raw table values. Transforms sortby column into differences if exists.
-        """
         print(
             "More complex aggregation functions for different data types can be used. In this exposed version, we only "
             "aggregate numeric columns, and functions used are mean, median and std."
@@ -210,27 +148,6 @@ class TableTransformer:
     def transform(self, table: pd.DataFrame) -> Tuple[
         np.ndarray, Optional[Dict[Tuple, np.ndarray]], Optional[np.ndarray], Optional[pd.Index]
     ]:
-        """
-        Transform the given table. This should be applied after it is fitted.
-
-        Parameters
-        ----------
-        table : pd.DataFrame
-            The raw values of the table before transformation.
-
-        Returns
-        -------
-        np.ndarray
-            The encoded table, and the values are neural-network friendly. Row orders are preserved as per `table`.
-        Dict[Tuple, pd.ndarray], optional
-            For each set of values for the first foreign key, mapped the row indices corresponding to the values.
-            This will be None if the table has no FK.
-        np.ndarray, optional
-            The encoded aggregated table. This will be None if the table has no FK.
-        pd.Index, optional
-            The aggregated table's corresponding first set of foreign key values, in the same order as the values.
-            This will be None if the table has no FK.
-        """
         print(
             "Transformation function that corresponding to the implemented .fit method is used, but the implemented "
             "version is oversimplified."
@@ -265,26 +182,6 @@ class TableTransformer:
     def inverse_transform(self, transformed: np.ndarray, groups: Optional[Dict[Tuple, np.ndarray]] = None,
                           aggregated: Optional[np.ndarray] = None, agg_index: Optional[pd.Index] = None
                           ) -> pd.DataFrame:
-        """
-        Inverse transform transformed data. This should be applied after it is fitted.
-
-        Parameters
-        ----------
-        transformed : np.ndarray
-            The first outcome in `.transform`.
-        groups : Dict[Tuple, np.ndarray], optional
-            The second outcome in `.transform`.
-        aggregated : Optional[np.ndarray], optional
-            The third outcome in `.transform`.
-        agg_index : pd.Index, optional
-            The fourth outcome in `.transform`.
-
-        Returns
-        -------
-        pd.DataFrame
-            Reconstructed data in raw values.
-            ID columns are replaced by 0,1,2,....
-        """
         if self.categorical_columns:
             cat = transformed[:, :self.split_dim]
             cat = np.clip(cat, 0, np.array([x.shape[0] for x in self.cat_transformer.categories_]) - 1)
@@ -323,11 +220,9 @@ class TableTransformer:
 
     @classmethod
     def load(cls, path: str) -> Self:
-        """Load .pt file from path."""
         return torch.load(path)
 
     def save(self, path: str):
-        """Save .pt file to path."""
         torch.save(self, path)
 
 
@@ -336,18 +231,6 @@ class RelationalTransformer:
                  tables: Dict[str, TableConfig],
                  order: List[str],
                  max_ctx_dim: int = 500):
-        """
-        Parameters
-        ----------
-        tables : Dict[str, TableConfig]
-            All tables and their properties.
-            Inference and validation of this parameter from actual data is not an exposed functionality in the
-            exposed research code.
-        order : List[str]
-            The order of the tables to be generated. User must provide the order following a valid topological order.
-        max_ctx_dim : int=500
-            The maximum context dimension, otherwise its dimension will be reduced.
-        """
         self.order = order
         self.transformers = {}
         self.children: Dict[str, List[ForeignKey]] = defaultdict(list)
@@ -364,23 +247,6 @@ class RelationalTransformer:
         self._core_dims = {}
 
     def fit(self, tables: Dict[str, str], cache_dir: str = "./cache"):
-        """
-        Fit the data encoding and processor, and transformed data will be output to cache_dir too.
-
-        Parameters
-        ----------
-        tables : Dict[str, str]
-            Tables' names mapped to their paths (csv files).
-            Please reserve column names starting with "_" and consisting of "$" for internal processing purpose.
-            Although missing values will not fail this version of code, no N/A will be generated except for N/As in
-            foreign keys, by the naiveness of this version of data transformer.
-        cache_dir : str
-            The directory for caching the output files. It contains:
-
-            - `TABLE_NAME.csv`: Raw table values.
-            - `TABLE_NAME-transformer.pt`: saved transformer.
-            - `TABLE_NAME.pt`: Transformed data from the raw values.
-        """
         self._fitted_cache_dir = cache_dir
         os.makedirs(cache_dir, exist_ok=True)
         for tn in self.order:
@@ -563,184 +429,40 @@ class RelationalTransformer:
         return parent_encoded
 
     def fitted_size_of(self, table_name: str) -> int:
-        """
-        Table size for fitting.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to get size of.
-
-        Returns
-        -------
-        int
-            Number of rows in the table.
-        """
         return self._sizes_of[table_name]
 
     @classmethod
     def standalone_encoded_for(cls, table_name: str, cache_dir: str = "./cache") -> np.ndarray:
-        """
-        Get the standalone single table (table without parent) encoded values for neural network generators.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to extract data from.
-        cache_dir : str
-            The directory for cached files. It should be the same as `.fit`.
-
-        Returns
-        -------
-        np.ndarray
-            The encoded data for neural network generators.
-        """
         return torch.load(os.path.join(cache_dir, f"{table_name}.pt"))["encoded"]
 
     @classmethod
     def degree_prediction_for(cls, table_name: str, fk_idx: int, cache_dir: str = "./cache") -> Tuple[
         np.ndarray, Optional[np.ndarray]
     ]:
-        """
-        Get the X and y for degree prediction.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to extract data from.
-        fk_idx : int
-            The foreign key index on the table to extract data from.
-        cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
-
-        Returns
-        -------
-        np.ndarray
-            The X for degree prediction. Rows are in correspondence with the parent table.
-        np.ndarray, optional
-            The y for degree prediction. Rows are in correspondence with the parent table.
-            During generation, this will be None.
-        """
         return torch.load(os.path.join(cache_dir, f"{table_name}.pt"))["foreign_keys"][fk_idx]["degree"]
 
     @classmethod
     def isna_indicator_prediction_for(cls, table_name: str, fk_idx: int, cache_dir: str = "./cache") -> Optional[Tuple[
         np.ndarray, Optional[np.ndarray]
     ]]:
-        """
-        Get the X and y for is-N/A indicator prediction.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to extract data from.
-        fk_idx : int
-            The foreign key index on the table to extract data from.
-        cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
-
-        Returns
-        -------
-        np.ndarray
-            The X for is-N/A prediction. Rows are in correspondence with the child table.
-            Returns None without a tuple if this foreign key is not nullable.
-        np.ndarray, optional
-            The y for is-N/A prediction. Rows are in correspondence with the child table.
-            During generation, this will be None.
-        """
         return torch.load(os.path.join(cache_dir, f"{table_name}.pt"))["foreign_keys"][fk_idx].get("isna")
 
     @classmethod
     def aggregated_generation_for(cls, table_name: str, cache_dir: str = "./cache") -> Tuple[
         np.ndarray, Optional[np.ndarray]
     ]:
-        """
-        Data for aggregated information generation.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to extract data from.
-        cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
-
-        Returns
-        -------
-        np.ndarray
-            The context for aggregated information generation.
-        np.ndarray, optional
-            The aggregated information to be generated. During generation, this will be None.
-        """
         return torch.load(os.path.join(cache_dir, f"{table_name}.pt"))["aggregated"]
 
     @classmethod
     def actual_generation_for(cls, table_name: str, cache_dir: str = "./cache") -> Tuple[
         np.ndarray, np.ndarray, Optional[np.ndarray], Optional[List[np.ndarray]]
     ]:
-        """
-        Data for actual data generation.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to extract data from.
-        cache_dir : str
-            The directory for cached files. It should be the same as `.fit` or `sampled_dir` for `.prepare_sampled_dir`.
-
-        Returns
-        -------
-        np.ndarray
-            The static context for actual information generation. The length and order should follow the first parent
-            of the table.
-        np.ndarray
-            The lengths for aggregated information generation. The length and order should follow the first parent
-            of the table.
-        np.ndarray, optional
-            The actual data to be generated. During generation, this will be None. The length and order should follow
-            this table.
-        List[np.ndarray], optional
-            The indices in actual data corresponding to each parent row to be generated. During generation, this
-            will be None. The length and order should follow the first parent of the table, and the content for
-            row IDs should follow the row indices in the actual data to be generated.
-        """
         return torch.load(os.path.join(cache_dir, f"{table_name}.pt"))["actual"]
 
     @placeholder
     def fk_matching_for(self, table_name: str, fk_idx: int, sampled_dir: str = "./cache") -> Tuple[
         np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[Optional[np.ndarray]], List[np.ndarray]
     ]:
-        """
-        Data for matching. This step applies to the generated data only.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to extract data from.
-        fk_idx : int
-            The foreign key index on the table to extract data from.
-        sampled_dir : str
-            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
-
-        Returns
-        -------
-        np.ndarray
-            The current table's dimensions corresponding to this foreign key's parent.
-        np.ndarray
-            The parent table's encoded data, with the same number of dimensions as the first item in the tuple.
-        np.ndarray
-            The degrees for the parent table, corresponding to each row in the second item in the tuple.
-        np.ndarray
-            The is-N/A indicator for this foreign key, corresponding to each row in the first item in the tuple.
-        List[Optional[np.ndarray]]
-            For each row in the real data, the allowed set of indices to be matched in the parent table, so the list
-            index are row indices in the current table, and values in the list are row indices in the parent table.
-            This value is supposed to handle overlapping foreign keys. If it is None, it means no constraint is
-            placed on it.
-        List[np.ndarray]
-            The set of row indices in the current table that are not supposed to match to the same row in the parent.
-            The values are row indices in the current table. This value is supposed to handle composite primary keys
-            by multiple foreign keys.
-        """
         print("In actual IRG, the fifth and sixth arguments are calculated, but we hide the implementation from "
               "the public version. Thus, overlapping key constraints are invalid input for this simplified version. "
               "However, placeholder output is returned.")
@@ -758,14 +480,6 @@ class RelationalTransformer:
         return values, parent, degrees, isna, [None] * values.shape[0], []
     
     def prepare_sampled_dir(self, sampled_dir: str):
-        """
-        Prepare directory for sampled data.
-        
-        Parameters
-        ----------
-        sampled_dir : str
-            The directory for sampled data.
-        """
         if os.path.exists(sampled_dir):
             shutil.rmtree(sampled_dir)
         os.makedirs(sampled_dir, exist_ok=True)
@@ -774,36 +488,10 @@ class RelationalTransformer:
 
     @classmethod
     def save_standalone_encoded_for(cls, table_name: str, encoded: np.ndarray, sampled_dir: str = "./sampled"):
-        """
-        After the standalone encoded data is generated, save the encoded data to disk.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to save.
-        encoded : np.ndarray
-            The encoded data to be saved.
-        sampled_dir : str
-            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
-        """
         torch.save({"encoded": encoded}, os.path.join(sampled_dir, f"{table_name}.pt"))
 
     @classmethod
     def save_degree_for(cls, table_name: str, fk_idx: int, degree: np.ndarray, sampled_dir: str = "./sampled"):
-        """
-        After the degree data is generated, save the degree data to disk.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to save.
-        fk_idx : int
-            The index of foreign key to save for this degree.
-        degree : np.ndarray
-            The degree values to save.
-        sampled_dir : str
-            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
-        """
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         x, _ = loaded["foreign_keys"][fk_idx]["degree"]
         loaded["foreign_keys"][fk_idx]["degree"] = x, degree
@@ -818,20 +506,6 @@ class RelationalTransformer:
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
     def save_isna_indicator_for(self, table_name: str, fk_idx: int, isna: np.ndarray, sampled_dir: str = "./sampled"):
-        """
-        After the is-N/A indicator data is generated, save the is-N/A indicator data to disk.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to save.
-        fk_idx : int
-            THe index of foreign key to save for this is-N/A indicator.
-        isna : np.ndarray
-            The is-N/A indicator data to be saved.
-        sampled_dir : str
-            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
-        """
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         x, _ = loaded["foreign_keys"][fk_idx]["isna"]
         loaded["foreign_keys"][fk_idx]["isna"] = x, isna
@@ -843,18 +517,6 @@ class RelationalTransformer:
 
     @classmethod
     def save_aggregated_info_for(cls, table_name: str, aggregated: np.ndarray, sampled_dir: str = "./sampled"):
-        """
-        After the aggregated information data is generated, save the aggregated information to disk.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to save.
-        aggregated : np.ndarray
-            The aggregated information values to save.
-        sampled_dir : str
-            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
-        """
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         agg_context, _ = loaded["aggregated"]
         loaded["aggregated"] = agg_context, aggregated
@@ -868,20 +530,6 @@ class RelationalTransformer:
     def save_actual_values_for(
             cls, table_name: str, values: np.ndarray, groups: List[np.ndarray], sampled_dir: str = "./sampled"
     ):
-        """
-        After the actual values data is generated, save the actual values data to disk.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to save.
-        values : np.ndarray
-            The actual values generated to save.
-        groups : List[np.ndarray]
-            The grouping information to save.
-        sampled_dir : str
-            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
-        """
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         context, length, _, _ = loaded["actual"]
         loaded["actual"] = context, length, values, groups
@@ -895,20 +543,6 @@ class RelationalTransformer:
 
     def save_matched_indices_for(self, table_name: str, fk_idx: int,
                                  indices: np.ndarray, sampled_dir: str = "./sampled"):
-        """
-        After foreign key matching, save the matched indices to disk.
-
-        Parameters
-        ----------
-        table_name : str
-            The table name to save.
-        fk_idx : int
-            The index of foreign key to save for this indices.
-        indices : np.ndarray
-            The matched indices to save.
-        sampled_dir : str
-            The directory for sampled files. It should be the same as `.prepare_sampled_dir`.
-        """
         loaded = torch.load(os.path.join(sampled_dir, f"{table_name}.pt"))
         loaded["foreign_keys"][fk_idx]["match"] = indices
         context, length, encoded, d = loaded["actual"]
@@ -928,32 +562,12 @@ class RelationalTransformer:
         torch.save(loaded, os.path.join(sampled_dir, f"{table_name}.pt"))
 
     def copy_fitted_for(self, table_name: str, sampled_dir: str = "./sampled"):
-        """
-        Copy real fitting data if the table need not be synthesized.
-
-        Parameters
-        ----------
-        table_name : str
-            The name of the table.
-        sampled_dir : str
-            The directory for sampled results.
-        """
         shutil.copyfile(os.path.join(self._fitted_cache_dir, f"{table_name}.pt"),
                         os.path.join(sampled_dir, f"{table_name}.pt"))
         shutil.copyfile(os.path.join(self._fitted_cache_dir, f"{table_name}.csv"),
                         os.path.join(sampled_dir, f"{table_name}.csv"))
 
     def prepare_next_for(self, table_name: str, sampled_dir: str = "./cache"):
-        """
-        Prepare next table to be generated.
-
-        Parameters
-        ----------
-        table_name : str
-            The table just finished.
-        sampled_dir : str
-            The directory where sampled data are stored.
-        """
         if self.transformers[table_name].config.foreign_keys:
             _, aggregated = self.aggregated_generation_for(table_name, sampled_dir)
             _, _, encoded, indices = self.actual_generation_for(table_name, sampled_dir)
