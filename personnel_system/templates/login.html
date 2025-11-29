@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 人员信息管理系统{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 2rem auto;">
+    <h2 class="card-title">登录 / Login</h2>
+    
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label for="username">用户名 / Username</label>
+            <input type="text" id="username" name="username" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">密码 / Password</label>
+            <input type="password" id="password" name="password" class="form-control" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%;">登录 / Login</button>
+    </form>
+    
+    <p class="text-center mt-2">
+        还没有账号？ / Don't have an account? 
+        <a href="{{ url_for('register') }}">注册 / Register</a>
+    </p>
+</div>
+{% endblock %}

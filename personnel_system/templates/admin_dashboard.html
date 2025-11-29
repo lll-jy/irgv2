@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}管理面板 - 人员信息管理系统{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-title">管理面板 / Admin Dashboard</h2>
+    
+    <p class="mb-2">
+        总用户数 / Total Users: <strong>{{ users|length }}</strong>
+    </p>
+    
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户名 / Username</th>
+                <th>邮箱 / Email</th>
+                <th>角色 / Role</th>
+                <th>注册时间 / Registered</th>
+                <th>操作 / Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>
+                    {% if user.role == 'super_admin' %}
+                        <span class="badge badge-super-admin">超级管理员</span>
+                    {% elif user.role == 'admin' %}
+                        <span class="badge badge-admin">管理员</span>
+                    {% else %}
+                        <span class="badge badge-user">用户</span>
+                    {% endif %}
+                </td>
+                <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A' }}</td>
+                <td>
+                    <a href="{{ url_for('admin_view_user', user_id=user.id) }}" class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">
+                        查看 / View
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

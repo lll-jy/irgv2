@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - 人员信息管理系统{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>人员信息管理系统</h1>
+    <h2>Personnel Information Management System</h2>
+    <p>安全、高效的人员信息管理平台 / Secure and efficient personnel management platform</p>
+    
+    {% if current_user.is_authenticated %}
+        <p>欢迎回来 / Welcome back, <strong>{{ current_user.username }}</strong>!</p>
+        <a href="{{ url_for('profile') }}" class="btn btn-primary">查看我的信息 / View My Profile</a>
+        {% if current_user.is_admin() %}
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-success">管理面板 / Admin Dashboard</a>
+        {% endif %}
+    {% else %}
+        <a href="{{ url_for('login') }}" class="btn btn-primary">登录 / Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-success">注册 / Register</a>
+    {% endif %}
+</div>
+
+<div class="features">
+    <div class="feature">
+        <h3>🔐 安全登录</h3>
+        <p>Secure Login</p>
+        <p>安全的账号密码管理系统</p>
+    </div>
+    <div class="feature">
+        <h3>📝 信息录入</h3>
+        <p>Information Entry</p>
+        <p>方便的个人信息编辑功能</p>
+    </div>
+    <div class="feature">
+        <h3>👥 权限管理</h3>
+        <p>Role Management</p>
+        <p>灵活的角色和权限控制</p>
+    </div>
+    <div class="feature">
+        <h3>🛡️ 超级管理员</h3>
+        <p>Super Admin</p>
+        <p>完整的系统管理权限</p>
+    </div>
+</div>
+{% endblock %}
