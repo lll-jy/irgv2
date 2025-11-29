@@ -2,3 +2,8 @@
 temp
 out
 **/__pycache__
+*.db
+*.pyc
+.env
+venv/
+instance/

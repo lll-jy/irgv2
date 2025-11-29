@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}个人信息 - 人员信息管理系统{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-title">账户信息 / Account Information</h2>
+    
+    <div class="info-grid">
+        <div class="info-item">
+            <label>用户名 / Username</label>
+            <p>{{ current_user.username }}</p>
+        </div>
+        <div class="info-item">
+            <label>邮箱 / Email</label>
+            <p>{{ current_user.email }}</p>
+        </div>
+        <div class="info-item">
+            <label>角色 / Role</label>
+            <p>
+                {% if current_user.role == 'super_admin' %}
+                    <span class="badge badge-super-admin">超级管理员 / Super Admin</span>
+                {% elif current_user.role == 'admin' %}
+                    <span class="badge badge-admin">管理员 / Admin</span>
+                {% else %}
+                    <span class="badge badge-user">普通用户 / User</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="info-item">
+            <label>注册时间 / Registered</label>
+            <p>{{ current_user.created_at.strftime('%Y-%m-%d %H:%M') if current_user.created_at else 'N/A' }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="card-title">编辑人员信息 / Edit Personnel Information</h2>
+    
+    <form method="POST" action="{{ url_for('profile') }}">
+        <div class="info-grid">
+            <div class="form-group">
+                <label for="full_name">姓名 / Full Name *</label>
+                <input type="text" id="full_name" name="full_name" class="form-control" 
+                       value="{{ personnel.full_name if personnel else '' }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">电话 / Phone</label>
+                <input type="tel" id="phone" name="phone" class="form-control" 
+                       value="{{ personnel.phone if personnel else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="department">部门 / Department</label>
+                <input type="text" id="department" name="department" class="form-control" 
+                       value="{{ personnel.department if personnel else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="position">职位 / Position</label>
+                <input type="text" id="position" name="position" class="form-control" 
+                       value="{{ personnel.position if personnel else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="hire_date">入职日期 / Hire Date</label>
+                <input type="date" id="hire_date" name="hire_date" class="form-control" 
+                       value="{{ personnel.hire_date.strftime('%Y-%m-%d') if personnel and personnel.hire_date else '' }}">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="address">地址 / Address</label>
+            <input type="text" id="address" name="address" class="form-control" 
+                   value="{{ personnel.address if personnel else '' }}">
+        </div>
+        
+        <div class="form-group">
+            <label for="notes">备注 / Notes</label>
+            <textarea id="notes" name="notes" class="form-control">{{ personnel.notes if personnel else '' }}</textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-success">保存 / Save</button>
+    </form>
+</div>
+{% endblock %}

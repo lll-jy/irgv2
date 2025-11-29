@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}注册 - 人员信息管理系统{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 2rem auto;">
+    <h2 class="card-title">注册 / Register</h2>
+    
+    <form method="POST" action="{{ url_for('register') }}">
+        <div class="form-group">
+            <label for="username">用户名 / Username *</label>
+            <input type="text" id="username" name="username" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">邮箱 / Email *</label>
+            <input type="email" id="email" name="email" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">密码 / Password * (至少6个字符)</label>
+            <input type="password" id="password" name="password" class="form-control" minlength="6" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="confirm_password">确认密码 / Confirm Password *</label>
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%;">注册 / Register</button>
+    </form>
+    
+    <p class="text-center mt-2">
+        已有账号？ / Already have an account? 
+        <a href="{{ url_for('login') }}">登录 / Login</a>
+    </p>
+</div>
+{% endblock %}
